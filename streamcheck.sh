@@ -518,10 +518,10 @@ format_result() {
     # Pad unlock type to fixed width (8 display chars)
     local unlock_type_padded=$(pad_to_width "$unlock_type_label" 8)
 
-    # Column 5: Region info (pad region to fixed width: 4 chars)
+    # Column 5: Region info (pad region to fixed width: 4 display chars)
     local region_info=""
     if [ "$region" != "N/A" ] && [ "$region" != "Unknown" ] && [ -n "$region" ]; then
-        local region_padded=$(printf "%-4s" "$region")  # Left-align region to 4 chars
+        local region_padded=$(pad_to_width "$region" 4)  # Pad to 4 display width
         region_info=": ${CYAN}${region_padded}${NC}"
     fi
 

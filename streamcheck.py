@@ -973,10 +973,10 @@ class StreamChecker:
         # Pad unlock type to fixed width (8 display chars)
         unlock_type_padded = self.pad_to_width(unlock_type_label if unlock_type_label else "", 8)
 
-        # Column 5: Region info (pad region to fixed width: 4 chars)
+        # Column 5: Region info (pad region to fixed width: 4 display chars)
         region_info = ""
         if region != "N/A" and region != "Unknown":
-            region_padded = f"{region:<4}"  # Left-align region to 4 chars
+            region_padded = self.pad_to_width(region, 4)  # Pad to 4 display width
             region_info = f": {Fore.CYAN}{region_padded}{Style.RESET_ALL}"
 
         # Print aligned columns

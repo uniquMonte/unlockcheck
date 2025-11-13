@@ -601,14 +601,14 @@ class UnlockChecker:
         # Priority 2: API success indicates availability (even if web has Cloudflare)
         if api_result and api_result[0] == "success":
             if has_cloudflare:
-                return "success", self.ip_info.get('country_code', 'Unknown'), "Normal Access (Web Auth)"
+                return "success", self.ip_info.get('country_code', 'Unknown'), "Available (CF Check)"
             else:
                 return "success", self.ip_info.get('country_code', 'Unknown'), "Normal Access"
 
         # Priority 3: Cloudflare blocking (only if API cannot confirm availability)
         # This suggests browser might still work
         if has_cloudflare:
-            return "partial", self.ip_info.get('country_code', 'Unknown'), "Likely Accessible (Browser)"
+            return "partial", self.ip_info.get('country_code', 'Unknown'), "Script Blocked (Browser OK)"
 
         # Priority 4: Access denied
         if api_result and api_result[0] == "failed":
@@ -714,14 +714,14 @@ class UnlockChecker:
         # Priority 2: API success indicates availability (even if web has Cloudflare)
         if api_result and api_result[0] == "success":
             if has_cloudflare:
-                return "success", self.ip_info.get('country_code', 'Unknown'), "Normal Access (Web Auth)"
+                return "success", self.ip_info.get('country_code', 'Unknown'), "Available (CF Check)"
             else:
                 return "success", self.ip_info.get('country_code', 'Unknown'), "Normal Access"
 
         # Priority 3: Cloudflare blocking (only if API cannot confirm availability)
         # This suggests browser might still work
         if has_cloudflare:
-            return "partial", self.ip_info.get('country_code', 'Unknown'), "Likely Accessible (Browser)"
+            return "partial", self.ip_info.get('country_code', 'Unknown'), "Script Blocked (Browser OK)"
 
         # Priority 4: Access denied (not region-specific)
         if api_result and api_result[0] == "failed":

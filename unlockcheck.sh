@@ -615,7 +615,7 @@ check_netflix() {
 
     if [ -z "$error1" ] && [ -z "$error2" ]; then
         # 都可以访问，完全解锁
-        format_result "Netflix" "success" "$region" "完全解锁"
+        format_result "Netflix" "success" "$region" "正常访问"
     elif [ -z "$error1" ] && [ -n "$error2" ]; then
         # 只有自制剧可以访问
         format_result "Netflix" "partial" "$region" "仅自制剧"

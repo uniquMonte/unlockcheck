@@ -443,7 +443,7 @@ class UnlockChecker:
 
             if not error1 and not error2 and result1.status_code == 200 and result2.status_code == 200:
                 # Both can be accessed - full unlock
-                return "success", region, "Full Unlock"
+                return "success", region, "Normal Access"
             elif not error1 and result1.status_code == 200:
                 # Only originals can be accessed
                 return "partial", region, "Originals Only"

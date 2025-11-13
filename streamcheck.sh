@@ -206,8 +206,8 @@ detect_ip_type() {
         IP_ASN=$(echo "$ip_detail" | grep -oP '"as":"\K[^"]+' | head -1)
 
         # 使用地：IP的实际地理位置（只显示国家）
-        local country=$(echo "$ip_detail" | grep -oP '"country":"\K[^"]+' | head -1)
-        IP_USAGE_LOCATION="$country"
+        local country_code=$(echo "$ip_detail" | grep -oP '"countryCode":"\K[^"]+' | head -1)
+        IP_USAGE_LOCATION=$(convert_country_code "$country_code")
 
         # 注册地：尝试获取IP段注册的国家
         # 方法1：尝试查询ASN的注册国家

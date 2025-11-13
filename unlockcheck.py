@@ -977,8 +977,8 @@ class UnlockChecker:
         service_padded = self.pad_to_width(service_name, 16)
         service_formatted = f"{service_padded}:"
 
-        # Column 3: Status detail (pad to fixed display width: 22 display chars)
-        detail_padded = self.pad_to_width(detail, 22)
+        # Column 3: Status detail (pad to fixed display width: 21 display chars)
+        detail_padded = self.pad_to_width(detail, 21)
         detail_colored = f"{status_color}{detail_padded}{Style.RESET_ALL}"
 
         # Column 4: Unlock type label (fixed display width: 8 display chars)
@@ -1045,7 +1045,7 @@ class UnlockChecker:
         # Print table header with fixed widths (all using display width)
         print(f"\n{Fore.CYAN}{'─'*62}{Style.RESET_ALL}")
         header_service = self.pad_to_width("服务名称", 16)
-        header_status = self.pad_to_width("解锁状态", 22)
+        header_status = self.pad_to_width("解锁状态", 21)
         header_type = self.pad_to_width("解锁类型", 8)
         header_region = self.pad_to_width("区域", 4)
         print(f"    {header_service}: {header_status} : {header_type}: {header_region}")

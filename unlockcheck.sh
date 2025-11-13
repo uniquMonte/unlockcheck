@@ -620,7 +620,7 @@ check_chatgpt() {
     local content=$(echo "$response" | head -n -1)
 
     # 检查 OpenAI/ChatGPT 实际返回的区域限制消息
-    # 只检查明确的地区限制消息，避免误判
+    # 只在有明确错误消息时才判定为不可用，避免误判SPA应用
     if echo "$content" | grep -qi "not available in your country\|unavailable in your country"; then
         format_result "ChatGPT" "failed" "N/A" "该地区不支持"
     elif echo "$content" | grep -qi "chatgpt.*not supported in.*country\|openai.*not supported"; then
@@ -629,12 +629,9 @@ check_chatgpt() {
         # 403 通常是IP被拦截
         format_result "ChatGPT" "failed" "N/A" "该地区不支持"
     elif [ "$status_code" = "200" ]; then
-        # 验证是否真的是 ChatGPT 应用
-        if echo "$content" | grep -qi "openai" && echo "$content" | grep -qi "chat\|gpt"; then
-            format_result "ChatGPT" "success" "$COUNTRY_CODE" "正常访问"
-        else
-            format_result "ChatGPT" "failed" "N/A" "服务不可用"
-        fi
+        # ChatGPT是单页应用(SPA)，初始HTML可能不包含关键词
+        # 如果返回200且没有明确错误消息，就认为可访问
+        format_result "ChatGPT" "success" "$COUNTRY_CODE" "正常访问"
     else
         format_result "ChatGPT" "error" "N/A" "检测失败"
     fi
@@ -653,7 +650,7 @@ check_claude() {
     local content=$(echo "$response" | head -n -1)
 
     # 检查 Claude 实际返回的区域限制消息
-    # 只检查明确的地区限制消息，避免误判
+    # 只在有明确错误消息时才判定为不可用，避免误判SPA应用
     if echo "$content" | grep -qi "only available in certain regions"; then
         format_result "Claude" "failed" "N/A" "该地区不支持"
     # 检查中文错误消息（應用程式不可用/僅在特定地區提供服務）
@@ -666,13 +663,9 @@ check_claude() {
         # 403 通常是IP被拦截
         format_result "Claude" "failed" "N/A" "该地区不支持"
     elif [ "$status_code" = "200" ]; then
-        # 验证是否真的是 Claude 应用（检查页面是否包含关键元素）
-        if echo "$content" | grep -qi "claude" && echo "$content" | grep -qi "anthropic\|chat"; then
-            format_result "Claude" "success" "$COUNTRY_CODE" "正常访问"
-        else
-            # 200 但不像 Claude 应用 - 可能是错误页面
-            format_result "Claude" "failed" "N/A" "服务不可用"
-        fi
+        # Claude是单页应用(SPA)，初始HTML可能不包含关键词
+        # 如果返回200且没有明确错误消息，就认为可访问
+        format_result "Claude" "success" "$COUNTRY_CODE" "正常访问"
     else
         format_result "Claude" "error" "N/A" "检测失败"
     fi

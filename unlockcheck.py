@@ -535,12 +535,9 @@ class UnlockChecker:
 
             # Check if accessible
             if response.status_code == 200:
-                # Additional verification: check if it's the actual ChatGPT app
-                if "openai" in content_lower and ("chat" in content_lower or "gpt" in content_lower):
-                    return "success", self.ip_info.get('country_code', 'Unknown'), "Normal Access"
-                else:
-                    # 200 but doesn't look like ChatGPT app - might be an error page
-                    return "failed", "N/A", "Service Unavailable"
+                # ChatGPT is a SPA (Single Page Application), initial HTML may not contain keywords
+                # If status is 200 and no explicit error message, consider it accessible
+                return "success", self.ip_info.get('country_code', 'Unknown'), "Normal Access"
 
             return "error", "N/A", "Inaccessible"
 
@@ -584,15 +581,11 @@ class UnlockChecker:
             if response.status_code == 403:
                 return "failed", "N/A", "Region Restricted"
 
-            # Check if Claude is accessible (look for actual Claude app indicators)
+            # Check if Claude is accessible
             if response.status_code == 200:
-                # Additional verification: check if it's the actual Claude app
-                # Claude app should contain certain identifiers
-                if "claude" in content_lower and ("anthropic" in content_lower or "chat" in content_lower):
-                    return "success", self.ip_info.get('country_code', 'Unknown'), "Normal Access"
-                else:
-                    # 200 but doesn't look like Claude app - might be an error page
-                    return "failed", "N/A", "Service Unavailable"
+                # Claude is a SPA (Single Page Application), initial HTML may not contain keywords
+                # If status is 200 and no explicit error message, consider it accessible
+                return "success", self.ip_info.get('country_code', 'Unknown'), "Normal Access"
 
             return "error", "N/A", "Inaccessible"
 

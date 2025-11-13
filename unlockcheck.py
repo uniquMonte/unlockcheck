@@ -800,12 +800,22 @@ class UnlockChecker:
             # Check if Gemini is accessible
             if response.status_code == 200:
                 # Additional verification: check if it's the actual Gemini app
-                # Gemini app should contain certain identifiers
-                if "gemini" in content_lower and ("google" in content_lower or "conversation" in content_lower):
+                # Need stricter checks - look for actual app elements, not just keywords
+                # Check for sign-in/app interface elements that indicate actual access
+                has_app_interface = (
+                    "sign in" in content_lower or
+                    "get started" in content_lower or
+                    "continue with google" in content_lower or
+                    "bard" in content_lower or  # Gemini's previous name, may still appear
+                    "chat with gemini" in content_lower
+                )
+
+                # If page has Gemini+Google but no actual app interface, it's likely an error page
+                if has_app_interface:
                     return "success", self.ip_info.get('country_code', 'Unknown'), "Accessible"
                 else:
-                    # 200 but doesn't look like Gemini app - might be an error page
-                    return "failed", "N/A", "Service Unavailable"
+                    # 200 but doesn't have app interface - likely a region block error page
+                    return "failed", "N/A", "Not Supported in This Region"
 
             return "error", "N/A", "Inaccessible"
 

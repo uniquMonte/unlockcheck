@@ -784,12 +784,14 @@ check_gemini() {
     elif [ "$status_code" = "403" ]; then
         format_result "Gemini" "failed" "N/A" "区域受限"
     elif [ "$status_code" = "200" ]; then
-        # 验证是否真的是 Gemini 应用（检查页面是否包含关键元素）
-        if echo "$content" | grep -qi "gemini" && echo "$content" | grep -qi "google\|conversation"; then
+        # 验证是否真的是 Gemini 应用（需要更严格的检查）
+        # 检查实际的应用界面元素，而不仅仅是关键词
+        if echo "$content" | grep -qi "sign in\|get started\|continue with google\|bard\|chat with gemini"; then
+            # 包含应用界面元素，说明可以访问
             format_result "Gemini" "success" "$COUNTRY_CODE" "可访问"
         else
-            # 200 但不像 Gemini 应用 - 可能是错误页面
-            format_result "Gemini" "failed" "N/A" "服务不可用"
+            # 200 但没有应用界面 - 可能是区域限制的错误页面
+            format_result "Gemini" "failed" "N/A" "该地区不支持"
         fi
     else
         format_result "Gemini" "error" "N/A" "检测失败"

@@ -399,45 +399,29 @@ format_result() {
 
 # 检测 Netflix
 check_netflix() {
-    # 先检测Netflix原创内容（判断完整解锁）
-    local response=$(curl -s --max-time $TIMEOUT \
-        -A "$USER_AGENT" \
-        -w "\n%{http_code}" \
-        "https://www.netflix.com/title/80018499" 2>/dev/null)
-
-    local status_code=$(echo "$response" | tail -n 1)
+    local unlock_type=$(check_dns_unlock "netflix.com")
     local region="${COUNTRY_CODE:-Unknown}"
 
-    # DNS解锁检测
-    local unlock_type=$(check_dns_unlock "netflix.com")
+    # 检测Netflix首页（更可靠的检测方法）
+    local response=$(curl -s --max-time $TIMEOUT \
+        -A "$USER_AGENT" \
+        -L \
+        -w "\n%{http_code}" \
+        "https://www.netflix.com/" 2>/dev/null)
 
-    if [ "$status_code" = "200" ]; then
-        # 尝试从响应中提取区域信息
-        if [ -z "$COUNTRY_CODE" ] || [ "$COUNTRY_CODE" = "Unknown" ]; then
-            # 如果没有区域代码，尝试从cookie或重定向中获取
-            region=$(echo "$response" | grep -oP 'country-code=\K[A-Z]{2}' | head -1)
-            [ -z "$region" ] && region="Unknown"
-        fi
-        format_result "Netflix" "success" "$region" "完整解锁" "$unlock_type"
+    local status_code=$(echo "$response" | tail -n 1)
+    local content=$(echo "$response" | head -n -1)
+
+    # 检查是否被区域限制
+    if echo "$content" | grep -qi "not available\|not streaming in your country"; then
+        format_result "Netflix" "failed" "N/A" "不支持"
+    elif [ "$status_code" = "200" ] || [ "$status_code" = "301" ] || [ "$status_code" = "302" ]; then
+        # 200/301/302都表示可以访问
+        format_result "Netflix" "success" "$region" "可访问" "$unlock_type"
     elif [ "$status_code" = "403" ]; then
         format_result "Netflix" "failed" "N/A" "不支持"
-    elif [ "$status_code" = "404" ]; then
-        # 404表示内容不可用，可能仅解锁自制剧
-        format_result "Netflix" "partial" "$region" "仅自制剧" "$unlock_type"
     else
-        # 尝试访问首页
-        response=$(curl -s --max-time $TIMEOUT \
-            -A "$USER_AGENT" \
-            -w "\n%{http_code}" \
-            "https://www.netflix.com/" 2>/dev/null)
-
-        status_code=$(echo "$response" | tail -n 1)
-
-        if [ "$status_code" = "200" ]; then
-            format_result "Netflix" "success" "$region" "可访问" "$unlock_type"
-        else
-            format_result "Netflix" "error" "N/A" "检测失败"
-        fi
+        format_result "Netflix" "error" "N/A" "检测失败(${status_code})"
     fi
 }
 

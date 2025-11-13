@@ -973,10 +973,11 @@ class StreamChecker:
         # Pad unlock type to fixed width (8 display chars)
         unlock_type_padded = self.pad_to_width(unlock_type_label if unlock_type_label else "", 8)
 
-        # Column 5: Region info (just show the country code directly)
+        # Column 5: Region info (pad region to fixed width: 4 chars)
         region_info = ""
         if region != "N/A" and region != "Unknown":
-            region_info = f": {Fore.CYAN}{region}{Style.RESET_ALL}"
+            region_padded = f"{region:<4}"  # Left-align region to 4 chars
+            region_info = f": {Fore.CYAN}{region_padded}{Style.RESET_ALL}"
 
         # Print aligned columns
         print(f"{icon} {service_formatted} {detail_colored} : {unlock_type_padded}{region_info}")
@@ -1024,7 +1025,7 @@ class StreamChecker:
         header_service = f"{'服务名称':<{max_service_width}}"
         header_status = self.pad_to_width("解锁状态", max_detail_width)
         header_type = self.pad_to_width("解锁类型", 8)
-        header_region = "解锁区域"
+        header_region = self.pad_to_width("区域", 4)  # Shortened and padded to 4
         print(f"    {header_service}: {header_status} : {header_type}: {header_region}")
         print(f"{Fore.CYAN}{'─'*80}{Style.RESET_ALL}")
 

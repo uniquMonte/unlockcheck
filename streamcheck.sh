@@ -518,10 +518,11 @@ format_result() {
     # Pad unlock type to fixed width (8 display chars)
     local unlock_type_padded=$(pad_to_width "$unlock_type_label" 8)
 
-    # Column 5: Region info (just show the country code directly)
+    # Column 5: Region info (pad region to fixed width: 4 chars)
     local region_info=""
     if [ "$region" != "N/A" ] && [ "$region" != "Unknown" ] && [ -n "$region" ]; then
-        region_info=": ${CYAN}${region}${NC}"
+        local region_padded=$(printf "%-4s" "$region")  # Left-align region to 4 chars
+        region_info=": ${CYAN}${region_padded}${NC}"
     fi
 
     # Print aligned columns with colon separators
@@ -834,7 +835,7 @@ check_scholar() {
 run_all_checks() {
     echo -e "${YELLOW}📺 流媒体解锁检测结果${NC}"
     echo -e "${CYAN}────────────────────────────────────────────────────────────────────────────────${NC}"
-    echo -e "    服务名称        : 解锁状态       : 解锁类型: 解锁区域"
+    echo -e "    服务名称        : 解锁状态       : 解锁类型: 区域"
     echo -e "${CYAN}────────────────────────────────────────────────────────────────────────────────${NC}"
 
     # 视频流媒体

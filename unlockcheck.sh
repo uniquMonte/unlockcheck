@@ -431,8 +431,9 @@ print_enhanced_ip_info() {
 # Remove ANSI color codes from text
 strip_ansi_codes() {
     local text="$1"
-    # Remove ANSI escape sequences (using $'...' for proper escape interpretation)
-    printf "%s" "$text" | sed $'s/\033\[[0-9;]*m//g'
+    # Remove both actual ANSI escape sequences and literal \033 strings
+    # This handles both $'\033[...' and '\033[...' style color codes
+    printf "%s" "$text" | sed -e $'s/\033\[[0-9;]*m//g' -e 's/\\033\[[0-9;]*m//g'
 }
 
 # Calculate display width of text (CJK chars count as 2, ASCII as 1), excluding ANSI codes

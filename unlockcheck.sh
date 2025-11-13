@@ -671,7 +671,7 @@ check_chatgpt() {
     elif [ "$api_result" = "success" ]; then
         # API成功表示服务可用,即使Web端有Cloudflare验证
         if [ "$has_cloudflare" = "true" ]; then
-            format_result "ChatGPT" "success" "$COUNTRY_CODE" "正常可用 (需CF验证)"
+            format_result "ChatGPT" "success" "$COUNTRY_CODE" "正常访问(${YELLOW}需CF验证${GREEN})"
         else
             format_result "ChatGPT" "success" "$COUNTRY_CODE" "正常访问"
         fi
@@ -754,7 +754,7 @@ check_claude() {
     elif [ "$api_result" = "success" ]; then
         # API成功表示服务可用,即使Web端有Cloudflare验证
         if [ "$has_cloudflare" = "true" ]; then
-            format_result "Claude" "success" "$COUNTRY_CODE" "正常可用 (需CF验证)"
+            format_result "Claude" "success" "$COUNTRY_CODE" "正常访问(${YELLOW}需CF验证${GREEN})"
         else
             format_result "Claude" "success" "$COUNTRY_CODE" "正常访问"
         fi

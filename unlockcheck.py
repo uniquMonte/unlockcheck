@@ -11,6 +11,7 @@ import sys
 import argparse
 import time
 import socket
+from datetime import datetime
 from typing import Dict, Tuple, Optional
 from colorama import init, Fore, Style
 
@@ -80,9 +81,12 @@ class UnlockChecker:
 
     def print_header(self):
         """Print program header"""
+        current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         print(f"\n{Fore.CYAN}{'='*60}")
-        print(f"{' '*10}UnlockCheck - Service Unlock Detection Tool v{VERSION}")
-        print(f"{'='*60}{Style.RESET_ALL}\n")
+        print(f"{' '*10}UnlockCheck - Service Unlock Detection Tool")
+        print(f"{' '*6}https://github.com/uniquMonte/unlockcheck")
+        print(f"{' '*15}检测时间: {current_time}")
+        print(f"{'='*60}{Style.RESET_ALL}")
 
     def get_ip_info(self) -> Dict:
         """Get current IP information (enhanced: includes native IP detection, registration location, etc.)"""

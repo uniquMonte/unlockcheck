@@ -959,17 +959,21 @@ class StreamChecker:
         detail_padded = self.pad_to_width(detail, 20)
         detail_colored = f"{status_color}{detail_padded}{Style.RESET_ALL}"
 
-        # Column 4: Unlock type label (fixed display width: 8 display chars including brackets)
+        # Column 4: Unlock type label (fixed display width: 8 display chars)
         # Note: DNS unlock detection is currently disabled to avoid false positives from CDN services
         # In the future, this could call check_dns_unlock() for each service domain
-        unlock_type_label = ""
+        unlock_type_text = ""
+        unlock_type_color = ""
         if status == "success":
             # Currently always show native unlock
             # TODO: Implement proper DNS unlock detection by calling check_dns_unlock() for each service
-            unlock_type_label = f"{Fore.GREEN}原生{Style.RESET_ALL}"
+            unlock_type_text = "原生"
+            unlock_type_color = Fore.GREEN
 
-        # Pad unlock type to fixed width (8 display chars)
-        unlock_type_padded = self.pad_to_width(unlock_type_label if unlock_type_label else "", 8)
+        # Pad unlock type to fixed width (8 display chars), then add color
+        unlock_type_padded = self.pad_to_width(unlock_type_text, 8)
+        if unlock_type_color:
+            unlock_type_padded = f"{unlock_type_color}{unlock_type_padded}{Style.RESET_ALL}"
 
         # Column 5: Region info (always pad to fixed width: 4 display chars for alignment)
         if region != "N/A" and region != "Unknown":

@@ -508,14 +508,19 @@ format_result() {
     # Column 4: Unlock type label (fixed display width: 8 display chars)
     # Note: DNS unlock detection is currently disabled to avoid false positives from CDN services
     # check_dns_unlock() currently always returns "native" for this reason
-    local unlock_type_label=""
+    local unlock_type_text=""
+    local unlock_type_color=""
     if [ "$status" = "success" ]; then
         # Currently always show native unlock since DNS detection is disabled
-        unlock_type_label="${GREEN}原生${NC}"
+        unlock_type_text="原生"
+        unlock_type_color="${GREEN}"
     fi
 
-    # Pad unlock type to fixed width (8 display chars)
-    local unlock_type_padded=$(pad_to_width "$unlock_type_label" 8)
+    # Pad unlock type to fixed width (8 display chars), then add color
+    local unlock_type_padded=$(pad_to_width "$unlock_type_text" 8)
+    if [ -n "$unlock_type_color" ]; then
+        unlock_type_padded="${unlock_type_color}${unlock_type_padded}${NC}"
+    fi
 
     # Column 5: Region info (always pad to fixed width: 4 display chars for alignment)
     local region_colored

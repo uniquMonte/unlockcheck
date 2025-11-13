@@ -912,8 +912,13 @@ class UnlockChecker:
         except:
             pass
 
-        # Step 3: Check static resources (if previous checks are inconclusive)
-        if not (api_result and api_result[0] == "failed") and not (web_result and web_result[0] == "failed"):
+        # Step 3: Check static resources (only skip if already confirmed region restriction)
+        region_confirmed = (
+            (api_result and api_result[0] == "failed" and "Region Restricted" in api_result[1]) or
+            (web_result and web_result[0] == "failed" and "Region Restricted" in web_result[1])
+        )
+
+        if not region_confirmed:
             try:
                 static_response = self.session.get(
                     "https://www.gstatic.com/lamda/images/gemini_sparkle_v002_d4735304ff6292a690345.svg",
@@ -926,8 +931,14 @@ class UnlockChecker:
             except:
                 pass
 
-        # Step 4: Check AI Studio (alternative endpoint)
-        if not (api_result and api_result[0] == "failed") and not (web_result and web_result[0] == "failed") and not (static_result and static_result[0] == "failed"):
+        # Step 4: Check AI Studio (only skip if already confirmed region restriction)
+        region_confirmed = (
+            (api_result and api_result[0] == "failed" and "Region Restricted" in api_result[1]) or
+            (web_result and web_result[0] == "failed" and "Region Restricted" in web_result[1]) or
+            (static_result and static_result[0] == "failed" and "Region Restricted" in static_result[1])
+        )
+
+        if not region_confirmed:
             try:
                 studio_response = self.session.get(
                     "https://aistudio.google.com/app/prompts/new_chat",

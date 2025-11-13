@@ -635,40 +635,44 @@ check_scholar() {
 
 # 运行所有检测
 run_all_checks() {
-    echo -e "${YELLOW}📺 流媒体检测结果${NC}"
+    echo -e "${YELLOW}📺 流媒体解锁检测结果${NC}"
     echo -e "${CYAN}────────────────────────────────────────────────────────────${NC}"
 
+    # 视频流媒体
+    echo -e "\n${BLUE}🎬 视频流媒体${NC}"
     check_netflix
     [ -z "$FAST_MODE" ] && sleep 0.5
-
     check_disney
     [ -z "$FAST_MODE" ] && sleep 0.5
-
     check_youtube
     [ -z "$FAST_MODE" ] && sleep 0.5
-
-    check_chatgpt
-    [ -z "$FAST_MODE" ] && sleep 0.5
-
-    check_claude
-    [ -z "$FAST_MODE" ] && sleep 0.5
-
-    check_gemini
-    [ -z "$FAST_MODE" ] && sleep 0.5
-
-    check_scholar
-    [ -z "$FAST_MODE" ] && sleep 0.5
-
     check_tiktok
     [ -z "$FAST_MODE" ] && sleep 0.5
 
-    check_imgur
+    # 音乐流媒体
+    echo -e "\n${BLUE}🎵 音乐流媒体${NC}"
+    check_spotify
     [ -z "$FAST_MODE" ] && sleep 0.5
 
+    # AI 服务
+    echo -e "\n${BLUE}🤖 AI 服务${NC}"
+    check_chatgpt
+    [ -z "$FAST_MODE" ] && sleep 0.5
+    check_claude
+    [ -z "$FAST_MODE" ] && sleep 0.5
+    check_gemini
+    [ -z "$FAST_MODE" ] && sleep 0.5
+
+    # 社区论坛
+    echo -e "\n${BLUE}💬 社区论坛${NC}"
     check_reddit
     [ -z "$FAST_MODE" ] && sleep 0.5
 
-    check_spotify
+    # 其他服务
+    echo -e "\n${BLUE}📚 其他服务${NC}"
+    check_scholar
+    [ -z "$FAST_MODE" ] && sleep 0.5
+    check_imgur
 
     echo -e "\n${CYAN}────────────────────────────────────────────────────────────${NC}"
     echo -e "检测完成!\n"

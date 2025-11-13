@@ -424,9 +424,9 @@ class UnlockChecker:
             region2 = re.search(r'"currentCountry"\s*:\s*"([^"]+)"', result2.text)
 
             region = None
-            if region1:
+            if region1 and region1.group(1) != "null":
                 region = region1.group(1)
-            elif region2:
+            elif region2 and region2.group(1) != "null":
                 region = region2.group(1)
             else:
                 region = self.ip_info.get('country_code', 'Unknown')
@@ -1265,7 +1265,7 @@ class UnlockChecker:
             unlock_type_padded = f"{unlock_type_color}{unlock_type_padded}{Style.RESET_ALL}"
 
         # Column 5: Region info (使用固定列宽常量)
-        if region != "N/A" and region != "Unknown":
+        if region != "N/A" and region != "Unknown" and region != "null":
             region_padded = self.pad_to_width(region, COLUMN_WIDTH_REGION)
             region_colored = f"{Fore.CYAN}{region_padded}{Style.RESET_ALL}"
         else:

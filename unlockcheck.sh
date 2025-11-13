@@ -562,7 +562,7 @@ format_result() {
 
     # Column 5: Region info (使用固定列宽常量)
     local region_colored
-    if [ "$region" != "N/A" ] && [ "$region" != "Unknown" ] && [ -n "$region" ]; then
+    if [ "$region" != "N/A" ] && [ "$region" != "Unknown" ] && [ "$region" != "null" ] && [ -n "$region" ]; then
         local region_padded=$(pad_to_width "$region" $COLUMN_WIDTH_REGION)
         region_colored="${CYAN}${region_padded}${NC}"
     else
@@ -598,7 +598,11 @@ check_netflix() {
 
     # 从响应中提取地区代码（从JSON中提取currentCountry字段）
     local region1=$(echo "$result1" | grep -oP '"currentCountry"\s*:\s*"\K[^"]+' | head -n1)
-    local region2=$(echo "$result2" | grep -oP '"currentCountry"\s*:\K[^"]+' | head -n1)
+    local region2=$(echo "$result2" | grep -oP '"currentCountry"\s*:\s*"?\K[^",}]+' | head -n1)
+
+    # 过滤掉 "null" 值
+    [ "$region1" = "null" ] && region1=""
+    [ "$region2" = "null" ] && region2=""
 
     # 优先使用检测到的地区，如果没有则使用IP地区
     local region="${region1:-${region2:-${COUNTRY_CODE}}}"
@@ -1048,7 +1052,7 @@ check_scholar() {
     if echo "$content" | grep -qi "automated\|unusual traffic\|can't process your request\|We're sorry"; then
         format_result "Google Scholar" "partial" "$COUNTRY_CODE" "受限访问 (机器人)"
     elif [ "$status_code" = "200" ]; then
-        format_result "Google Scholar" "success" "$COUNTRY_CODE" "完全可用"
+        format_result "Google Scholar" "success" "$COUNTRY_CODE" "正常访问"
     elif [ "$status_code" = "403" ]; then
         format_result "Google Scholar" "failed" "N/A" "区域受限"
     elif [ "$status_code" = "429" ]; then

@@ -361,7 +361,7 @@ print_enhanced_ip_info() {
             type_color="${NC}"
             ;;
     esac
-    echo -e "IP 类型: \033[1m${type_color}${IP_TYPE}${NC}\033[0m"
+    echo -e "IP 类型: ${type_color}\033[1m${IP_TYPE}\033[0m${NC}"
 
     # 显示使用地（IP的地理位置）
     if [ -n "$IP_USAGE_LOCATION" ] && [ "$IP_USAGE_LOCATION" != "  " ]; then
@@ -389,8 +389,8 @@ print_enhanced_ip_info() {
 # Remove ANSI color codes from text
 strip_ansi_codes() {
     local text="$1"
-    # Remove ANSI escape sequences
-    echo "$text" | sed 's/\x1b\[[0-9;]*m//g'
+    # Remove ANSI escape sequences (using $'...' for proper escape interpretation)
+    printf "%s" "$text" | sed $'s/\033\[[0-9;]*m//g'
 }
 
 # Calculate display width of text (CJK chars count as 2, ASCII as 1), excluding ANSI codes
@@ -428,7 +428,7 @@ pad_to_width() {
     if [ "$padding" -gt 0 ]; then
         printf "%s%*s" "$text" "$padding" ""
     else
-        echo "$text"
+        printf "%s" "$text"
     fi
 }
 

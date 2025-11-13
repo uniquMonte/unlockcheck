@@ -295,7 +295,7 @@ class StreamChecker:
         else:
             type_color = Fore.WHITE
 
-        print(f"IP Type: {type_color}{ip_type_display}{Style.RESET_ALL}")
+        print(f"IP Type: {Style.BRIGHT}{type_color}{ip_type_display}{Style.RESET_ALL}")
 
         # Usage location (IP's actual geographic location)
         if 'usage_location' in self.ip_info and self.ip_info.get('usage_location', '').strip():

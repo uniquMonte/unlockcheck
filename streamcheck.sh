@@ -348,7 +348,7 @@ print_enhanced_ip_info() {
     echo -e "${CYAN}────────────────────────────────────────────────────────────${NC}"
     echo -e "IP 地址: ${GREEN}${CURRENT_IP}${NC}"
 
-    # 显示IP类型（带颜色）
+    # 显示IP类型（带颜色和加粗）
     local type_color
     case "$IP_TYPE" in
         "原生IP")
@@ -361,7 +361,7 @@ print_enhanced_ip_info() {
             type_color="${NC}"
             ;;
     esac
-    echo -e "IP 类型: ${type_color}${IP_TYPE}${NC}"
+    echo -e "IP 类型: \033[1m${type_color}${IP_TYPE}${NC}\033[0m"
 
     # 显示使用地（IP的地理位置）
     if [ -n "$IP_USAGE_LOCATION" ] && [ "$IP_USAGE_LOCATION" != "  " ]; then

@@ -443,6 +443,9 @@ check_imgur() {
     elif [ "$status_code" = "301" ] || [ "$status_code" = "302" ]; then
         # 重定向通常表示可以访问
         format_result "Imgur" "success" "$region" "可访问"
+    elif [ "$status_code" = "429" ]; then
+        # 速率限制，通常说明服务可访问但请求过多
+        format_result "Imgur" "success" "$region" "可访问(速率限制)"
     elif [ -z "$status_code" ] || [ "$status_code" = "000" ]; then
         format_result "Imgur" "error" "N/A" "连接超时"
     else

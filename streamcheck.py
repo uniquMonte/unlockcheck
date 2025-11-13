@@ -508,6 +508,10 @@ class StreamChecker:
             if response.status_code == 200 or (300 <= response.status_code < 400):
                 return "success", self.ip_info.get('country_code', 'Unknown'), "可访问"
 
+            # 429表示速率限制，说明服务可访问
+            if response.status_code == 429:
+                return "success", self.ip_info.get('country_code', 'Unknown'), "可访问(速率限制)"
+
             # 如果主域名失败，尝试图片域名
             try:
                 alt_response = self.session.get(

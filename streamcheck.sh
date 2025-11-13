@@ -386,17 +386,26 @@ print_enhanced_ip_info() {
 }
 
 # 格式化输出结果
-# Calculate display width of text (CJK chars count as 2, ASCII as 1)
+# Remove ANSI color codes from text
+strip_ansi_codes() {
+    local text="$1"
+    # Remove ANSI escape sequences
+    echo "$text" | sed 's/\x1b\[[0-9;]*m//g'
+}
+
+# Calculate display width of text (CJK chars count as 2, ASCII as 1), excluding ANSI codes
 get_display_width() {
     local text="$1"
+    # Remove ANSI color codes first
+    local clean_text=$(strip_ansi_codes "$text")
     local width=0
     local char
-    local len=${#text}
+    local len=${#clean_text}
 
     for ((i=0; i<len; i++)); do
-        char="${text:i:1}"
+        char="${clean_text:i:1}"
         # Get ASCII value of character
-        printf -v ascii '%d' "'$char"
+        printf -v ascii '%d' "'$char" 2>/dev/null || ascii=0
 
         # CJK and other wide characters (> 127)
         if [ "$ascii" -gt 127 ]; then
@@ -428,7 +437,6 @@ format_result() {
     local status="$2"
     local region="$3"
     local detail="$4"
-    local unlock_type="$5"  # 解锁类型 (native/dns)
 
     # Column 1: Status icon
     local icon color
@@ -451,38 +459,39 @@ format_result() {
             ;;
     esac
 
-    # Column 2: Service name (fixed width: 18 chars)
-    local service_formatted=$(printf "%-18s" "$service_name")
+    # Column 2: Service name (fixed width: 18 chars + colon)
+    local service_formatted=$(printf "%-18s:" "$service_name")
 
-    # Column 3: Status detail (pad to fixed display width considering CJK characters)
-    local detail_formatted=$(pad_to_width "$detail" 30)
+    # Column 3: Status detail (pad to fixed display width: 22 display chars)
+    local detail_formatted=$(pad_to_width "$detail" 22)
 
-    # Column 4: Unlock type label
+    # Column 4: IP type label (fixed display width: 8 display chars)
     local ip_type_label=""
-    local ip_type_spacing="        "  # 8 spaces default
-
-    if [ "$status" = "success" ] && [ -n "$unlock_type" ]; then
-        if [ "$unlock_type" = "dns" ]; then
-            ip_type_label="${MAGENTA}[DNS解锁]${NC}"
-            ip_type_spacing="  "  # 2 spaces after label
-        elif [ "$unlock_type" = "native" ]; then
-            ip_type_label="${GREEN}[原生]${NC}"
-            ip_type_spacing="  "  # 2 spaces after label
-        fi
+    if [ "$status" = "success" ]; then
+        case "$IP_TYPE" in
+            "原生IP")
+                ip_type_label="${GREEN}[原生]${NC}"
+                ;;
+            "广播IP")
+                ip_type_label="${YELLOW}[广播]${NC}"
+                ;;
+            *)
+                ip_type_label="${CYAN}[未知]${NC}"
+                ;;
+        esac
     fi
+
+    # Pad IP type to fixed width (8 display chars)
+    local ip_type_padded=$(pad_to_width "$ip_type_label" 8)
 
     # Column 5: Region info
     local region_info=""
     if [ "$region" != "N/A" ] && [ "$region" != "Unknown" ] && [ -n "$region" ]; then
-        region_info="${CYAN}(区域: $region)${NC}"
+        region_info=": ${CYAN}(区域: $region)${NC}"
     fi
 
-    # Print aligned columns
-    if [ -n "$ip_type_label" ]; then
-        echo -e "$icon $service_formatted ${color}${detail_formatted}${NC} ${ip_type_label}${ip_type_spacing}${region_info}"
-    else
-        echo -e "$icon $service_formatted ${color}${detail_formatted}${NC} ${ip_type_spacing}${region_info}"
-    fi
+    # Print aligned columns with colon separators
+    echo -e "$icon $service_formatted ${color}${detail_formatted}${NC} : ${ip_type_padded}${region_info}"
 }
 
 # 检测 Netflix
@@ -511,7 +520,7 @@ check_netflix() {
         format_result "Netflix" "failed" "N/A" "IP被封禁"
     elif [ "$status_code" = "200" ] || [ "$status_code" = "301" ] || [ "$status_code" = "302" ]; then
         # 200/301/302都表示可以访问
-        format_result "Netflix" "success" "$region" "可访问" "$unlock_type"
+        format_result "Netflix" "success" "$region" "可访问"
     elif [ "$status_code" = "403" ]; then
         # 403通常是IP被封禁
         format_result "Netflix" "failed" "N/A" "IP被封禁"
@@ -530,7 +539,7 @@ check_disney() {
         "https://www.disneyplus.com/" 2>/dev/null)
 
     if [ "$status_code" = "200" ]; then
-        format_result "Disney+" "success" "$COUNTRY_CODE" "完整解锁" "$unlock_type"
+        format_result "Disney+" "success" "$COUNTRY_CODE" "完整解锁"
     elif [ "$status_code" = "403" ]; then
         format_result "Disney+" "failed" "N/A" "不支持"
     else
@@ -547,7 +556,7 @@ check_youtube() {
         "https://www.youtube.com/premium" 2>/dev/null)
 
     if [ "$status_code" = "200" ]; then
-        format_result "YouTube Premium" "success" "$COUNTRY_CODE" "支持" "$unlock_type"
+        format_result "YouTube Premium" "success" "$COUNTRY_CODE" "支持"
     else
         format_result "YouTube Premium" "error" "N/A" "检测失败"
     fi
@@ -578,7 +587,7 @@ check_chatgpt() {
     elif [ "$status_code" = "200" ]; then
         # 验证是否真的是 ChatGPT 应用
         if echo "$content" | grep -qi "openai" && echo "$content" | grep -qi "chat\|gpt"; then
-            format_result "ChatGPT" "success" "$COUNTRY_CODE" "可访问" "$unlock_type"
+            format_result "ChatGPT" "success" "$COUNTRY_CODE" "可访问"
         else
             format_result "ChatGPT" "failed" "N/A" "服务不可用"
         fi
@@ -615,7 +624,7 @@ check_claude() {
     elif [ "$status_code" = "200" ]; then
         # 验证是否真的是 Claude 应用（检查页面是否包含关键元素）
         if echo "$content" | grep -qi "claude" && echo "$content" | grep -qi "anthropic\|chat"; then
-            format_result "Claude" "success" "$COUNTRY_CODE" "可访问" "$unlock_type"
+            format_result "Claude" "success" "$COUNTRY_CODE" "可访问"
         else
             # 200 但不像 Claude 应用 - 可能是错误页面
             format_result "Claude" "failed" "N/A" "服务不可用"
@@ -635,7 +644,7 @@ check_tiktok() {
         "https://www.tiktok.com/" 2>/dev/null)
 
     if [ "$status_code" = "200" ]; then
-        format_result "TikTok" "success" "$COUNTRY_CODE" "可访问" "$unlock_type"
+        format_result "TikTok" "success" "$COUNTRY_CODE" "可访问"
     elif [ "$status_code" = "403" ] || [ "$status_code" = "451" ]; then
         format_result "TikTok" "failed" "N/A" "区域受限"
     else
@@ -666,15 +675,15 @@ check_imgur() {
     fi
 
     if [ "$status_code" = "200" ]; then
-        format_result "Imgur" "success" "$region" "可访问" "$unlock_type"
+        format_result "Imgur" "success" "$region" "可访问"
     elif [ "$status_code" = "403" ] || [ "$status_code" = "451" ]; then
         format_result "Imgur" "failed" "N/A" "区域受限"
     elif [ "$status_code" = "301" ] || [ "$status_code" = "302" ]; then
         # 重定向通常表示可访问
-        format_result "Imgur" "success" "$region" "可访问" "$unlock_type"
+        format_result "Imgur" "success" "$region" "可访问"
     elif [ "$status_code" = "429" ]; then
         # 速率限制，通常表示服务可访问
-        format_result "Imgur" "success" "$region" "可访问(速率限制)" "$unlock_type"
+        format_result "Imgur" "success" "$region" "可访问(速率限制)"
     elif [ -z "$status_code" ] || [ "$status_code" = "000" ]; then
         format_result "Imgur" "error" "N/A" "连接超时"
     else
@@ -696,13 +705,13 @@ check_reddit() {
 
     # 检查是否被安全系统拦截（优先检查内容）
     if echo "$content" | grep -qi "blocked by network security\|blocked by mistake\|access denied"; then
-        format_result "Reddit" "partial" "$COUNTRY_CODE" "IP被限制，需登录访问" "$unlock_type"
+        format_result "Reddit" "partial" "$COUNTRY_CODE" "IP被限制，需登录访问"
     elif [ "$status_code" = "403" ] || [ "$status_code" = "451" ]; then
         # 403/451 也可能是安全拦截
-        format_result "Reddit" "partial" "$COUNTRY_CODE" "IP被限制，需登录访问" "$unlock_type"
+        format_result "Reddit" "partial" "$COUNTRY_CODE" "IP被限制，需登录访问"
     elif [ "$status_code" = "200" ]; then
         # 200 且内容没有拦截关键词，才是真正可访问
-        format_result "Reddit" "success" "$COUNTRY_CODE" "可访问" "$unlock_type"
+        format_result "Reddit" "success" "$COUNTRY_CODE" "可访问"
     else
         format_result "Reddit" "error" "N/A" "检测失败(${status_code})"
     fi
@@ -732,7 +741,7 @@ check_gemini() {
     elif [ "$status_code" = "200" ]; then
         # 验证是否真的是 Gemini 应用（检查页面是否包含关键元素）
         if echo "$content" | grep -qi "gemini" && echo "$content" | grep -qi "google\|conversation"; then
-            format_result "Gemini" "success" "$COUNTRY_CODE" "可访问" "$unlock_type"
+            format_result "Gemini" "success" "$COUNTRY_CODE" "可访问"
         else
             # 200 但不像 Gemini 应用 - 可能是错误页面
             format_result "Gemini" "failed" "N/A" "服务不可用"
@@ -752,7 +761,7 @@ check_spotify() {
         "https://open.spotify.com/" 2>/dev/null)
 
     if [ "$status_code" = "200" ]; then
-        format_result "Spotify" "success" "$COUNTRY_CODE" "可访问" "$unlock_type"
+        format_result "Spotify" "success" "$COUNTRY_CODE" "可访问"
     elif [ "$status_code" = "403" ]; then
         format_result "Spotify" "failed" "N/A" "区域受限"
     else
@@ -775,9 +784,9 @@ check_scholar() {
 
     # 检查是否包含机器人流量警告（使用更宽松的匹配）
     if echo "$content" | grep -qi "automated\|unusual traffic\|can't process your request\|We're sorry"; then
-        format_result "Google Scholar" "partial" "$COUNTRY_CODE" "可访问官网，但无法搜索" "$unlock_type"
+        format_result "Google Scholar" "partial" "$COUNTRY_CODE" "可访问官网，但无法搜索"
     elif [ "$status_code" = "200" ]; then
-        format_result "Google Scholar" "success" "$COUNTRY_CODE" "完全可用" "$unlock_type"
+        format_result "Google Scholar" "success" "$COUNTRY_CODE" "完全可用"
     elif [ "$status_code" = "403" ]; then
         format_result "Google Scholar" "failed" "N/A" "区域受限"
     elif [ "$status_code" = "429" ]; then

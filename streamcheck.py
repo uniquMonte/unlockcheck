@@ -869,10 +869,19 @@ class StreamChecker:
             return "error", "N/A", "Detection Failed"
 
     @staticmethod
+    def strip_ansi_codes(text: str) -> str:
+        """Remove ANSI color codes from text"""
+        import re
+        ansi_escape = re.compile(r'\x1b\[[0-9;]*m')
+        return ansi_escape.sub('', text)
+
+    @staticmethod
     def get_display_width(text: str) -> int:
-        """Calculate display width of text (CJK chars count as 2, ASCII as 1)"""
+        """Calculate display width of text (CJK chars count as 2, ASCII as 1), excluding ANSI codes"""
+        # Remove ANSI color codes first
+        clean_text = StreamChecker.strip_ansi_codes(text)
         width = 0
-        for char in text:
+        for char in clean_text:
             # CJK characters and other wide characters
             if ord(char) > 127:
                 width += 2
@@ -882,7 +891,7 @@ class StreamChecker:
 
     @staticmethod
     def pad_to_width(text: str, target_width: int) -> str:
-        """Pad text to target display width"""
+        """Pad text to target display width (handles ANSI color codes)"""
         current_width = StreamChecker.get_display_width(text)
         if current_width < target_width:
             return text + ' ' * (target_width - current_width)
@@ -905,45 +914,39 @@ class StreamChecker:
             status_color = Fore.MAGENTA
 
         # Column 2: Service name (fixed width: 18 chars, left-aligned)
-        service_formatted = f"{service_name:<18}"
+        service_formatted = f"{service_name:<18}:"
 
-        # Column 3: Status detail (pad to fixed display width considering CJK characters)
-        detail_padded = self.pad_to_width(detail, 30)
+        # Column 3: Status detail (pad to fixed display width: 22 display chars)
+        detail_padded = self.pad_to_width(detail, 22)
         detail_colored = f"{status_color}{detail_padded}{Style.RESET_ALL}"
 
-        # Column 4: Unlock type (determine based on IP type)
+        # Column 4: IP type label (fixed display width: 8 display chars including brackets)
         ip_type_label = ""
-        ip_type_spacing = " " * 8  # Default spacing when no label
-
         if status == "success":
             ip_type = self.ip_info.get('ip_type', 'Unknown')
             if ip_type == 'Residential' or ip_type == 'Mobile Network':
                 ip_type_label = f"{Fore.GREEN}[原生]{Style.RESET_ALL}"
-                ip_type_spacing = " " * 2  # Adjust spacing after colored label
             elif ip_type == 'Datacenter/Hosting':
                 # For datacenter IPs, check if registration location matches usage location
                 reg_loc = self.ip_info.get('registration_location', '')
                 usage_loc = self.ip_info.get('usage_location', '')
                 if reg_loc and usage_loc and reg_loc == usage_loc:
                     ip_type_label = f"{Fore.GREEN}[原生]{Style.RESET_ALL}"
-                    ip_type_spacing = " " * 2
                 else:
                     ip_type_label = f"{Fore.YELLOW}[广播]{Style.RESET_ALL}"
-                    ip_type_spacing = " " * 2
             else:
                 ip_type_label = f"{Fore.CYAN}[未知]{Style.RESET_ALL}"
-                ip_type_spacing = " " * 2
+
+        # Pad IP type to fixed width (6 chars: "[原生]" = 1+2+2+1 = 6 display chars)
+        ip_type_padded = self.pad_to_width(ip_type_label if ip_type_label else "", 8)
 
         # Column 5: Region info
         region_info = ""
         if region != "N/A" and region != "Unknown":
-            region_info = f"{Fore.CYAN}(区域: {region}){Style.RESET_ALL}"
+            region_info = f": {Fore.CYAN}(区域: {region}){Style.RESET_ALL}"
 
         # Print aligned columns
-        if ip_type_label:
-            print(f"{icon} {service_formatted} {detail_colored} {ip_type_label}{ip_type_spacing}{region_info}")
-        else:
-            print(f"{icon} {service_formatted} {detail_colored} {ip_type_spacing}{region_info}")
+        print(f"{icon} {service_formatted} {detail_colored} : {ip_type_padded}{region_info}")
 
     def run_all_checks(self):
         """Run all checks"""

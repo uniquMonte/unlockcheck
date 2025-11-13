@@ -737,12 +737,11 @@ class UnlockChecker:
         if api_result and api_result[0] == "failed" and "Region Restricted" in api_result[1]:
             return "failed", "N/A", "Region Restricted"
 
-        # Priority 2: API success indicates availability (even if web has Cloudflare)
+        # Priority 2: API success indicates availability
+        # Script-detected CF verification doesn't mean browsers will encounter it
+        # (Cloudflare can distinguish between scripts and real browsers)
         if api_result and api_result[0] == "success":
-            if has_cloudflare:
-                return "success", self.ip_info.get('country_code', 'Unknown'), f"Full Access{Fore.YELLOW}(CF Check){Fore.GREEN}"
-            else:
-                return "success", self.ip_info.get('country_code', 'Unknown'), "Full Access"
+            return "success", self.ip_info.get('country_code', 'Unknown'), "Full Access"
 
         # Priority 3: Cloudflare blocking (only if API cannot confirm availability)
         # This suggests browser might still work
@@ -850,12 +849,11 @@ class UnlockChecker:
         if web_result and web_result[0] == "failed":
             return "failed", "N/A", "Region Restricted"
 
-        # Priority 2: API success indicates availability (even if web has Cloudflare)
+        # Priority 2: API success indicates availability
+        # Script-detected CF verification doesn't mean browsers will encounter it
+        # (Cloudflare can distinguish between scripts and real browsers)
         if api_result and api_result[0] == "success":
-            if has_cloudflare:
-                return "success", self.ip_info.get('country_code', 'Unknown'), f"Full Access{Fore.YELLOW}(CF Check){Fore.GREEN}"
-            else:
-                return "success", self.ip_info.get('country_code', 'Unknown'), "Full Access"
+            return "success", self.ip_info.get('country_code', 'Unknown'), "Full Access"
 
         # Priority 3: Cloudflare blocking (only if API cannot confirm availability)
         # This suggests browser might still work

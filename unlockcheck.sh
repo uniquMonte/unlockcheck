@@ -848,12 +848,9 @@ check_chatgpt() {
     if [ "$api_result" = "region_restricted" ]; then
         format_result "ChatGPT" "failed" "N/A" "该地区屏蔽"
     elif [ "$api_result" = "success" ]; then
-        # API成功表示服务可用,即使Web端有Cloudflare验证
-        if [ "$has_cloudflare" = "true" ]; then
-            format_result "ChatGPT" "success" "$COUNTRY_CODE" "完全解锁${YELLOW}(需CF验证)${GREEN}"
-        else
-            format_result "ChatGPT" "success" "$COUNTRY_CODE" "完全解锁"
-        fi
+        # API成功表示服务可用
+        # 脚本检测到的CF验证不代表浏览器也会遇到（CF能区分脚本和真实浏览器）
+        format_result "ChatGPT" "success" "$COUNTRY_CODE" "完全解锁"
     elif [ "$has_cloudflare" = "true" ]; then
         # 只有当API无法确认时,Cloudflare才可能是问题
         # 提示用户:脚本遇到Cloudflare,但浏览器可能可以访问
@@ -931,12 +928,9 @@ check_claude() {
     if [ "$api_result" = "region_restricted" ] || [ "$web_result" = "region_restricted" ]; then
         format_result "Claude" "failed" "N/A" "该地区屏蔽"
     elif [ "$api_result" = "success" ]; then
-        # API成功表示服务可用,即使Web端有Cloudflare验证
-        if [ "$has_cloudflare" = "true" ]; then
-            format_result "Claude" "success" "$COUNTRY_CODE" "完全解锁${YELLOW}(需CF验证)${GREEN}"
-        else
-            format_result "Claude" "success" "$COUNTRY_CODE" "完全解锁"
-        fi
+        # API成功表示服务可用
+        # 脚本检测到的CF验证不代表浏览器也会遇到（CF能区分脚本和真实浏览器）
+        format_result "Claude" "success" "$COUNTRY_CODE" "完全解锁"
     elif [ "$has_cloudflare" = "true" ]; then
         # 只有当API无法确认时,Cloudflare才可能是问题
         # 提示用户:脚本遇到Cloudflare,但浏览器可能可以访问

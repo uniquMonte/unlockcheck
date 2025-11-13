@@ -459,11 +459,11 @@ format_result() {
             ;;
     esac
 
-    # Column 2: Service name (fixed width: 18 chars + colon)
-    local service_formatted=$(printf "%-18s:" "$service_name")
+    # Column 2: Service name (fixed width: 16 chars + colon)
+    local service_formatted=$(printf "%-16s:" "$service_name")
 
-    # Column 3: Status detail (pad to fixed display width: 22 display chars)
-    local detail_formatted=$(pad_to_width "$detail" 22)
+    # Column 3: Status detail (pad to fixed display width: 14 display chars)
+    local detail_formatted=$(pad_to_width "$detail" 14)
 
     # Column 4: IP type label (fixed display width: 8 display chars)
     local ip_type_label=""

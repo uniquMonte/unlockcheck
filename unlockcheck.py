@@ -730,7 +730,7 @@ class UnlockChecker:
 
             # Check for blocked/banned messages
             if "blocked by network security" in content_lower or "blocked by mistake" in content_lower:
-                return "partial", self.ip_info.get('country_code', 'Unknown'), "Login Required"
+                return "partial", self.ip_info.get('country_code', 'Unknown'), "Website Accessible, Login Required"
 
             if "blocked" in content_lower or "banned" in content_lower:
                 return "failed", "N/A", "Not Available in This Region"
@@ -738,7 +738,7 @@ class UnlockChecker:
             # 403/451 usually means region blocked or IP restricted
             if response.status_code == 403 or response.status_code == 451:
                 # Could be IP restriction that allows access after login
-                return "partial", self.ip_info.get('country_code', 'Unknown'), "Login Required"
+                return "partial", self.ip_info.get('country_code', 'Unknown'), "Website Accessible, Login Required"
 
             # Check if Reddit is accessible (200 with Reddit content)
             if response.status_code == 200:
@@ -890,11 +890,11 @@ class UnlockChecker:
 
             # Check if redirected to sorry page (CAPTCHA/verification)
             if "sorry" in response.url.lower():
-                return "partial", self.ip_info.get('country_code', 'Unknown'), "Unable to Search"
+                return "partial", self.ip_info.get('country_code', 'Unknown'), "Website Accessible, Cannot Search"
 
             # Check for unusual traffic detection or CAPTCHA
             if "unusual traffic" in content_lower or "captcha" in content_lower:
-                return "partial", self.ip_info.get('country_code', 'Unknown'), "Unable to Search"
+                return "partial", self.ip_info.get('country_code', 'Unknown'), "Website Accessible, Cannot Search"
 
             # 403 usually means IP blocked
             if response.status_code == 403:

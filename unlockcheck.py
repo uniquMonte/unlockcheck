@@ -601,7 +601,7 @@ class UnlockChecker:
         # Priority 2: API success indicates availability (even if web has Cloudflare)
         if api_result and api_result[0] == "success":
             if has_cloudflare:
-                return "success", self.ip_info.get('country_code', 'Unknown'), "Available (CF Check)"
+                return "success", self.ip_info.get('country_code', 'Unknown'), "Normally Available (CF Check)"
             else:
                 return "success", self.ip_info.get('country_code', 'Unknown'), "Normal Access"
 
@@ -714,7 +714,7 @@ class UnlockChecker:
         # Priority 2: API success indicates availability (even if web has Cloudflare)
         if api_result and api_result[0] == "success":
             if has_cloudflare:
-                return "success", self.ip_info.get('country_code', 'Unknown'), "Available (CF Check)"
+                return "success", self.ip_info.get('country_code', 'Unknown'), "Normally Available (CF Check)"
             else:
                 return "success", self.ip_info.get('country_code', 'Unknown'), "Normal Access"
 

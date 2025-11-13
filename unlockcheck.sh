@@ -1191,18 +1191,44 @@ check_gemini() {
 
 # 检测 Spotify
 check_spotify() {
-    local unlock_type=$(check_dns_unlock "open.spotify.com")
-    local status_code=$(curl -s -o /dev/null -w "%{http_code}" \
-        --max-time $TIMEOUT \
+    # 参考 IPQuality 项目的实现，使用 Spotify 注册 API
+    local response=$(curl -s --max-time $TIMEOUT \
+        -X POST \
         -A "$USER_AGENT" \
-        -L \
-        "https://open.spotify.com/" 2>/dev/null)
+        -H "Accept-Language: en" \
+        --data "birth_day=11&birth_month=11&birth_year=2000&collect_personal_info=undefined&creation_flow=&creation_point=https%3A%2F%2Fwww.spotify.com%2F&displayname=Test%20User&gender=male&iagree=1&key=a1e486e2729f46d6bb368d6b2bcda326&platform=www&referrer=&send-email=0&thirdpartyemail=0&identifier_token=AgE6YTvEzkReHNfJpO114514" \
+        "https://spclient.wg.spotify.com/signup/public/v1/account" 2>/dev/null)
 
-    if [ "$status_code" = "200" ]; then
-        format_result "Spotify" "success" "$COUNTRY_CODE" "完全解锁"
-    elif [ "$status_code" = "403" ]; then
-        format_result "Spotify" "failed" "N/A" "区域受限"
+    # 检查响应是否为空
+    if [ -z "$response" ]; then
+        format_result "Spotify" "error" "N/A" "网络错误"
+        return
+    fi
+
+    # 检查是否为有效的 JSON
+    if ! echo "$response" | grep -q "{"; then
+        format_result "Spotify" "error" "N/A" "检测失败"
+        return
+    fi
+
+    # 提取关键字段
+    local region=$(echo "$response" | grep -oP '"country"\s*:\s*"\K[^"]+' | head -n1)
+    local is_launched=$(echo "$response" | grep -oP '"is_country_launched"\s*:\s*(true|false)' | grep -oP '(true|false)' | head -n1)
+    local status_code=$(echo "$response" | grep -oP '"status"\s*:\s*\K[0-9]+' | head -n1)
+
+    # 判断解锁状态
+    if [ "$status_code" = "311" ] && [ "$is_launched" = "true" ]; then
+        # 完全解锁
+        if [ -n "$region" ] && [ "$region" != "null" ]; then
+            format_result "Spotify" "success" "$region" "完全解锁"
+        else
+            format_result "Spotify" "success" "$COUNTRY_CODE" "完全解锁"
+        fi
+    elif [ "$status_code" = "320" ] || [ "$status_code" = "120" ]; then
+        # 地区未推出
+        format_result "Spotify" "failed" "N/A" "未推出"
     else
+        # 其他情况
         format_result "Spotify" "error" "N/A" "检测失败"
     fi
 }

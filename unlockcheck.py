@@ -1224,40 +1224,71 @@ class UnlockChecker:
 
     def check_spotify(self) -> Tuple[str, str, str]:
         """
-        Check Spotify availability
+        Check Spotify availability using signup API
+        Reference: IPQuality project implementation
         Returns: (status, region, detail)
         """
         self.log("Checking Spotify...", "debug")
 
         try:
-            # Check Spotify Web Player
-            response = self.session.get(
-                "https://open.spotify.com/",
-                timeout=TIMEOUT,
-                allow_redirects=True
+            # Use Spotify signup API to check region availability
+            signup_data = {
+                "birth_day": "11",
+                "birth_month": "11",
+                "birth_year": "2000",
+                "collect_personal_info": "undefined",
+                "creation_flow": "",
+                "creation_point": "https://www.spotify.com/",
+                "displayname": "Test User",
+                "gender": "male",
+                "iagree": "1",
+                "key": "a1e486e2729f46d6bb368d6b2bcda326",
+                "platform": "www",
+                "referrer": "",
+                "send-email": "0",
+                "thirdpartyemail": "0",
+                "identifier_token": "AgE6YTvEzkReHNfJpO114514"
+            }
+
+            headers = {
+                "Accept-Language": "en"
+            }
+
+            response = self.session.post(
+                "https://spclient.wg.spotify.com/signup/public/v1/account",
+                data=signup_data,
+                headers=headers,
+                timeout=TIMEOUT
             )
 
-            content_lower = response.text.lower()
+            # Check if response is empty
+            if not response.text:
+                return "error", "N/A", "Network Error"
 
-            # Check for region restriction messages
-            if "not available in your region" in content_lower or "not available in your country" in content_lower:
-                return "failed", "N/A", "Not Available in This Region"
+            # Parse JSON response
+            try:
+                data = response.json()
+            except:
+                return "error", "N/A", "Detection Failed"
 
-            if "not available" in content_lower and "spotify" in content_lower:
-                return "failed", "N/A", "Not Available in This Region"
+            # Extract key fields
+            region = data.get("country")
+            is_launched = data.get("is_country_launched")
+            status_code = data.get("status")
 
-            # 403 usually means region blocked
-            if response.status_code == 403:
-                return "failed", "N/A", "Not Available in This Region"
-
-            # Check if Spotify is accessible (200 with Spotify content)
-            if response.status_code == 200:
-                if "spotify" in content_lower:
-                    return "success", self.ip_info.get('country_code', 'Unknown'), "Full Access"
+            # Determine availability
+            if status_code == 311 and is_launched is True:
+                # Service available in this region
+                if region and region != "null":
+                    return "success", region, "Full Access"
                 else:
-                    return "failed", "N/A", "Service Unavailable"
-
-            return "error", "N/A", "Detection Failed"
+                    return "success", self.ip_info.get('country_code', 'Unknown'), "Full Access"
+            elif status_code in [320, 120]:
+                # Service not launched in this region
+                return "failed", "N/A", "Not Launched"
+            else:
+                # Other cases
+                return "error", "N/A", "Detection Failed"
 
         except requests.exceptions.Timeout:
             return "error", "N/A", "Timeout"

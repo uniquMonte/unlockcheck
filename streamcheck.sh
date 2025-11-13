@@ -220,21 +220,29 @@ detect_ip_type() {
         # 注册地：尝试获取IP段注册的国家
         local reg_country=""
         local asn_num=$(echo "$IP_ASN" | grep -oP 'AS\K[0-9]+' | head -1)
-        if [ -n "$asn_num" ]; then
-            # 查询ASN的注册国家
-            local asn_info=$(curl -s --max-time 3 "https://api.bgpview.io/asn/${asn_num}" 2>/dev/null)
-            reg_country=$(echo "$asn_info" | grep -oP '"country_code":"\K[^"]+' | head -1)
+        local org=$(echo "$ip_detail" | grep -oP '"org":"\K[^"]+' | head -1)
 
-            if [ -n "$reg_country" ]; then
-                # 转换国家代码为国家名
+        # 方法1：根据ASN号码直接判断常见的云服务商
+        if [ -n "$asn_num" ]; then
+            local asn_country=$(guess_asn_country "$asn_num")
+            if [ -n "$asn_country" ] && [ "$asn_country" != "未知" ]; then
+                reg_country="$asn_country"
                 IP_REGISTRATION_LOCATION=$(convert_country_code "$reg_country")
             fi
         fi
 
-        # 如果无法从ASN获取，使用备用方案
+        # 方法2：尝试从 BGPView API 获取（可能被限流）
+        if [ -z "$IP_REGISTRATION_LOCATION" ] && [ -n "$asn_num" ]; then
+            local asn_info=$(curl -s --max-time 3 "https://api.bgpview.io/asn/${asn_num}" 2>/dev/null)
+            reg_country=$(echo "$asn_info" | grep -oP '"country_code":"\K[^"]+' | head -1)
+
+            if [ -n "$reg_country" ]; then
+                IP_REGISTRATION_LOCATION=$(convert_country_code "$reg_country")
+            fi
+        fi
+
+        # 方法3：根据ISP/组织名称判断
         if [ -z "$IP_REGISTRATION_LOCATION" ]; then
-            local org=$(echo "$ip_detail" | grep -oP '"org":"\K[^"]+' | head -1)
-            # 根据ISP判断常见的国家
             IP_REGISTRATION_LOCATION=$(guess_isp_country "$org")
         fi
 
@@ -289,6 +297,37 @@ convert_country_code() {
     esac
 }
 
+# 根据ASN号码判断常见云服务商的注册国家
+guess_asn_country() {
+    local asn="$1"
+    case "$asn" in
+        # Amazon AWS
+        16509|14618|8987) echo "US" ;;
+        # Google Cloud
+        15169|19527|396982) echo "US" ;;
+        # Microsoft Azure
+        8075|8068) echo "US" ;;
+        # Cloudflare
+        13335) echo "US" ;;
+        # DigitalOcean
+        14061) echo "US" ;;
+        # Linode
+        63949) echo "US" ;;
+        # Vultr
+        20473) echo "US" ;;
+        # OVH
+        16276) echo "FR" ;;
+        # Hetzner
+        24940) echo "DE" ;;
+        # Alibaba Cloud
+        45102|37963) echo "CN" ;;
+        # Tencent Cloud
+        45090|132203) echo "CN" ;;
+        # 其他未知
+        *) echo "未知" ;;
+    esac
+}
+
 # 根据ISP名称推断国家（常见ISP）
 guess_isp_country() {
     local org="$1"
@@ -306,7 +345,8 @@ guess_isp_country() {
     elif [[ "$org_lower" == *"tencent"* ]]; then echo "中国"
     elif [[ "$org_lower" == *"ovh"* ]]; then echo "法国"
     elif [[ "$org_lower" == *"hetzner"* ]]; then echo "德国"
-    else echo "数据中心"
+    elif [[ "$org_lower" == *"netlab"* ]]; then echo "美国"
+    else echo "未知"
     fi
 }
 
@@ -342,7 +382,7 @@ print_enhanced_ip_info() {
     fi
 
     # 显示注册地（ISP/ASN注册信息）
-    if [ -n "$IP_REGISTRATION_LOCATION" ]; then
+    if [ -n "$IP_REGISTRATION_LOCATION" ] && [ "$IP_REGISTRATION_LOCATION" != "未知" ]; then
         echo -e "注册地: ${IP_REGISTRATION_LOCATION}"
     fi
 

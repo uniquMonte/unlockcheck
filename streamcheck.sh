@@ -99,8 +99,6 @@ check_dns_unlock() {
 
 # 获取 IP 信息（增强版）
 get_ip_info() {
-    log_info "正在获取 IP 信息..."
-
     # 尝试使用 ipapi.co
     local response=$(curl -s --max-time $TIMEOUT \
         -A "$USER_AGENT" \

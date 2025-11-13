@@ -86,8 +86,6 @@ class StreamChecker:
 
     def get_ip_info(self) -> Dict:
         """Get current IP information (enhanced: includes native IP detection, registration location, etc.)"""
-        self.log("Fetching IP information...", "info")
-
         try:
             # Try using ipapi.co to get detailed information
             response = self.session.get(

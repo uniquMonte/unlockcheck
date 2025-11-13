@@ -81,13 +81,25 @@ else
     echo "✗ Playwright 未安装，开始安装..."
     echo ""
 
-    $PIP_CMD install playwright --quiet --no-warn-script-location
+    # 尝试正常安装
+    $PIP_CMD install playwright --quiet --no-warn-script-location 2>/dev/null
 
     if [ $? -eq 0 ]; then
         echo "✓ Playwright 安装成功"
     else
-        echo "✗ Playwright 安装失败"
-        exit 1
+        # 如果失败，尝试使用 --break-system-packages（新版 Debian/Ubuntu）
+        echo "  ⚠ 正常安装失败，尝试使用系统包管理标志..."
+        $PIP_CMD install playwright --break-system-packages --quiet --no-warn-script-location
+
+        if [ $? -eq 0 ]; then
+            echo "✓ Playwright 安装成功"
+        else
+            echo "✗ Playwright 安装失败"
+            echo ""
+            echo "请尝试手动安装:"
+            echo "  $PIP_CMD install playwright --break-system-packages"
+            exit 1
+        fi
     fi
 fi
 

@@ -504,50 +504,68 @@ class UnlockChecker:
 
     def check_chatgpt(self) -> Tuple[str, str, str]:
         """
-        Check ChatGPT/OpenAI accessibility
+        Check ChatGPT/OpenAI accessibility using API endpoint
         Returns: (status, region, detail)
         """
         self.log("Checking ChatGPT/OpenAI...", "debug")
 
         try:
-            # Check OpenAI homepage
+            # Use API endpoint to avoid Cloudflare and SPA detection issues
             response = self.session.get(
-                "https://chat.openai.com/",
+                "https://api.openai.com/v1/models",
                 timeout=TIMEOUT,
-                allow_redirects=True,
                 headers={
-                    'Cache-Control': 'no-cache, no-store, must-revalidate',
-                    'Pragma': 'no-cache'
+                    'Content-Type': 'application/json'
                 }
             )
 
-            # Check for region restriction messages (actual error messages from OpenAI)
-            content_lower = response.text.lower()
+            # API responses:
+            # - 401: Missing API key (service available)
+            # - 403: Region restricted or access denied
+            # - 400: Bad request (service available)
 
-            # Priority: Check if it's Cloudflare verification page (anti-bot protection)
-            if "just a moment" in content_lower or "checking your browser" in content_lower or "cloudflare" in content_lower:
-                return "error", "N/A", "Cannot Detect (Cloudflare)"
-
-            # OpenAI/ChatGPT shows specific error messages when region is not supported
-            # Only check explicit region restriction messages to avoid false positives
-            if "not available in your country" in content_lower or "unavailable in your country" in content_lower:
-                return "failed", "N/A", "Not Available in This Region"
-
-            # Check for specific "not supported in country" messages
-            if ("chatgpt" in content_lower or "openai" in content_lower) and "not supported" in content_lower and "country" in content_lower:
-                return "failed", "N/A", "Not Available in This Region"
-
-            # Check if region restricted by HTTP status (403 but not Cloudflare)
-            if response.status_code == 403:
-                return "failed", "N/A", "Not Available in This Region"
-
-            # Check if accessible
-            if response.status_code == 200:
-                # ChatGPT is a SPA (Single Page Application), initial HTML may not contain keywords
-                # If status is 200 and no explicit error message, consider it accessible
+            if response.status_code == 401:
+                # Missing API key = service is accessible
                 return "success", self.ip_info.get('country_code', 'Unknown'), "Normal Access"
 
-            return "error", "N/A", "Inaccessible"
+            elif response.status_code == 403:
+                # Check if it's region restriction
+                try:
+                    error_data = response.json()
+
+                    # Check for explicit region restriction error codes
+                    if 'error' in error_data:
+                        error_info = error_data['error']
+                        error_code = error_info.get('code', '')
+                        error_msg = error_info.get('message', '').lower()
+
+                        # OpenAI explicit region restriction code
+                        if error_code == 'unsupported_country_region_territory':
+                            return "failed", "N/A", "Region Restricted"
+
+                        # Check message content for region keywords
+                        if any(keyword in error_msg for keyword in ['country', 'region', 'territory', 'location']):
+                            return "failed", "N/A", "Region Restricted"
+
+                    # Generic 403
+                    return "failed", "N/A", "Access Denied"
+
+                except:
+                    # Cannot parse JSON, check if it's Cloudflare
+                    if "cloudflare" in response.text.lower() or "attention required" in response.text.lower():
+                        return "error", "N/A", "Cannot Detect (Cloudflare)"
+                    return "failed", "N/A", "Region Restricted"
+
+            elif response.status_code == 400:
+                # Bad request = service is accessible
+                return "success", self.ip_info.get('country_code', 'Unknown'), "Normal Access"
+
+            elif response.status_code == 451:
+                # HTTP 451: Unavailable For Legal Reasons
+                return "failed", "N/A", "Region Restricted"
+
+            else:
+                return "error", "N/A", "Inaccessible"
 
         except requests.exceptions.Timeout:
             return "error", "N/A", "Timeout"
@@ -557,54 +575,62 @@ class UnlockChecker:
 
     def check_claude(self) -> Tuple[str, str, str]:
         """
-        Check Claude AI accessibility
+        Check Claude AI accessibility using API endpoint
         Returns: (status, region, detail)
         """
         self.log("Checking Claude AI...", "debug")
 
         try:
-            # Check Claude homepage
+            # Use API endpoint to avoid Cloudflare and SPA detection issues
             response = self.session.get(
-                "https://claude.ai/",
+                "https://api.anthropic.com/v1/messages",
                 timeout=TIMEOUT,
-                allow_redirects=True,
                 headers={
-                    'Cache-Control': 'no-cache, no-store, must-revalidate',
-                    'Pragma': 'no-cache'
+                    'Content-Type': 'application/json',
+                    'anthropic-version': '2023-06-01'
                 }
             )
 
-            # Check for region restriction messages (actual error messages from Claude)
-            content_lower = response.text.lower()
+            # API responses are more reliable:
+            # - 401: Missing API key (service available)
+            # - 403: Region restricted or other access denial
+            # - 400: Bad request (service available)
 
-            # Priority 1: Check Cloudflare verification page (must check before 403)
-            # Only if HTTP is 403/503 AND contains Cloudflare challenge
-            if response.status_code in [403, 503]:
-                if "just a moment" in content_lower or "checking your browser" in content_lower:
-                    return "error", "N/A", "Cannot Detect (Cloudflare)"
-                # If 403/503 but no Cloudflare pattern, likely region restriction
-                return "failed", "N/A", "Region Restricted"
-
-            # Priority 2: Check if HTTP 200 (successful response)
-            if response.status_code == 200:
-                # Claude is a SPA - the initial HTML contains all JS code including error messages
-                # We need to check if actual error is being displayed (not just in JS code)
-                # Look for visible error indicators in the rendered content
-
-                # Check for explicit error pages (displayed to user, not in JS code)
-                if "<title>claude - unavailable</title>" in content_lower:
-                    return "failed", "N/A", "Not Available in This Region"
-
-                # Check for Chinese error message (應用程式不可用/僅在特定地區提供服務)
-                # These are likely displayed errors, not JS code
-                if "應用程式不可用" in response.text or "僅在特定地區提供服務" in response.text:
-                    return "failed", "N/A", "Not Available in This Region"
-
-                # If HTTP 200 and no visible error indicators, consider accessible
-                # Note: SPA initial load always returns 200 with full JS bundle
+            if response.status_code == 401:
+                # Missing API key = service is accessible
                 return "success", self.ip_info.get('country_code', 'Unknown'), "Normal Access"
 
-            return "error", "N/A", "Inaccessible"
+            elif response.status_code == 403:
+                # Check if it's region restriction
+                try:
+                    error_data = response.json()
+                    error_msg = str(error_data).lower()
+
+                    # "Request not allowed" from Claude typically means region restriction
+                    if "request not allowed" in error_msg or "forbidden" in error_msg:
+                        return "failed", "N/A", "Region Restricted"
+
+                    # Explicit region/country restriction messages
+                    if any(keyword in error_msg for keyword in ["region", "country", "territory", "location"]):
+                        return "failed", "N/A", "Region Restricted"
+
+                    # Generic 403 without clear reason
+                    return "failed", "N/A", "Access Denied"
+
+                except:
+                    # Cannot parse JSON, assume region restriction on 403
+                    return "failed", "N/A", "Region Restricted"
+
+            elif response.status_code == 400:
+                # Bad request = service is accessible
+                return "success", self.ip_info.get('country_code', 'Unknown'), "Normal Access"
+
+            elif response.status_code == 451:
+                # HTTP 451: Unavailable For Legal Reasons
+                return "failed", "N/A", "Region Restricted"
+
+            else:
+                return "error", "N/A", "Inaccessible"
 
         except requests.exceptions.Timeout:
             return "error", "N/A", "Timeout"
@@ -770,63 +796,67 @@ class UnlockChecker:
 
     def check_gemini(self) -> Tuple[str, str, str]:
         """
-        Check Google Gemini AI accessibility
+        Check Google Gemini AI accessibility using API endpoint
         Returns: (status, region, detail)
         """
         self.log("Checking Google Gemini...", "debug")
 
         try:
-            # Check Gemini homepage
+            # Use API endpoint to get accurate regional availability
             response = self.session.get(
-                "https://gemini.google.com/",
+                "https://generativelanguage.googleapis.com/v1beta/models",
                 timeout=TIMEOUT,
-                allow_redirects=True
+                headers={
+                    'Content-Type': 'application/json'
+                }
             )
 
-            # Check for region restriction messages (actual error messages from Gemini)
-            content_lower = response.text.lower()
+            # API responses:
+            # - 401: Missing API key (service available)
+            # - 403 with PERMISSION_DENIED: Missing API key (service available)
+            # - 403 with region message: Region restricted
+            # - 400: Bad request (service available)
 
-            # Gemini shows specific error messages when region is not supported
-            # Examples: "Gemini isn't currently supported in your country"
-            #          "Gemini is currently not supported in your country"
-            # Check for the key phrase "supported in your country" (covers all variants)
-            if "supported in your country" in content_lower:
-                return "failed", "N/A", "Not Supported in This Region"
+            if response.status_code == 401:
+                # Missing API key = service is accessible
+                return "success", self.ip_info.get('country_code', 'Unknown'), "Normal Access"
 
-            # Check for other region restriction keywords
-            if "gemini" in content_lower and ("not available" in content_lower or "unavailable" in content_lower):
-                # Make sure it's about Gemini being unavailable
-                return "failed", "N/A", "Not Available"
+            elif response.status_code == 403:
+                # Need to differentiate between API key missing and region block
+                try:
+                    error_data = response.json()
 
-            # Check if region restricted by HTTP status
-            if response.status_code == 403:
+                    if 'error' in error_data:
+                        error_info = error_data['error']
+                        error_status = error_info.get('status', '')
+                        error_msg = error_info.get('message', '').lower()
+
+                        # PERMISSION_DENIED with "API Key" or "unregistered callers" = service available
+                        if error_status == 'PERMISSION_DENIED':
+                            if 'api key' in error_msg or 'unregistered callers' in error_msg or 'established identity' in error_msg:
+                                return "success", self.ip_info.get('country_code', 'Unknown'), "Normal Access"
+
+                        # Check for explicit region restriction
+                        if any(keyword in error_msg for keyword in ['country', 'region', 'territory', 'location', 'not available', 'not supported']):
+                            return "failed", "N/A", "Region Restricted"
+
+                    # Generic 403
+                    return "failed", "N/A", "Access Denied"
+
+                except:
+                    # Cannot parse JSON
+                    return "failed", "N/A", "Region Restricted"
+
+            elif response.status_code == 400:
+                # Bad request = service is accessible
+                return "success", self.ip_info.get('country_code', 'Unknown'), "Normal Access"
+
+            elif response.status_code == 451:
+                # HTTP 451: Unavailable For Legal Reasons
                 return "failed", "N/A", "Region Restricted"
 
-            # Check if redirected to error page
-            if "error" in response.url.lower() or "/sorry/" in response.url:
-                return "failed", "N/A", "Not Available"
-
-            # Check if Gemini is accessible
-            if response.status_code == 200:
-                # Additional verification: check if it's the actual Gemini app
-                # Need stricter checks - look for actual app elements, not just keywords
-                # Check for sign-in/app interface elements that indicate actual access
-                has_app_interface = (
-                    "sign in" in content_lower or
-                    "get started" in content_lower or
-                    "continue with google" in content_lower or
-                    "bard" in content_lower or  # Gemini's previous name, may still appear
-                    "chat with gemini" in content_lower
-                )
-
-                # If page has Gemini+Google but no actual app interface, it's likely an error page
-                if has_app_interface:
-                    return "success", self.ip_info.get('country_code', 'Unknown'), "Normal Access"
-                else:
-                    # 200 but doesn't have app interface - likely a region block error page
-                    return "failed", "N/A", "Not Supported in This Region"
-
-            return "error", "N/A", "Inaccessible"
+            else:
+                return "error", "N/A", "Inaccessible"
 
         except requests.exceptions.Timeout:
             return "error", "N/A", "Timeout"

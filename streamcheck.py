@@ -998,13 +998,13 @@ class StreamChecker:
         max_detail_width = max(self.get_display_width(detail) for _, _, _, detail in results)
 
         # Print table header
-        print(f"\n{Fore.CYAN}{'─'*60}{Style.RESET_ALL}")
+        print(f"\n{Fore.CYAN}{'─'*80}{Style.RESET_ALL}")
         header_service = f"{'服务名称':<{max_service_width}}"
         header_status = self.pad_to_width("解锁状态", max_detail_width)
-        header_type = "解锁类型"
+        header_type = self.pad_to_width("解锁类型", 8)
         header_region = "解锁区域"
-        print(f"    {header_service}  {header_status}   {header_type}  {header_region}")
-        print(f"{Fore.CYAN}{'─'*60}{Style.RESET_ALL}")
+        print(f"    {header_service}: {header_status} : {header_type}: {header_region}")
+        print(f"{Fore.CYAN}{'─'*80}{Style.RESET_ALL}")
 
         # Print all results with aligned columns
         for service_name, status, region, detail in results:

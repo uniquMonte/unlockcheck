@@ -23,6 +23,9 @@ COUNTRY_CODE=""
 CURRENT_IP=""
 IP_TYPE="未知"
 IP_ISP=""
+IP_ASN=""
+IP_USAGE_LOCATION=""
+IP_REGISTRATION_LOCATION=""
 
 # 打印头部
 print_header() {
@@ -162,12 +165,34 @@ get_ip_info() {
 detect_ip_type() {
     # 通过 ip-api.com 获取更详细的IP信息
     local ip_detail=$(curl -s --max-time $TIMEOUT \
-        "http://ip-api.com/json/${CURRENT_IP}?fields=hosting,proxy,mobile" 2>/dev/null)
+        "http://ip-api.com/json/${CURRENT_IP}?fields=hosting,proxy,mobile,country,countryCode,regionName,city,isp,org,as" 2>/dev/null)
 
     if [ $? -eq 0 ] && [ -n "$ip_detail" ]; then
         local is_hosting=$(echo "$ip_detail" | grep -oP '"hosting":\K(true|false)' | head -1)
         local is_proxy=$(echo "$ip_detail" | grep -oP '"proxy":\K(true|false)' | head -1)
         local is_mobile=$(echo "$ip_detail" | grep -oP '"mobile":\K(true|false)' | head -1)
+
+        # 获取ASN信息（包含注册地信息）
+        IP_ASN=$(echo "$ip_detail" | grep -oP '"as":"\K[^"]+' | head -1)
+
+        # 使用地：IP的实际地理位置
+        local country=$(echo "$ip_detail" | grep -oP '"country":"\K[^"]+' | head -1)
+        local region=$(echo "$ip_detail" | grep -oP '"regionName":"\K[^"]+' | head -1)
+        local city=$(echo "$ip_detail" | grep -oP '"city":"\K[^"]+' | head -1)
+        IP_USAGE_LOCATION="$country $region $city"
+
+        # 注册地：从ISP/组织信息推断
+        local org=$(echo "$ip_detail" | grep -oP '"org":"\K[^"]+' | head -1)
+        if [ -n "$org" ]; then
+            # 对于数据中心IP，注册地通常是ISP的注册国家
+            # 从ASN信息中提取国家代码或公司信息
+            if [[ "$IP_ASN" =~ ([A-Z]{2})[[:space:]] ]]; then
+                IP_REGISTRATION_LOCATION="${BASH_REMATCH[1]}"
+            else
+                # 从组织名称推断（这是近似值）
+                IP_REGISTRATION_LOCATION="$org"
+            fi
+        fi
 
         if [ "$is_hosting" = "true" ] || [ "$is_proxy" = "true" ]; then
             IP_TYPE="广播IP/数据中心"
@@ -205,8 +230,25 @@ print_enhanced_ip_info() {
     esac
     echo -e "IP 类型: ${type_color}${IP_TYPE}${NC}"
 
-    echo -e "当前位置: ${IP_INFO}"
+    # 显示使用地（IP的地理位置）
+    if [ -n "$IP_USAGE_LOCATION" ] && [ "$IP_USAGE_LOCATION" != "  " ]; then
+        echo -e "使用地: ${IP_USAGE_LOCATION}"
+    else
+        echo -e "使用地: ${IP_INFO}"
+    fi
+
+    # 显示注册地（ISP/ASN注册信息）
+    if [ -n "$IP_REGISTRATION_LOCATION" ]; then
+        echo -e "注册地: ${IP_REGISTRATION_LOCATION}"
+    fi
+
     echo -e "ISP: ${IP_ISP}"
+
+    # 显示ASN信息
+    if [ -n "$IP_ASN" ]; then
+        echo -e "ASN: ${IP_ASN}"
+    fi
+
     echo ""
 }
 
@@ -375,18 +417,36 @@ check_tiktok() {
 
 # 检测 Imgur
 check_imgur() {
-    local status_code=$(curl -s -o /dev/null -w "%{http_code}" \
-        --max-time $TIMEOUT \
+    # 检测Imgur，使用更宽容的超时和重试
+    local response=$(curl -s --max-time $TIMEOUT \
         -A "$USER_AGENT" \
         -L \
+        -w "\n%{http_code}" \
         "https://imgur.com/" 2>/dev/null)
 
+    local status_code=$(echo "$response" | tail -n 1)
+    local region="${COUNTRY_CODE:-Unknown}"
+
+    # 检查curl是否成功执行
+    if [ -z "$status_code" ]; then
+        # 尝试备用URL
+        status_code=$(curl -s -o /dev/null -w "%{http_code}" \
+            --max-time $TIMEOUT \
+            -A "$USER_AGENT" \
+            "https://i.imgur.com/" 2>/dev/null)
+    fi
+
     if [ "$status_code" = "200" ]; then
-        format_result "Imgur" "success" "$COUNTRY_CODE" "可访问"
+        format_result "Imgur" "success" "$region" "可访问"
     elif [ "$status_code" = "403" ] || [ "$status_code" = "451" ]; then
         format_result "Imgur" "failed" "N/A" "区域受限"
+    elif [ "$status_code" = "301" ] || [ "$status_code" = "302" ]; then
+        # 重定向通常表示可以访问
+        format_result "Imgur" "success" "$region" "可访问"
+    elif [ -z "$status_code" ] || [ "$status_code" = "000" ]; then
+        format_result "Imgur" "error" "N/A" "连接超时"
     else
-        format_result "Imgur" "error" "N/A" "检测失败"
+        format_result "Imgur" "error" "N/A" "检测失败(${status_code})"
     fi
 }
 

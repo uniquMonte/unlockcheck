@@ -193,6 +193,19 @@ class StreamChecker:
                 # 实际使用地（从IP地理位置获取）
                 self.ip_info['usage_location'] = f"{data.get('country', 'N/A')} {data.get('regionName', '')} {data.get('city', '')}"
 
+                # 注册地：从ISP/组织信息推断
+                org = data.get('org', '')
+                if org:
+                    # 对于数据中心IP，注册地通常是ISP的注册国家
+                    import re
+                    # 从ASN信息中提取可能的国家代码
+                    as_info = data.get('as', '')
+                    country_match = re.search(r'\b([A-Z]{2})\b', as_info)
+                    if country_match:
+                        self.ip_info['registration_location'] = country_match.group(1)
+                    else:
+                        self.ip_info['registration_location'] = org
+
         except Exception as e:
             self.log(f"检测IP类型失败: {e}", "debug")
             # 如果检测失败，使用默认值
@@ -222,15 +235,21 @@ class StreamChecker:
 
         print(f"IP 类型: {type_color}{ip_type}{Style.RESET_ALL}")
 
-        # 位置信息
-        location = f"{self.ip_info.get('country', 'N/A')} {self.ip_info.get('region', 'N/A')} {self.ip_info.get('city', 'N/A')}"
-        print(f"当前位置: {location}")
+        # 使用地（IP的实际地理位置）
+        if 'usage_location' in self.ip_info and self.ip_info.get('usage_location', '').strip():
+            usage_loc = self.ip_info.get('usage_location', '').strip()
+            if usage_loc != 'N/A' and usage_loc:
+                print(f"使用地: {usage_loc}")
+        else:
+            # 如果没有usage_location，使用基本位置信息
+            location = f"{self.ip_info.get('country', 'N/A')} {self.ip_info.get('region', '')} {self.ip_info.get('city', '')}"
+            print(f"使用地: {location.strip()}")
 
-        # 如果有使用地信息（从ip-api获取）
-        if 'usage_location' in self.ip_info:
-            usage_loc = self.ip_info.get('usage_location', '')
-            if usage_loc.strip() and usage_loc.strip() != 'N/A':
-                print(f"使用地: {usage_loc.strip()}")
+        # 注册地（从ISP/ASN推断）
+        if 'registration_location' in self.ip_info:
+            reg_loc = self.ip_info.get('registration_location', '')
+            if reg_loc:
+                print(f"注册地: {reg_loc}")
 
         # ISP信息
         print(f"ISP: {self.ip_info.get('isp', 'N/A')}")
@@ -471,7 +490,7 @@ class StreamChecker:
         self.log("检测 Imgur...", "debug")
 
         try:
-            # 检测 Imgur 主页
+            # 检测 Imgur 主页，增加重试逻辑
             response = self.session.get(
                 "https://imgur.com/",
                 timeout=TIMEOUT,
@@ -485,13 +504,28 @@ class StreamChecker:
             if "not available" in response.text.lower() or "blocked" in response.text.lower():
                 return "failed", "N/A", "不可用"
 
-            if response.status_code == 200:
+            # 200或重定向都算成功
+            if response.status_code == 200 or (300 <= response.status_code < 400):
                 return "success", self.ip_info.get('country_code', 'Unknown'), "可访问"
 
-            return "error", "N/A", "无法访问"
+            # 如果主域名失败，尝试图片域名
+            try:
+                alt_response = self.session.get(
+                    "https://i.imgur.com/",
+                    timeout=TIMEOUT,
+                    allow_redirects=True
+                )
+                if alt_response.status_code == 200:
+                    return "success", self.ip_info.get('country_code', 'Unknown'), "可访问"
+            except:
+                pass
+
+            return "error", "N/A", f"无法访问({response.status_code})"
 
         except requests.exceptions.Timeout:
-            return "error", "N/A", "超时"
+            return "error", "N/A", "连接超时"
+        except requests.exceptions.ConnectionError:
+            return "error", "N/A", "连接失败"
         except Exception as e:
             self.log(f"Imgur 检测异常: {e}", "debug")
             return "error", "N/A", "检测失败"

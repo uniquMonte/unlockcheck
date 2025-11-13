@@ -950,22 +950,36 @@ check_claude() {
 
 # 检测 TikTok
 check_tiktok() {
+    # 参考 IPQuality 项目的实现
+    # 第一次请求：尝试获取内容
     local response=$(curl -s --max-time $TIMEOUT \
-        -w "\n%{http_code}" \
         -A "$USER_AGENT" \
         -L \
         "https://www.tiktok.com/" 2>/dev/null)
 
-    local status_code=$(echo "$response" | tail -n 1)
-    local content=$(echo "$response" | head -n -1)
-
-    if [ -z "$status_code" ]; then
+    # 检查响应是否为空
+    if [ -z "$response" ]; then
         format_result "TikTok" "error" "N/A" "网络错误"
         return
     fi
 
-    # 转换为小写
-    local content_lower=$(echo "$content" | tr '[:upper:]' '[:lower:]')
+    # 尝试从响应中提取 region 字段
+    local region=$(echo "$response" | grep -oP '"region"\s*:\s*"\K[^"]+' | head -n1)
+
+    # 如果第一次没有提取到，尝试使用 gzip 压缩请求
+    if [ -z "$region" ]; then
+        response=$(curl -s --max-time $TIMEOUT \
+            -A "$USER_AGENT" \
+            -H "Accept-Encoding: gzip" \
+            --compressed \
+            -L \
+            "https://www.tiktok.com/" 2>/dev/null)
+
+        region=$(echo "$response" | grep -oP '"region"\s*:\s*"\K[^"]+' | head -n1)
+    fi
+
+    # 转换为小写用于检查错误信息
+    local content_lower=$(echo "$response" | tr '[:upper:]' '[:lower:]')
 
     # 检查是否是反爬虫机制（Access Denied）
     if echo "$content_lower" | grep -q "access denied"; then
@@ -981,25 +995,20 @@ check_tiktok() {
     fi
 
     # 检查明确的地区限制信息
-    if echo "$content_lower" | grep -q "not available in your region\|not available in your country"; then
+    if echo "$content_lower" | grep -q "not available in your region\|not available in your country\|region unavailable"; then
         format_result "TikTok" "failed" "N/A" "区域受限"
         return
     fi
 
-    # 检查 451 状态码（法律原因不可用）
-    if [ "$status_code" = "451" ]; then
-        format_result "TikTok" "failed" "N/A" "区域受限"
+    # 如果成功提取到 region，说明可以访问
+    if [ -n "$region" ] && [ "$region" != "null" ]; then
+        format_result "TikTok" "success" "$region" "完全解锁"
         return
     fi
 
-    # 检查是否成功访问
-    if [ "$status_code" = "200" ] || [ "$status_code" = "301" ] || [ "$status_code" = "302" ]; then
-        # 检查是否包含 TikTok 内容
-        if echo "$content_lower" | grep -q "tiktok" || [ ${#content} -gt 1000 ]; then
-            format_result "TikTok" "success" "$COUNTRY_CODE" "完全解锁"
-        else
-            format_result "TikTok" "error" "N/A" "检测失败"
-        fi
+    # 检查是否包含 TikTok 内容作为备选判断
+    if echo "$content_lower" | grep -q "tiktok" || [ ${#response} -gt 1000 ]; then
+        format_result "TikTok" "success" "$COUNTRY_CODE" "完全解锁"
     else
         format_result "TikTok" "error" "N/A" "检测失败"
     fi

@@ -871,24 +871,40 @@ class UnlockChecker:
 
     def check_tiktok(self) -> Tuple[str, str, str]:
         """
-        Check TikTok region restrictions
+        Check TikTok region restrictions using IPQuality approach
         Returns: (status, region, detail)
         """
         self.log("Checking TikTok...", "debug")
 
         try:
-            # Check TikTok homepage
+            # First attempt: Get TikTok homepage
             response = self.session.get(
                 "https://www.tiktok.com/",
                 timeout=TIMEOUT,
                 allow_redirects=True
             )
 
-            content_lower = response.text.lower()
-
             # Check if response is empty
             if not response.text:
                 return "error", "N/A", "Network Error"
+
+            # Try to extract region from response (IPQuality method)
+            import re
+            region_match = re.search(r'"region"\s*:\s*"([^"]+)"', response.text)
+            region = region_match.group(1) if region_match else None
+
+            # If no region found, try with gzip compression
+            if not region:
+                response = self.session.get(
+                    "https://www.tiktok.com/",
+                    headers={"Accept-Encoding": "gzip"},
+                    timeout=TIMEOUT,
+                    allow_redirects=True
+                )
+                region_match = re.search(r'"region"\s*:\s*"([^"]+)"', response.text)
+                region = region_match.group(1) if region_match else None
+
+            content_lower = response.text.lower()
 
             # Check for anti-bot mechanism (Access Denied)
             if "access denied" in content_lower:
@@ -903,23 +919,20 @@ class UnlockChecker:
 
             # Check for explicit region restriction messages
             if "not available in your region" in content_lower or \
-               "not available in your country" in content_lower:
+               "not available in your country" in content_lower or \
+               "region unavailable" in content_lower:
                 return "failed", "N/A", "Region Restricted"
 
-            # Check 451 status code (legal restriction)
-            if response.status_code == 451:
-                return "failed", "N/A", "Region Restricted"
+            # If region was successfully extracted, TikTok is available
+            if region and region != "null":
+                return "success", region, "Full Access"
 
-            # Check if TikTok is available (more lenient check)
-            if response.status_code in [200, 301, 302]:
-                # Check for TikTok content or sufficient response size
-                if "tiktok" in content_lower or len(response.text) > 1000:
-                    region = self.ip_info.get('country_code', 'Unknown')
-                    return "success", region, "Full Access"
-                else:
-                    return "error", "N/A", "Detection Failed"
-
-            return "error", "N/A", "Detection Failed"
+            # Fallback: Check if TikTok content is present
+            if "tiktok" in content_lower or len(response.text) > 1000:
+                region = self.ip_info.get('country_code', 'Unknown')
+                return "success", region, "Full Access"
+            else:
+                return "error", "N/A", "Detection Failed"
 
         except requests.exceptions.Timeout:
             return "error", "N/A", "Timeout"

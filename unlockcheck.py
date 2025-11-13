@@ -524,6 +524,10 @@ class UnlockChecker:
             # Check for region restriction messages (actual error messages from OpenAI)
             content_lower = response.text.lower()
 
+            # Priority: Check if it's Cloudflare verification page (anti-bot protection)
+            if "just a moment" in content_lower or "checking your browser" in content_lower or "cloudflare" in content_lower:
+                return "error", "N/A", "Cannot Detect (Cloudflare)"
+
             # OpenAI/ChatGPT shows specific error messages when region is not supported
             # Only check explicit region restriction messages to avoid false positives
             if "not available in your country" in content_lower or "unavailable in your country" in content_lower:
@@ -533,7 +537,7 @@ class UnlockChecker:
             if ("chatgpt" in content_lower or "openai" in content_lower) and "not supported" in content_lower and "country" in content_lower:
                 return "failed", "N/A", "Not Available in This Region"
 
-            # Check if region restricted by HTTP status (403 usually means blocked)
+            # Check if region restricted by HTTP status (403 but not Cloudflare)
             if response.status_code == 403:
                 return "failed", "N/A", "Not Available in This Region"
 
@@ -573,6 +577,10 @@ class UnlockChecker:
             # Check for region restriction messages (actual error messages from Claude)
             content_lower = response.text.lower()
 
+            # Priority: Check if it's Cloudflare verification page (anti-bot protection)
+            if "just a moment" in content_lower or "checking your browser" in content_lower or "cloudflare" in content_lower:
+                return "error", "N/A", "Cannot Detect (Cloudflare)"
+
             # Claude shows specific error messages when region is not supported
             if "only available in certain regions" in content_lower:
                 return "failed", "N/A", "Not Available in This Region"
@@ -585,7 +593,7 @@ class UnlockChecker:
             if "not available in your region" in content_lower or "not available in your country" in content_lower or "unavailable in your region" in content_lower:
                 return "failed", "N/A", "Not Available in This Region"
 
-            # Check if region restricted by HTTP status
+            # Check if region restricted by HTTP status (403 but not Cloudflare)
             if response.status_code == 403:
                 return "failed", "N/A", "Region Restricted"
 

@@ -622,13 +622,16 @@ check_chatgpt() {
     local content=$(echo "$response" | head -n -1)
 
     # 检查 OpenAI/ChatGPT 实际返回的区域限制消息
-    # 只在有明确错误消息时才判定为不可用，避免误判SPA应用
-    if echo "$content" | grep -qi "not available in your country\|unavailable in your country"; then
+    # 优先检查是否是Cloudflare验证页面（常见于反爬虫保护）
+    if echo "$content" | grep -qi "just a moment\|checking your browser\|cloudflare"; then
+        format_result "ChatGPT" "error" "N/A" "无法检测 (Cloudflare)"
+    # 检查明确的地区限制消息
+    elif echo "$content" | grep -qi "not available in your country\|unavailable in your country"; then
         format_result "ChatGPT" "failed" "N/A" "该地区不支持"
     elif echo "$content" | grep -qi "chatgpt.*not supported in.*country\|openai.*not supported"; then
         format_result "ChatGPT" "failed" "N/A" "该地区不支持"
     elif [ "$status_code" = "403" ]; then
-        # 403 通常是IP被拦截
+        # 403但不是Cloudflare页面，可能是真正的地区限制
         format_result "ChatGPT" "failed" "N/A" "该地区不支持"
     elif [ "$status_code" = "200" ]; then
         # ChatGPT是单页应用(SPA)，初始HTML可能不包含关键词
@@ -654,8 +657,11 @@ check_claude() {
     local content=$(echo "$response" | head -n -1)
 
     # 检查 Claude 实际返回的区域限制消息
-    # 只在有明确错误消息时才判定为不可用，避免误判SPA应用
-    if echo "$content" | grep -qi "only available in certain regions"; then
+    # 优先检查是否是Cloudflare验证页面（常见于反爬虫保护）
+    if echo "$content" | grep -qi "just a moment\|checking your browser\|cloudflare"; then
+        format_result "Claude" "error" "N/A" "无法检测 (Cloudflare)"
+    # 检查明确的地区限制消息
+    elif echo "$content" | grep -qi "only available in certain regions"; then
         format_result "Claude" "failed" "N/A" "该地区不支持"
     # 检查中文错误消息（應用程式不可用/僅在特定地區提供服務）
     elif echo "$content" | grep -q "應用程式不可用\|僅在特定地區提供服務"; then
@@ -664,7 +670,7 @@ check_claude() {
     elif echo "$content" | grep -qi "not available in your region\|not available in your country\|unavailable in your region"; then
         format_result "Claude" "failed" "N/A" "该地区不支持"
     elif [ "$status_code" = "403" ]; then
-        # 403 通常是IP被拦截
+        # 403但不是Cloudflare页面，可能是真正的地区限制
         format_result "Claude" "failed" "N/A" "该地区不支持"
     elif [ "$status_code" = "200" ]; then
         # Claude是单页应用(SPA)，初始HTML可能不包含关键词

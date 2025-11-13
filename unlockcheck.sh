@@ -1091,7 +1091,7 @@ run_all_checks() {
     [ -z "$FAST_MODE" ] && sleep 0.5
     check_imgur
 
-    echo -e "\n"
+    echo ""
     print_separator
     echo -e "检测完成!\n"
 }

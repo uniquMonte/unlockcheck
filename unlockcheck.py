@@ -1309,7 +1309,6 @@ class UnlockChecker:
         success_count = sum(1 for _, status, _, _ in results if status == "success")
         total_count = len(results)
 
-        print()
         print_separator()
         print(f"Detection Complete! {Fore.GREEN}{success_count}/{total_count}{Style.RESET_ALL} services available\n")
 

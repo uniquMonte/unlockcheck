@@ -789,14 +789,15 @@ class UnlockChecker:
         web_result = None
         has_cloudflare = False
 
-        # Step 1: Check API endpoint
+        # Step 1: Check API endpoint (must use POST method)
         try:
-            api_response = self.session.get(
+            api_response = self.session.post(
                 "https://api.anthropic.com/v1/messages",
                 timeout=TIMEOUT,
                 headers={
                     'Content-Type': 'application/json',
-                    'anthropic-version': '2023-06-01'
+                    'anthropic-version': '2023-06-01',
+                    'x-api-key': 'invalid'
                 }
             )
 

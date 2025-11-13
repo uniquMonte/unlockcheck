@@ -880,10 +880,12 @@ check_claude() {
     local web_result=""
     local has_cloudflare=false
 
-    # Step 1: Check API endpoint
+    # Step 1: Check API endpoint (must use POST method)
     local api_response=$(curl -s --max-time $TIMEOUT \
+        -X POST \
         -H "Content-Type: application/json" \
         -H "anthropic-version: 2023-06-01" \
+        -H "x-api-key: invalid" \
         -w "\n%{http_code}" \
         "https://api.anthropic.com/v1/messages" 2>/dev/null)
 

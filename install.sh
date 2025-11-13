@@ -1,8 +1,8 @@
 #!/bin/bash
 #
-# StreamCheck 一键安装脚本
+# UnlockCheck 一键安装脚本
 # 用法:
-#   bash <(curl -Ls https://raw.githubusercontent.com/uniquMonte/streamcheck/main/install.sh)
+#   bash <(curl -Ls https://raw.githubusercontent.com/uniquMonte/unlockcheck/main/install.sh)
 #
 # 使用特定分支:
 #   BRANCH=main bash <(curl -Ls https://raw.githubusercontent.com/.../install.sh)
@@ -18,10 +18,10 @@ CYAN='\033[0;36m'
 NC='\033[0m'
 
 # 配置：可通过环境变量覆盖
-GITHUB_REPO="${GITHUB_REPO:-uniquMonte/streamcheck}"
+GITHUB_REPO="${GITHUB_REPO:-uniquMonte/unlockcheck}"
 BRANCH="${BRANCH:-main}"
-SCRIPT_NAME="streamcheck.sh"
-TEMP_DIR="/tmp/streamcheck_$$"
+SCRIPT_NAME="unlockcheck.sh"
+TEMP_DIR="/tmp/unlockcheck_$$"
 
 # 构建脚本URL
 SCRIPT_URL="https://raw.githubusercontent.com/${GITHUB_REPO}/${BRANCH}/${SCRIPT_NAME}"
@@ -71,7 +71,7 @@ check_dependencies() {
 
 # 下载脚本
 download_script() {
-    print_info "正在下载 StreamCheck 脚本..."
+    print_info "正在下载 UnlockCheck 脚本..."
     print_info "仓库: ${GITHUB_REPO}"
     print_info "分支: ${BRANCH}"
 
@@ -92,7 +92,7 @@ download_script() {
             echo "  2. 文件路径不正确"
             echo ""
             echo "请尝试使用开发分支:"
-            echo "  BRANCH=claude/streaming-unlock-detector-011CV57GxrMmMPUDAAu5JKt6 bash <(curl -Ls ...)"
+            echo "  BRANCH=claude/ip-geolocation-check-011CV5N8uHpGcyDHU2hDWRYa bash <(curl -Ls ...)"
             rm -f "$TEMP_DIR/$SCRIPT_NAME"
             exit 1
         fi
@@ -114,7 +114,7 @@ download_script() {
 
 # 运行检测
 run_check() {
-    print_info "开始流媒体解锁检测...\n"
+    print_info "开始服务解锁检测...\n"
 
     # 执行脚本
     cd "$TEMP_DIR"
@@ -137,7 +137,7 @@ show_install_option() {
 # 安装到系统
 install_to_system() {
     local install_dir="$HOME/.local/bin"
-    local install_path="$install_dir/streamcheck"
+    local install_path="$install_dir/unlockcheck"
 
     # 创建目录
     mkdir -p "$install_dir"
@@ -156,14 +156,14 @@ install_to_system() {
         echo "然后运行: source ~/.bashrc (或 source ~/.zshrc)"
     fi
 
-    print_success "安装完成！现在可以运行: streamcheck"
+    print_success "安装完成！现在可以运行: unlockcheck"
 }
 
 # 主函数
 main() {
     echo -e "${CYAN}"
     echo "╔════════════════════════════════════════════════════════════╗"
-    echo "║         StreamCheck - 流媒体解锁检测工具                   ║"
+    echo "║         UnlockCheck - 服务解锁检测工具                     ║"
     echo "║              一键安装脚本                                   ║"
     echo "╚════════════════════════════════════════════════════════════╝"
     echo -e "${NC}"

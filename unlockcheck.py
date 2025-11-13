@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-StreamCheck - Media Unlock Detection Tool
-One-click detection of media platform unlock status for your network environment
+UnlockCheck - Service Unlock Detection Tool
+One-click detection of streaming media and AI services unlock status for your network environment
 """
 
 import requests
@@ -23,8 +23,8 @@ TIMEOUT = 10
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
 
-class StreamChecker:
-    """Main stream checker class"""
+class UnlockChecker:
+    """Main unlock checker class for streaming media and AI services"""
 
     def __init__(self, verbose=False, ipv6=False):
         self.verbose = verbose
@@ -81,7 +81,7 @@ class StreamChecker:
     def print_header(self):
         """Print program header"""
         print(f"\n{Fore.CYAN}{'='*60}")
-        print(f"{' '*10}StreamCheck - Media Unlock Detection Tool v{VERSION}")
+        print(f"{' '*10}UnlockCheck - Service Unlock Detection Tool v{VERSION}")
         print(f"{'='*60}{Style.RESET_ALL}\n")
 
     def get_ip_info(self) -> Dict:
@@ -917,7 +917,7 @@ class StreamChecker:
     def get_display_width(text: str) -> int:
         """Calculate display width of text (CJK chars count as 2, ASCII as 1), excluding ANSI codes"""
         # Remove ANSI color codes first
-        clean_text = StreamChecker.strip_ansi_codes(text)
+        clean_text = UnlockChecker.strip_ansi_codes(text)
         width = 0
         for char in clean_text:
             # CJK characters and other wide characters
@@ -930,7 +930,7 @@ class StreamChecker:
     @staticmethod
     def pad_to_width(text: str, target_width: int) -> str:
         """Pad text to target display width (handles ANSI color codes)"""
-        current_width = StreamChecker.get_display_width(text)
+        current_width = UnlockChecker.get_display_width(text)
         if current_width < target_width:
             return text + ' ' * (target_width - current_width)
         return text
@@ -995,7 +995,7 @@ class StreamChecker:
         self.print_ip_info()
 
         # Display detection start
-        print(f"{Fore.YELLOW}📺 Streaming Media Detection Results{Style.RESET_ALL}")
+        print(f"{Fore.YELLOW}📺 Service Unlock Detection Results{Style.RESET_ALL}")
         print(f"{Fore.CYAN}{'─'*60}{Style.RESET_ALL}")
 
         # Check each service
@@ -1044,7 +1044,7 @@ class StreamChecker:
 def main():
     """Main function"""
     parser = argparse.ArgumentParser(
-        description='StreamCheck - Media Unlock Detection Tool'
+        description='UnlockCheck - Service Unlock Detection Tool'
     )
     parser.add_argument(
         '--verbose', '-v',
@@ -1066,7 +1066,7 @@ def main():
     args = parser.parse_args()
 
     # Create checker instance
-    checker = StreamChecker(verbose=args.verbose, ipv6=args.ipv6)
+    checker = UnlockChecker(verbose=args.verbose, ipv6=args.ipv6)
 
     try:
         if args.service:

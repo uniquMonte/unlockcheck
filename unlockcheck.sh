@@ -1,7 +1,7 @@
 #!/bin/bash
 #
-# StreamCheck - 流媒体解锁检测工具 (Bash 版本)
-# 一键检测当前网络环境的流媒体解锁情况
+# UnlockCheck - 服务解锁检测工具 (Bash 版本)
+# 一键检测当前网络环境的流媒体和AI服务解锁情况
 #
 
 VERSION="1.3"
@@ -30,7 +30,7 @@ IP_REGISTRATION_LOCATION=""
 # 打印头部
 print_header() {
     echo -e "\n${CYAN}============================================================"
-    echo -e "       StreamCheck - 流媒体解锁检测工具 v${VERSION}"
+    echo -e "       UnlockCheck - 服务解锁检测工具 v${VERSION}"
     echo -e "============================================================${NC}\n"
 }
 
@@ -840,7 +840,7 @@ check_scholar() {
 
 # 运行所有检测
 run_all_checks() {
-    echo -e "${YELLOW}📺 流媒体解锁检测结果${NC}"
+    echo -e "${YELLOW}📺 服务解锁检测结果${NC}"
     echo -e "${CYAN}────────────────────────────────────────────────────────────${NC}"
     # Generate table header with fixed display widths (all using pad_to_width)
     local header_service=$(pad_to_width "服务名称" 16)
@@ -921,7 +921,7 @@ main() {
                 exit 0
                 ;;
             --version|-v)
-                echo "StreamCheck v${VERSION}"
+                echo "UnlockCheck v${VERSION}"
                 exit 0
                 ;;
             *)

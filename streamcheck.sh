@@ -4,7 +4,7 @@
 # 一键检测当前网络环境对各大流媒体平台的解锁情况
 #
 
-VERSION="1.1"
+VERSION="1.2"
 TIMEOUT=10
 USER_AGENT="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
@@ -21,6 +21,8 @@ NC='\033[0m' # No Color
 IP_INFO=""
 COUNTRY_CODE=""
 CURRENT_IP=""
+IP_TYPE="未知"
+IP_ISP=""
 
 # 打印头部
 print_header() {
@@ -54,7 +56,7 @@ check_dependencies() {
     fi
 }
 
-# 获取 IP 信息
+# 获取 IP 信息（增强版）
 get_ip_info() {
     log_info "正在获取 IP 信息..."
 
@@ -72,13 +74,13 @@ get_ip_info() {
         local isp=$(echo "$response" | grep -oP '"org":"\K[^"]+' | head -1)
 
         IP_INFO="$country $region $city"
+        IP_ISP="$isp"
+
+        # 检测IP类型
+        detect_ip_type
 
         # 打印 IP 信息
-        echo -e "\n${YELLOW}🌍 当前 IP 信息${NC}"
-        echo -e "${CYAN}────────────────────────────────────────────────────────────${NC}"
-        echo -e "IP 地址: ${GREEN}${CURRENT_IP}${NC}"
-        echo -e "位置: ${IP_INFO}"
-        echo -e "ISP: ${isp}\n"
+        print_enhanced_ip_info
         return 0
     fi
 
@@ -95,17 +97,70 @@ get_ip_info() {
         local isp=$(echo "$response" | grep -oP '"org":"\K[^"]+' | head -1)
 
         IP_INFO="$region $city"
+        IP_ISP="$isp"
 
-        echo -e "\n${YELLOW}🌍 当前 IP 信息${NC}"
-        echo -e "${CYAN}────────────────────────────────────────────────────────────${NC}"
-        echo -e "IP 地址: ${GREEN}${CURRENT_IP}${NC}"
-        echo -e "位置: ${IP_INFO}"
-        echo -e "ISP: ${isp}\n"
+        # 检测IP类型
+        detect_ip_type
+
+        # 打印 IP 信息
+        print_enhanced_ip_info
         return 0
     fi
 
     log_error "无法获取 IP 信息"
     return 1
+}
+
+# 检测IP类型（原生IP或广播IP）
+detect_ip_type() {
+    # 通过 ip-api.com 获取更详细的IP信息
+    local ip_detail=$(curl -s --max-time $TIMEOUT \
+        "http://ip-api.com/json/${CURRENT_IP}?fields=hosting,proxy,mobile" 2>/dev/null)
+
+    if [ $? -eq 0 ] && [ -n "$ip_detail" ]; then
+        local is_hosting=$(echo "$ip_detail" | grep -oP '"hosting":\K(true|false)' | head -1)
+        local is_proxy=$(echo "$ip_detail" | grep -oP '"proxy":\K(true|false)' | head -1)
+        local is_mobile=$(echo "$ip_detail" | grep -oP '"mobile":\K(true|false)' | head -1)
+
+        if [ "$is_hosting" = "true" ] || [ "$is_proxy" = "true" ]; then
+            IP_TYPE="广播IP/数据中心"
+        elif [ "$is_mobile" = "true" ]; then
+            IP_TYPE="移动网络"
+        else
+            IP_TYPE="原生住宅IP"
+        fi
+    else
+        IP_TYPE="未知"
+    fi
+}
+
+# 打印增强的IP信息
+print_enhanced_ip_info() {
+    echo -e "\n${YELLOW}🌍 当前 IP 信息${NC}"
+    echo -e "${CYAN}────────────────────────────────────────────────────────────${NC}"
+    echo -e "IP 地址: ${GREEN}${CURRENT_IP}${NC}"
+
+    # IP类型显示（带颜色）
+    local type_color
+    case "$IP_TYPE" in
+        "原生住宅IP")
+            type_color="${GREEN}"
+            ;;
+        "广播IP/数据中心")
+            type_color="${YELLOW}"
+            ;;
+        "移动网络")
+            type_color="${CYAN}"
+            ;;
+        *)
+            type_color="${NC}"
+            ;;
+    esac
+    echo -e "IP 类型: ${type_color}${IP_TYPE}${NC}"
+
+    echo -e "当前位置: ${IP_INFO}"
+    echo -e "ISP: ${IP_ISP}"
+    echo ""
 }
 
 # 格式化输出结果
@@ -326,6 +381,25 @@ check_spotify() {
     fi
 }
 
+# 检测 Google Scholar
+check_scholar() {
+    local status_code=$(curl -s -o /dev/null -w "%{http_code}" \
+        --max-time $TIMEOUT \
+        -A "$USER_AGENT" \
+        -L \
+        "https://scholar.google.com/" 2>/dev/null)
+
+    if [ "$status_code" = "200" ]; then
+        format_result "Google Scholar" "success" "$COUNTRY_CODE" "可访问"
+    elif [ "$status_code" = "403" ]; then
+        format_result "Google Scholar" "failed" "N/A" "区域受限"
+    elif [ "$status_code" = "429" ]; then
+        format_result "Google Scholar" "failed" "N/A" "需要验证/IP被限制"
+    else
+        format_result "Google Scholar" "error" "N/A" "检测失败"
+    fi
+}
+
 # 运行所有检测
 run_all_checks() {
     echo -e "${YELLOW}📺 流媒体检测结果${NC}"
@@ -347,6 +421,9 @@ run_all_checks() {
     [ -z "$FAST_MODE" ] && sleep 0.5
 
     check_gemini
+    [ -z "$FAST_MODE" ] && sleep 0.5
+
+    check_scholar
     [ -z "$FAST_MODE" ] && sleep 0.5
 
     check_tiktok

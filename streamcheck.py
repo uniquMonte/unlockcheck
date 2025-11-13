@@ -17,7 +17,7 @@ from colorama import init, Fore, Style
 init(autoreset=True)
 
 # 配置
-VERSION = "1.1"
+VERSION = "1.2"
 TIMEOUT = 10
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
@@ -55,25 +55,33 @@ class StreamChecker:
         print(f"{'='*60}{Style.RESET_ALL}\n")
 
     def get_ip_info(self) -> Dict:
-        """获取当前 IP 信息"""
+        """获取当前 IP 信息（增强版：包含原生IP判断、注册地等）"""
         self.log("正在获取 IP 信息...", "info")
 
         try:
-            # 尝试使用 ipapi.co
+            # 尝试使用 ipapi.co 获取详细信息
             response = self.session.get(
                 "https://ipapi.co/json/",
                 timeout=TIMEOUT
             )
             if response.status_code == 200:
                 data = response.json()
+
+                # 基础信息
                 self.ip_info = {
                     'ip': data.get('ip', 'N/A'),
                     'country': data.get('country_name', 'N/A'),
                     'region': data.get('region', 'N/A'),
                     'city': data.get('city', 'N/A'),
                     'isp': data.get('org', 'N/A'),
-                    'country_code': data.get('country_code', 'N/A')
+                    'country_code': data.get('country_code', 'N/A'),
+                    'asn': data.get('asn', 'N/A'),
+                    'timezone': data.get('timezone', 'N/A')
                 }
+
+                # 尝试获取IP类型信息（原生IP判断）
+                self._detect_ip_type()
+
                 return self.ip_info
         except Exception as e:
             self.log(f"获取 IP 信息失败: {e}", "debug")
@@ -92,23 +100,102 @@ class StreamChecker:
                     'region': data.get('region', 'N/A'),
                     'city': data.get('city', 'N/A'),
                     'isp': data.get('org', 'N/A'),
-                    'country_code': data.get('country', 'N/A')
+                    'country_code': data.get('country', 'N/A'),
+                    'timezone': data.get('timezone', 'N/A')
                 }
+
+                # 尝试获取IP类型信息
+                self._detect_ip_type()
+
                 return self.ip_info
         except Exception as e:
             self.log(f"获取 IP 信息失败: {e}", "error")
             return {}
 
+    def _detect_ip_type(self):
+        """检测IP类型（原生IP或广播IP）"""
+        try:
+            # 通过 ip-api.com 获取更详细的IP信息
+            response = self.session.get(
+                f"http://ip-api.com/json/{self.ip_info.get('ip')}?fields=status,country,countryCode,region,regionName,city,isp,org,as,hosting,proxy,mobile",
+                timeout=TIMEOUT
+            )
+
+            if response.status_code == 200:
+                data = response.json()
+
+                # 判断是否为数据中心IP/代理IP
+                is_hosting = data.get('hosting', False)
+                is_proxy = data.get('proxy', False)
+                is_mobile = data.get('mobile', False)
+
+                # 存储IP类型信息
+                self.ip_info['is_hosting'] = is_hosting
+                self.ip_info['is_proxy'] = is_proxy
+                self.ip_info['is_mobile'] = is_mobile
+
+                # 判断IP类型
+                if is_hosting or is_proxy:
+                    self.ip_info['ip_type'] = '广播IP/数据中心'
+                elif is_mobile:
+                    self.ip_info['ip_type'] = '移动网络'
+                else:
+                    self.ip_info['ip_type'] = '原生住宅IP'
+
+                # 获取AS信息用于判断注册地
+                if 'as' in data:
+                    self.ip_info['as_info'] = data.get('as', 'N/A')
+
+                # 实际使用地（从IP地理位置获取）
+                self.ip_info['usage_location'] = f"{data.get('country', 'N/A')} {data.get('regionName', '')} {data.get('city', '')}"
+
+        except Exception as e:
+            self.log(f"检测IP类型失败: {e}", "debug")
+            # 如果检测失败，使用默认值
+            self.ip_info['ip_type'] = '未知'
+
     def print_ip_info(self):
-        """打印 IP 信息"""
+        """打印 IP 信息（增强版）"""
         if not self.ip_info:
             return
 
         print(f"\n{Fore.YELLOW}🌍 当前 IP 信息{Style.RESET_ALL}")
         print(f"{Fore.CYAN}{'─'*60}{Style.RESET_ALL}")
+
+        # IP地址
         print(f"IP 地址: {Fore.GREEN}{self.ip_info.get('ip', 'N/A')}{Style.RESET_ALL}")
-        print(f"位置: {self.ip_info.get('country', 'N/A')} {self.ip_info.get('region', 'N/A')} {self.ip_info.get('city', 'N/A')}")
-        print(f"ISP: {self.ip_info.get('isp', 'N/A')}\n")
+
+        # IP类型（原生IP或广播IP）
+        ip_type = self.ip_info.get('ip_type', '未知')
+        if ip_type == '原生住宅IP':
+            type_color = Fore.GREEN
+        elif ip_type == '广播IP/数据中心':
+            type_color = Fore.YELLOW
+        elif ip_type == '移动网络':
+            type_color = Fore.CYAN
+        else:
+            type_color = Fore.WHITE
+
+        print(f"IP 类型: {type_color}{ip_type}{Style.RESET_ALL}")
+
+        # 位置信息
+        location = f"{self.ip_info.get('country', 'N/A')} {self.ip_info.get('region', 'N/A')} {self.ip_info.get('city', 'N/A')}"
+        print(f"当前位置: {location}")
+
+        # 如果有使用地信息（从ip-api获取）
+        if 'usage_location' in self.ip_info:
+            usage_loc = self.ip_info.get('usage_location', '')
+            if usage_loc.strip() and usage_loc.strip() != 'N/A':
+                print(f"使用地: {usage_loc.strip()}")
+
+        # ISP信息
+        print(f"ISP: {self.ip_info.get('isp', 'N/A')}")
+
+        # ASN信息
+        if 'as_info' in self.ip_info:
+            print(f"ASN: {self.ip_info.get('as_info', 'N/A')}")
+
+        print()  # 空行
 
     def check_netflix(self) -> Tuple[str, str, str]:
         """
@@ -475,6 +562,46 @@ class StreamChecker:
             self.log(f"Spotify 检测异常: {e}", "debug")
             return "error", "N/A", "检测失败"
 
+    def check_scholar(self) -> Tuple[str, str, str]:
+        """
+        检测 Google Scholar 可访问性
+        返回: (状态, 区域, 详细信息)
+        """
+        self.log("检测 Google Scholar...", "debug")
+
+        try:
+            # 检测 Google Scholar 主页
+            response = self.session.get(
+                "https://scholar.google.com/",
+                timeout=TIMEOUT,
+                allow_redirects=True
+            )
+
+            # 检查是否被区域限制或需要验证
+            if response.status_code == 403:
+                return "failed", "N/A", "区域受限"
+
+            # Google Scholar 可能会返回 CAPTCHA 或验证页面
+            if "sorry" in response.url.lower() or response.status_code == 429:
+                return "failed", "N/A", "需要验证/IP被限制"
+
+            # 检查是否有异常流量检测
+            if "unusual traffic" in response.text.lower() or "captcha" in response.text.lower():
+                return "failed", "N/A", "检测到异常流量"
+
+            if response.status_code == 200:
+                # 检查是否能正常访问
+                if "scholar" in response.text.lower() or "google" in response.text.lower():
+                    return "success", self.ip_info.get('country_code', 'Unknown'), "可访问"
+
+            return "error", "N/A", "无法访问"
+
+        except requests.exceptions.Timeout:
+            return "error", "N/A", "超时"
+        except Exception as e:
+            self.log(f"Google Scholar 检测异常: {e}", "debug")
+            return "error", "N/A", "检测失败"
+
     def format_result(self, service_name: str, status: str, region: str, detail: str):
         """格式化输出单个检测结果"""
         # 状态图标和颜色
@@ -521,6 +648,7 @@ class StreamChecker:
             ("ChatGPT", self.check_chatgpt),
             ("Claude", self.check_claude),
             ("Gemini", self.check_gemini),
+            ("Google Scholar", self.check_scholar),
             ("TikTok", self.check_tiktok),
             ("Imgur", self.check_imgur),
             ("Reddit", self.check_reddit),
@@ -560,7 +688,7 @@ def main():
     parser.add_argument(
         '--service', '-s',
         type=str,
-        choices=['netflix', 'disney', 'youtube', 'chatgpt', 'claude', 'gemini', 'tiktok', 'imgur', 'reddit', 'spotify'],
+        choices=['netflix', 'disney', 'youtube', 'chatgpt', 'claude', 'gemini', 'scholar', 'tiktok', 'imgur', 'reddit', 'spotify'],
         help='仅检测指定服务'
     )
 
@@ -586,6 +714,7 @@ def main():
                 'chatgpt': ('ChatGPT', checker.check_chatgpt),
                 'claude': ('Claude', checker.check_claude),
                 'gemini': ('Gemini', checker.check_gemini),
+                'scholar': ('Google Scholar', checker.check_scholar),
                 'tiktok': ('TikTok', checker.check_tiktok),
                 'imgur': ('Imgur', checker.check_imgur),
                 'reddit': ('Reddit', checker.check_reddit),

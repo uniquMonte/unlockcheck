@@ -412,14 +412,21 @@ check_netflix() {
     local status_code=$(echo "$response" | tail -n 1)
     local content=$(echo "$response" | head -n -1)
 
-    # 检查是否被区域限制
-    if echo "$content" | grep -qi "not available\|not streaming in your country"; then
-        format_result "Netflix" "failed" "N/A" "不支持"
+    # 检查响应是否为空
+    if [ -z "$status_code" ] || [ -z "$content" ]; then
+        format_result "Netflix" "error" "N/A" "检测失败"
+        return
+    fi
+
+    # 检查是否被区域限制或IP封禁
+    if echo "$content" | grep -qi "not available\|not streaming in your country\|access denied\|blocked"; then
+        format_result "Netflix" "failed" "N/A" "IP被封禁"
     elif [ "$status_code" = "200" ] || [ "$status_code" = "301" ] || [ "$status_code" = "302" ]; then
         # 200/301/302都表示可以访问
         format_result "Netflix" "success" "$region" "可访问" "$unlock_type"
     elif [ "$status_code" = "403" ]; then
-        format_result "Netflix" "failed" "N/A" "不支持"
+        # 403通常是IP被封禁
+        format_result "Netflix" "failed" "N/A" "IP被封禁"
     else
         format_result "Netflix" "error" "N/A" "检测失败(${status_code})"
     fi

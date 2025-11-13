@@ -857,7 +857,7 @@ check_chatgpt() {
     elif [ "$has_cloudflare" = "true" ]; then
         # 只有当API无法确认时,Cloudflare才可能是问题
         # 提示用户:脚本遇到Cloudflare,但浏览器可能可以访问
-        format_result "ChatGPT" "partial" "$COUNTRY_CODE" "脚本受限(浏览器可用)"
+        format_result "ChatGPT" "partial" "$COUNTRY_CODE" "可用(反爬虫)"
     elif [ "$api_result" = "access_denied" ]; then
         format_result "ChatGPT" "failed" "N/A" "访问被拒"
     else
@@ -940,7 +940,7 @@ check_claude() {
     elif [ "$has_cloudflare" = "true" ]; then
         # 只有当API无法确认时,Cloudflare才可能是问题
         # 提示用户:脚本遇到Cloudflare,但浏览器可能可以访问
-        format_result "Claude" "partial" "$COUNTRY_CODE" "脚本受限(浏览器可用)"
+        format_result "Claude" "partial" "$COUNTRY_CODE" "可用(反爬虫)"
     elif [ "$api_result" = "access_denied" ]; then
         format_result "Claude" "failed" "N/A" "访问被拒"
     else
@@ -989,7 +989,7 @@ check_tiktok() {
             format_result "TikTok" "failed" "N/A" "区域受限"
         else
             # 其他地区遇到 Access Denied，是脚本限制而非地区限制
-            format_result "TikTok" "partial" "$COUNTRY_CODE" "脚本受限(浏览器可用)"
+            format_result "TikTok" "partial" "$COUNTRY_CODE" "可用(反爬虫)"
         fi
         return
     fi

@@ -73,18 +73,20 @@ get_ip_info() {
         local city=$(echo "$response" | grep -oP '"city":"\K[^"]+' | head -1)
         local isp=$(echo "$response" | grep -oP '"org":"\K[^"]+' | head -1)
 
-        IP_INFO="$country $region $city"
-        IP_ISP="$isp"
+        if [ -n "$CURRENT_IP" ] && [ -n "$COUNTRY_CODE" ]; then
+            IP_INFO="$country $region $city"
+            IP_ISP="$isp"
 
-        # 检测IP类型
-        detect_ip_type
+            # 检测IP类型
+            detect_ip_type
 
-        # 打印 IP 信息
-        print_enhanced_ip_info
-        return 0
+            # 打印 IP 信息
+            print_enhanced_ip_info
+            return 0
+        fi
     fi
 
-    # 备用方案：使用 ipinfo.io
+    # 备用方案1：使用 ipinfo.io
     response=$(curl -s --max-time $TIMEOUT \
         -A "$USER_AGENT" \
         "https://ipinfo.io/json" 2>/dev/null)
@@ -96,18 +98,63 @@ get_ip_info() {
         local region=$(echo "$response" | grep -oP '"region":"\K[^"]+' | head -1)
         local isp=$(echo "$response" | grep -oP '"org":"\K[^"]+' | head -1)
 
-        IP_INFO="$region $city"
-        IP_ISP="$isp"
+        if [ -n "$CURRENT_IP" ] && [ -n "$COUNTRY_CODE" ]; then
+            IP_INFO="$region $city"
+            IP_ISP="$isp"
 
-        # 检测IP类型
+            # 检测IP类型
+            detect_ip_type
+
+            # 打印 IP 信息
+            print_enhanced_ip_info
+            return 0
+        fi
+    fi
+
+    # 备用方案2：使用 ipapi.com（无需API密钥）
+    response=$(curl -s --max-time $TIMEOUT \
+        "http://ip-api.com/json/?fields=status,message,country,countryCode,region,city,isp,org,as,query" 2>/dev/null)
+
+    if [ $? -eq 0 ] && [ -n "$response" ]; then
+        CURRENT_IP=$(echo "$response" | grep -oP '"query":"\K[^"]+' | head -1)
+        COUNTRY_CODE=$(echo "$response" | grep -oP '"countryCode":"\K[^"]+' | head -1)
+        local country=$(echo "$response" | grep -oP '"country":"\K[^"]+' | head -1)
+        local region=$(echo "$response" | grep -oP '"region":"\K[^"]+' | head -1)
+        local city=$(echo "$response" | grep -oP '"city":"\K[^"]+' | head -1)
+        local isp=$(echo "$response" | grep -oP '"isp":"\K[^"]+' | head -1)
+
+        if [ -n "$CURRENT_IP" ] && [ -n "$COUNTRY_CODE" ]; then
+            IP_INFO="$country $region $city"
+            IP_ISP="$isp"
+
+            # 检测IP类型
+            detect_ip_type
+
+            # 打印 IP 信息
+            print_enhanced_ip_info
+            return 0
+        fi
+    fi
+
+    # 最后的fallback：只获取IP地址
+    CURRENT_IP=$(curl -s --max-time 5 https://api.ipify.org 2>/dev/null)
+    if [ -z "$CURRENT_IP" ]; then
+        CURRENT_IP=$(curl -s --max-time 5 https://icanhazip.com 2>/dev/null | tr -d '\n')
+    fi
+
+    if [ -n "$CURRENT_IP" ]; then
+        log_warning "仅获取到IP地址: ${CURRENT_IP}，无法获取详细位置信息"
+        # 即使没有完整信息，也尝试检测IP类型
         detect_ip_type
-
-        # 打印 IP 信息
-        print_enhanced_ip_info
+        echo -e "\n${YELLOW}🌍 当前 IP 信息${NC}"
+        echo -e "${CYAN}────────────────────────────────────────────────────────────${NC}"
+        echo -e "IP 地址: ${GREEN}${CURRENT_IP}${NC}"
+        echo -e "IP 类型: ${YELLOW}${IP_TYPE}${NC}"
+        echo ""
         return 0
     fi
 
-    log_error "无法获取 IP 信息"
+    log_error "无法获取 IP 信息，将继续进行检测（区域信息可能不准确）"
     return 1
 }
 
@@ -205,26 +252,39 @@ format_result() {
 
 # 检测 Netflix
 check_netflix() {
-    local status_code=$(curl -s -o /dev/null -w "%{http_code}" \
-        --max-time $TIMEOUT \
+    # 先检测Netflix原创内容（用于判断完整解锁）
+    local response=$(curl -s --max-time $TIMEOUT \
         -A "$USER_AGENT" \
+        -w "\n%{http_code}" \
         "https://www.netflix.com/title/80018499" 2>/dev/null)
 
+    local status_code=$(echo "$response" | tail -n 1)
+    local region="${COUNTRY_CODE:-Unknown}"
+
     if [ "$status_code" = "200" ]; then
-        format_result "Netflix" "success" "$COUNTRY_CODE" "完整解锁"
+        # 尝试从响应中提取区域信息
+        if [ -z "$COUNTRY_CODE" ] || [ "$COUNTRY_CODE" = "Unknown" ]; then
+            # 如果没有区域码，尝试从cookie或重定向中获取
+            region=$(echo "$response" | grep -oP 'country-code=\K[A-Z]{2}' | head -1)
+            [ -z "$region" ] && region="Unknown"
+        fi
+        format_result "Netflix" "success" "$region" "完整解锁"
     elif [ "$status_code" = "403" ]; then
         format_result "Netflix" "failed" "N/A" "不支持"
     elif [ "$status_code" = "404" ]; then
-        format_result "Netflix" "partial" "$COUNTRY_CODE" "仅自制剧"
+        # 404表示内容不可用，可能是仅自制剧
+        format_result "Netflix" "partial" "$region" "仅自制剧"
     else
-        # 尝试主页
-        status_code=$(curl -s -o /dev/null -w "%{http_code}" \
-            --max-time $TIMEOUT \
+        # 尝试访问主页
+        response=$(curl -s --max-time $TIMEOUT \
             -A "$USER_AGENT" \
+            -w "\n%{http_code}" \
             "https://www.netflix.com/" 2>/dev/null)
 
+        status_code=$(echo "$response" | tail -n 1)
+
         if [ "$status_code" = "200" ]; then
-            format_result "Netflix" "success" "$COUNTRY_CODE" "支持"
+            format_result "Netflix" "success" "$region" "可访问"
         else
             format_result "Netflix" "error" "N/A" "检测失败"
         fi

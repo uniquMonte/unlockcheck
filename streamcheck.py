@@ -74,19 +74,19 @@ class StreamChecker:
                     'region': data.get('region', 'N/A'),
                     'city': data.get('city', 'N/A'),
                     'isp': data.get('org', 'N/A'),
-                    'country_code': data.get('country_code', 'N/A'),
+                    'country_code': data.get('country_code', 'Unknown'),
                     'asn': data.get('asn', 'N/A'),
                     'timezone': data.get('timezone', 'N/A')
                 }
 
-                # 尝试获取IP类型信息（原生IP判断）
-                self._detect_ip_type()
-
-                return self.ip_info
+                if self.ip_info['ip'] != 'N/A' and self.ip_info['country_code'] != 'Unknown':
+                    # 尝试获取IP类型信息（原生IP判断）
+                    self._detect_ip_type()
+                    return self.ip_info
         except Exception as e:
-            self.log(f"获取 IP 信息失败: {e}", "debug")
+            self.log(f"ipapi.co获取失败: {e}", "debug")
 
-        # 备用方案：使用 ipinfo.io
+        # 备用方案1：使用 ipinfo.io
         try:
             response = self.session.get(
                 "https://ipinfo.io/json",
@@ -100,17 +100,61 @@ class StreamChecker:
                     'region': data.get('region', 'N/A'),
                     'city': data.get('city', 'N/A'),
                     'isp': data.get('org', 'N/A'),
-                    'country_code': data.get('country', 'N/A'),
+                    'country_code': data.get('country', 'Unknown'),
                     'timezone': data.get('timezone', 'N/A')
                 }
 
-                # 尝试获取IP类型信息
-                self._detect_ip_type()
-
-                return self.ip_info
+                if self.ip_info['ip'] != 'N/A' and self.ip_info['country_code'] != 'Unknown':
+                    # 尝试获取IP类型信息
+                    self._detect_ip_type()
+                    return self.ip_info
         except Exception as e:
-            self.log(f"获取 IP 信息失败: {e}", "error")
-            return {}
+            self.log(f"ipinfo.io获取失败: {e}", "debug")
+
+        # 备用方案2：使用 ip-api.com
+        try:
+            response = self.session.get(
+                "http://ip-api.com/json/?fields=status,country,countryCode,region,city,isp,org,as,query",
+                timeout=TIMEOUT
+            )
+            if response.status_code == 200:
+                data = response.json()
+                if data.get('status') == 'success':
+                    self.ip_info = {
+                        'ip': data.get('query', 'N/A'),
+                        'country': data.get('country', 'N/A'),
+                        'region': data.get('region', 'N/A'),
+                        'city': data.get('city', 'N/A'),
+                        'isp': data.get('isp', 'N/A'),
+                        'country_code': data.get('countryCode', 'Unknown'),
+                        'as_info': data.get('as', 'N/A')
+                    }
+
+                    if self.ip_info['ip'] != 'N/A' and self.ip_info['country_code'] != 'Unknown':
+                        # 尝试获取IP类型信息
+                        self._detect_ip_type()
+                        return self.ip_info
+        except Exception as e:
+            self.log(f"ip-api.com获取失败: {e}", "debug")
+
+        # 最后fallback：只获取IP地址
+        try:
+            ip = self.session.get("https://api.ipify.org", timeout=5).text.strip()
+            if ip:
+                self.log(f"仅获取到IP地址: {ip}", "warning")
+                self.ip_info = {
+                    'ip': ip,
+                    'country_code': 'Unknown',
+                    'ip_type': '未知'
+                }
+                self._detect_ip_type()
+                return self.ip_info
+        except:
+            pass
+
+        self.log("无法获取 IP 信息，将继续检测（区域信息可能不准确）", "warning")
+        self.ip_info = {'country_code': 'Unknown'}
+        return self.ip_info
 
     def _detect_ip_type(self):
         """检测IP类型（原生IP或广播IP）"""

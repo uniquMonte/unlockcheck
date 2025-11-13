@@ -645,87 +645,139 @@ check_netflix() {
 
 # 检测 Disney+
 check_disney() {
-    # 参考 IPQuality 项目的实现
-    # 步骤1: 设备注册
+    # 方法1: 尝试 API 检测（参考 IPQuality）
     local device_response=$(curl -s --max-time $TIMEOUT \
         -X POST \
         -H "authorization: Bearer ZGlzbmV5JmJyb3dzZXImMS4wLjA.Cu56AgSfBTDag5NiRA81oLHkDZfu5L3CKadnefEAY84" \
-        -H "content-type: application/json" \
+        -H "content-type: application/json; charset=UTF-8" \
         -A "$USER_AGENT" \
         --data '{"deviceFamily":"browser","applicationRuntime":"chrome","deviceProfile":"windows","attributes":{}}' \
         "https://disney.api.edge.bamgrid.com/devices" 2>/dev/null)
 
-    if [ -z "$device_response" ]; then
+    # 检查 API 方法是否成功
+    local assertion=$(echo "$device_response" | grep -oP '"assertion"\s*:\s*"\K[^"]+' | head -n1)
+
+    if [ -n "$assertion" ]; then
+        # API 方法成功，继续执行
+        local token_response=$(curl -s --max-time $TIMEOUT \
+            -X POST \
+            -H "authorization: Bearer ZGlzbmV5JmJyb3dzZXImMS4wLjA.Cu56AgSfBTDag5NiRA81oLHkDZfu5L3CKadnefEAY84" \
+            -H "content-type: application/json; charset=UTF-8" \
+            -A "$USER_AGENT" \
+            --data "{\"grant_type\":\"urn:ietf:params:oauth:grant-type:token-exchange\",\"latitude\":0,\"longitude\":0,\"platform\":\"browser\",\"subject_token\":\"$assertion\",\"subject_token_type\":\"urn:bamtech:params:oauth:token-type:device\"}" \
+            "https://disney.api.edge.bamgrid.com/token" 2>/dev/null)
+
+        local access_token=$(echo "$token_response" | grep -oP '"access_token"\s*:\s*"\K[^"]+' | head -n1)
+
+        if [ -n "$access_token" ]; then
+            local graphql_response=$(curl -s --max-time $TIMEOUT \
+                -X POST \
+                -H "authorization: Bearer $access_token" \
+                -H "content-type: application/json; charset=UTF-8" \
+                -A "$USER_AGENT" \
+                --data '{"query":"query{getCurrentLocation{countryCode}inSupportedLocation}"}' \
+                "https://disney.api.edge.bamgrid.com/graph/v1/device/graphql" 2>/dev/null)
+
+            local region=$(echo "$graphql_response" | grep -oP '"countryCode"\s*:\s*"\K[^"]+' | head -n1)
+            local in_supported=$(echo "$graphql_response" | grep -oP '"inSupportedLocation"\s*:\s*(true|false)' | grep -oP '(true|false)' | head -n1)
+
+            if [ "$in_supported" = "true" ]; then
+                if [ -n "$region" ] && [ "$region" != "null" ]; then
+                    format_result "Disney+" "success" "$region" "完全解锁"
+                else
+                    format_result "Disney+" "success" "$COUNTRY_CODE" "完全解锁"
+                fi
+                return
+            elif [ "$in_supported" = "false" ]; then
+                if [ -n "$region" ] && [ "$region" != "null" ]; then
+                    format_result "Disney+" "failed" "$region" "即将上线"
+                else
+                    format_result "Disney+" "failed" "N/A" "即将上线"
+                fi
+                return
+            fi
+        fi
+    fi
+
+    # 方法2: API 失败，回退到网页检测
+    local response=$(curl -s --max-time $TIMEOUT \
+        -w "\n%{http_code}" \
+        -A "$USER_AGENT" \
+        -L \
+        "https://www.disneyplus.com/" 2>/dev/null)
+
+    local status_code=$(echo "$response" | tail -n 1)
+    local content=$(echo "$response" | head -n -1)
+
+    if [ -z "$status_code" ]; then
         format_result "Disney+" "error" "N/A" "网络错误"
         return
     fi
 
-    # 提取 assertion
-    local assertion=$(echo "$device_response" | grep -oP '"assertion"\s*:\s*"\K[^"]+' | head -n1)
-
-    if [ -z "$assertion" ]; then
-        format_result "Disney+" "error" "N/A" "检测失败"
+    # 检查是否被屏蔽
+    if [ "$status_code" = "403" ]; then
+        format_result "Disney+" "failed" "N/A" "不支持"
         return
     fi
 
-    # 步骤2: 获取令牌
-    local token_response=$(curl -s --max-time $TIMEOUT \
-        -X POST \
-        -H "authorization: Bearer ZGlzbmV5JmJyb3dzZXImMS4wLjA.Cu56AgSfBTDag5NiRA81oLHkDZfu5L3CKadnefEAY84" \
-        -H "content-type: application/json" \
-        -A "$USER_AGENT" \
-        --data "{\"grant_type\":\"urn:ietf:params:oauth:grant-type:token-exchange\",\"latitude\":0,\"longitude\":0,\"platform\":\"browser\",\"subject_token\":\"$assertion\",\"subject_token_type\":\"urn:bamtech:params:oauth:token-type:device\"}" \
-        "https://disney.api.edge.bamgrid.com/token" 2>/dev/null)
+    # 转换为小写以便检查
+    local content_lower=$(echo "$content" | tr '[:upper:]' '[:lower:]')
 
-    # 提取 access_token
-    local access_token=$(echo "$token_response" | grep -oP '"access_token"\s*:\s*"\K[^"]+' | head -n1)
-
-    if [ -z "$access_token" ]; then
-        format_result "Disney+" "error" "N/A" "检测失败"
+    # 检查地区限制信息
+    if echo "$content_lower" | grep -q "not available in your region\|not available in your country\|unavailable"; then
+        format_result "Disney+" "failed" "N/A" "不支持"
         return
     fi
 
-    # 步骤3: GraphQL 查询地区信息
-    local graphql_response=$(curl -s --max-time $TIMEOUT \
-        -X POST \
-        -H "authorization: Bearer $access_token" \
-        -H "content-type: application/json" \
-        -A "$USER_AGENT" \
-        --data '{"query":"query{getCurrentLocation{countryCode}inSupportedLocation}"}' \
-        "https://disney.api.edge.bamgrid.com/graph/v1/device/graphql" 2>/dev/null)
-
-    # 提取地区代码和支持状态
-    local region=$(echo "$graphql_response" | grep -oP '"countryCode"\s*:\s*"\K[^"]+' | head -n1)
-    local in_supported=$(echo "$graphql_response" | grep -oP '"inSupportedLocation"\s*:\s*(true|false)' | grep -oP '(true|false)' | head -n1)
-
-    # 判断解锁状态
-    if [ "$in_supported" = "true" ]; then
-        if [ -n "$region" ] && [ "$region" != "null" ]; then
-            format_result "Disney+" "success" "$region" "完全解锁"
-        else
+    # 检查是否成功访问
+    if [ "$status_code" = "200" ]; then
+        if echo "$content_lower" | grep -q "disney\|disneyplus"; then
             format_result "Disney+" "success" "$COUNTRY_CODE" "完全解锁"
-        fi
-    elif [ "$in_supported" = "false" ]; then
-        if [ -n "$region" ] && [ "$region" != "null" ]; then
-            format_result "Disney+" "failed" "$region" "即将上线"
         else
-            format_result "Disney+" "failed" "N/A" "即将上线"
+            format_result "Disney+" "failed" "N/A" "不支持"
         fi
     else
-        format_result "Disney+" "failed" "N/A" "不支持"
+        format_result "Disney+" "error" "N/A" "检测失败"
     fi
 }
 
 # 检测 YouTube Premium
 check_youtube() {
-    local unlock_type=$(check_dns_unlock "youtube.com")
-    local status_code=$(curl -s -o /dev/null -w "%{http_code}" \
-        --max-time $TIMEOUT \
+    local response=$(curl -s --max-time $TIMEOUT \
+        -w "\n%{http_code}" \
         -A "$USER_AGENT" \
         "https://www.youtube.com/premium" 2>/dev/null)
 
+    local status_code=$(echo "$response" | tail -n 1)
+    local content=$(echo "$response" | head -n -1)
+
+    if [ -z "$status_code" ]; then
+        format_result "YouTube Premium" "error" "N/A" "网络错误"
+        return
+    fi
+
+    # 检查是否被屏蔽
+    if [ "$status_code" = "403" ]; then
+        format_result "YouTube Premium" "failed" "N/A" "不支持"
+        return
+    fi
+
+    # 转换为小写
+    local content_lower=$(echo "$content" | tr '[:upper:]' '[:lower:]')
+
+    # 检查地区限制
+    if echo "$content_lower" | grep -q "not available in your country\|not available in your region"; then
+        format_result "YouTube Premium" "failed" "N/A" "不支持"
+        return
+    fi
+
+    # 检查是否成功访问
     if [ "$status_code" = "200" ]; then
-        format_result "YouTube Premium" "success" "$COUNTRY_CODE" "完全解锁"
+        if echo "$content_lower" | grep -q "premium"; then
+            format_result "YouTube Premium" "success" "$COUNTRY_CODE" "完全解锁"
+        else
+            format_result "YouTube Premium" "error" "N/A" "检测失败"
+        fi
     else
         format_result "YouTube Premium" "error" "N/A" "检测失败"
     fi

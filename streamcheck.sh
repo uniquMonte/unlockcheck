@@ -506,24 +506,24 @@ format_result() {
     # Column 3: Status detail (pad to fixed display width: 14 display chars)
     local detail_formatted=$(pad_to_width "$detail" 14)
 
-    # Column 4: IP type label (fixed display width: 8 display chars)
-    local ip_type_label=""
+    # Column 4: Unlock type label (fixed display width: 8 display chars)
+    local unlock_type_label=""
     if [ "$status" = "success" ]; then
         case "$IP_TYPE" in
             "原生IP")
-                ip_type_label="${GREEN}[原生]${NC}"
+                unlock_type_label="${GREEN}[原生]${NC}"
                 ;;
             "广播IP")
-                ip_type_label="${YELLOW}[广播]${NC}"
+                unlock_type_label="${YELLOW}[DNS]${NC}"
                 ;;
             *)
-                ip_type_label="${CYAN}[未知]${NC}"
+                unlock_type_label="${CYAN}[未知]${NC}"
                 ;;
         esac
     fi
 
-    # Pad IP type to fixed width (8 display chars)
-    local ip_type_padded=$(pad_to_width "$ip_type_label" 8)
+    # Pad unlock type to fixed width (8 display chars)
+    local unlock_type_padded=$(pad_to_width "$unlock_type_label" 8)
 
     # Column 5: Region info
     local region_info=""
@@ -532,7 +532,7 @@ format_result() {
     fi
 
     # Print aligned columns with colon separators
-    echo -e "$icon $service_formatted ${color}${detail_formatted}${NC} : ${ip_type_padded}${region_info}"
+    echo -e "$icon $service_formatted ${color}${detail_formatted}${NC} : ${unlock_type_padded}${region_info}"
 }
 
 # 检测 Netflix

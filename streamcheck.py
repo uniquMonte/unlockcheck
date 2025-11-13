@@ -931,25 +931,29 @@ class StreamChecker:
         detail_padded = self.pad_to_width(detail, max_detail_width)
         detail_colored = f"{status_color}{detail_padded}{Style.RESET_ALL}"
 
-        # Column 4: IP type label (fixed display width: 8 display chars including brackets)
-        ip_type_label = ""
+        # Column 4: Unlock type label (fixed display width: 8 display chars including brackets)
+        unlock_type_label = ""
         if status == "success":
             ip_type = self.ip_info.get('ip_type', 'Unknown')
             if ip_type == 'Residential' or ip_type == 'Mobile Network':
-                ip_type_label = f"{Fore.GREEN}[原生]{Style.RESET_ALL}"
+                # Residential and Mobile are always native unlock
+                unlock_type_label = f"{Fore.GREEN}[原生]{Style.RESET_ALL}"
             elif ip_type == 'Datacenter/Hosting':
                 # For datacenter IPs, check if registration location matches usage location
                 reg_loc = self.ip_info.get('registration_location', '')
                 usage_loc = self.ip_info.get('usage_location', '')
                 if reg_loc and usage_loc and reg_loc == usage_loc:
-                    ip_type_label = f"{Fore.GREEN}[原生]{Style.RESET_ALL}"
+                    # Native IP from datacenter
+                    unlock_type_label = f"{Fore.GREEN}[原生]{Style.RESET_ALL}"
                 else:
-                    ip_type_label = f"{Fore.YELLOW}[广播]{Style.RESET_ALL}"
+                    # Broadcast IP accessing via DNS unlock
+                    unlock_type_label = f"{Fore.YELLOW}[DNS]{Style.RESET_ALL}"
             else:
-                ip_type_label = f"{Fore.CYAN}[未知]{Style.RESET_ALL}"
+                # Unknown IP type, assume DNS unlock if accessible
+                unlock_type_label = f"{Fore.YELLOW}[DNS]{Style.RESET_ALL}"
 
-        # Pad IP type to fixed width (6 chars: "[原生]" = 1+2+2+1 = 6 display chars)
-        ip_type_padded = self.pad_to_width(ip_type_label if ip_type_label else "", 8)
+        # Pad unlock type to fixed width (8 display chars)
+        unlock_type_padded = self.pad_to_width(unlock_type_label if unlock_type_label else "", 8)
 
         # Column 5: Region info
         region_info = ""
@@ -957,7 +961,7 @@ class StreamChecker:
             region_info = f": {Fore.CYAN}(区域: {region}){Style.RESET_ALL}"
 
         # Print aligned columns
-        print(f"{icon} {service_formatted} {detail_colored} : {ip_type_padded}{region_info}")
+        print(f"{icon} {service_formatted} {detail_colored} : {unlock_type_padded}{region_info}")
 
     def run_all_checks(self):
         """Run all checks"""

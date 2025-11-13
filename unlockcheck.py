@@ -747,7 +747,7 @@ class UnlockChecker:
         # Priority 3: Cloudflare blocking (only if API cannot confirm availability)
         # This suggests browser might still work
         if has_cloudflare:
-            return "partial", self.ip_info.get('country_code', 'Unknown'), "Available(Anti-bot)"
+            return "partial", self.ip_info.get('country_code', 'Unknown'), "Likely Available(Manual Check)"
 
         # Priority 4: Access denied
         if api_result and api_result[0] == "failed":
@@ -860,7 +860,7 @@ class UnlockChecker:
         # Priority 3: Cloudflare blocking (only if API cannot confirm availability)
         # This suggests browser might still work
         if has_cloudflare:
-            return "partial", self.ip_info.get('country_code', 'Unknown'), "Available(Anti-bot)"
+            return "partial", self.ip_info.get('country_code', 'Unknown'), "Likely Available(Manual Check)"
 
         # Priority 4: Access denied (not region-specific)
         if api_result and api_result[0] == "failed":
@@ -915,7 +915,7 @@ class UnlockChecker:
                     return "failed", "N/A", "Region Restricted"
                 else:
                     # Other regions with Access Denied = script limitation, not region block
-                    return "partial", country_code, "Available(Anti-bot)"
+                    return "partial", country_code, "Likely Available(Manual Check)"
 
             # Check for explicit region restriction messages
             if "not available in your region" in content_lower or \

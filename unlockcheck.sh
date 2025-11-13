@@ -620,11 +620,10 @@ check_chatgpt() {
     local content=$(echo "$response" | head -n -1)
 
     # 检查 OpenAI/ChatGPT 实际返回的区域限制消息
+    # 只检查明确的地区限制消息，避免误判
     if echo "$content" | grep -qi "not available in your country\|unavailable in your country"; then
         format_result "ChatGPT" "failed" "N/A" "该地区不支持"
-    elif echo "$content" | grep -qi "unsupported\|not supported"; then
-        format_result "ChatGPT" "failed" "N/A" "该地区不支持"
-    elif echo "$content" | grep -qi "not available"; then
+    elif echo "$content" | grep -qi "chatgpt.*not supported in.*country\|openai.*not supported"; then
         format_result "ChatGPT" "failed" "N/A" "该地区不支持"
     elif [ "$status_code" = "403" ]; then
         # 403 通常是IP被拦截
@@ -654,14 +653,14 @@ check_claude() {
     local content=$(echo "$response" | head -n -1)
 
     # 检查 Claude 实际返回的区域限制消息
-    # "only available in certain regions" 是 Claude 的实际错误消息
+    # 只检查明确的地区限制消息，避免误判
     if echo "$content" | grep -qi "only available in certain regions"; then
         format_result "Claude" "failed" "N/A" "该地区不支持"
     # 检查中文错误消息（應用程式不可用/僅在特定地區提供服務）
     elif echo "$content" | grep -q "應用程式不可用\|僅在特定地區提供服務"; then
         format_result "Claude" "failed" "N/A" "该地区不支持"
-    # 检查其他区域限制关键词
-    elif echo "$content" | grep -qi "not available\|unavailable in your region"; then
+    # 检查明确的地区限制关键词（必须包含region/country）
+    elif echo "$content" | grep -qi "not available in your region\|not available in your country\|unavailable in your region"; then
         format_result "Claude" "failed" "N/A" "该地区不支持"
     elif [ "$status_code" = "403" ]; then
         # 403 通常是IP被拦截

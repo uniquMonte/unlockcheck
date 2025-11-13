@@ -521,15 +521,12 @@ class UnlockChecker:
             content_lower = response.text.lower()
 
             # OpenAI/ChatGPT shows specific error messages when region is not supported
+            # Only check explicit region restriction messages to avoid false positives
             if "not available in your country" in content_lower or "unavailable in your country" in content_lower:
                 return "failed", "N/A", "Not Available in This Region"
 
-            # Check for "unsupported" messages
-            if "unsupported" in content_lower or "not supported" in content_lower:
-                return "failed", "N/A", "Not Available in This Region"
-
-            # Check for general "not available" messages
-            if "not available" in content_lower:
+            # Check for specific "not supported in country" messages
+            if ("chatgpt" in content_lower or "openai" in content_lower) and "not supported" in content_lower and "country" in content_lower:
                 return "failed", "N/A", "Not Available in This Region"
 
             # Check if region restricted by HTTP status (403 usually means blocked)
@@ -579,9 +576,9 @@ class UnlockChecker:
             if "應用程式不可用" in response.text or "僅在特定地區提供服務" in response.text:
                 return "failed", "N/A", "Not Available in This Region"
 
-            # Check for other region restriction keywords
-            if "not available" in content_lower or "unavailable in your region" in content_lower:
-                return "failed", "N/A", "Not Available"
+            # Check for explicit region restriction keywords (must include region/country)
+            if "not available in your region" in content_lower or "not available in your country" in content_lower or "unavailable in your region" in content_lower:
+                return "failed", "N/A", "Not Available in This Region"
 
             # Check if region restricted by HTTP status
             if response.status_code == 403:

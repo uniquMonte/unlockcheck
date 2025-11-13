@@ -1251,7 +1251,10 @@ class UnlockChecker:
             }
 
             headers = {
-                "Accept-Language": "en"
+                "Accept-Language": "en",
+                "Content-Type": "application/x-www-form-urlencoded",
+                "Origin": "https://www.spotify.com",
+                "Referer": "https://www.spotify.com/"
             }
 
             response = self.session.post(
@@ -1264,6 +1267,16 @@ class UnlockChecker:
             # Check if response is empty
             if not response.text:
                 return "error", "N/A", "Network Error"
+
+            # Check for Access denied (anti-bot)
+            if "access denied" in response.text.lower():
+                # Spotify is not available in: China
+                country_code = self.ip_info.get('country_code', 'Unknown')
+                if country_code in ['CN']:
+                    return "failed", "N/A", "Not Launched"
+                else:
+                    # Other regions with Access Denied = likely available
+                    return "partial", country_code, "Likely Available(Manual Check)"
 
             # Parse JSON response
             try:

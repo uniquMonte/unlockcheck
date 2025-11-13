@@ -1,6 +1,6 @@
-# StreamCheck - Media Unlock Detection Tool
+# UnlockCheck - Service Unlock Detection Tool
 
-One-click detection of media platform unlock status for your current network environment.
+One-click detection of streaming media and AI services unlock status for your current network environment.
 
 ## Quick Start
 
@@ -10,13 +10,13 @@ No need to clone the repository, just run the following command to start detecti
 
 ```bash
 # Run from main branch (stable version)
-bash <(curl -Ls https://raw.githubusercontent.com/uniquMonte/streamcheck/main/install.sh)
+bash <(curl -Ls https://raw.githubusercontent.com/uniquMonte/unlockcheck/main/install.sh)
 ```
 
-**Development Version (v1.2 Latest Features):**
+**Development Version (v1.3 Latest Features):**
 ```bash
 # Temporary use: Run from development branch
-BRANCH=claude/streaming-unlock-detector-011CV57GxrMmMPUDAAu5JKt6 bash <(curl -Ls https://raw.githubusercontent.com/uniquMonte/streamcheck/claude/streaming-unlock-detector-011CV57GxrMmMPUDAAu5JKt6/install.sh)
+BRANCH=claude/ip-geolocation-check-011CV5N8uHpGcyDHU2hDWRYa bash <(curl -Ls https://raw.githubusercontent.com/uniquMonte/unlockcheck/claude/ip-geolocation-check-011CV5N8uHpGcyDHU2hDWRYa/install.sh)
 ```
 
 This will automatically download and run the latest version of the detection script.
@@ -45,28 +45,28 @@ This will automatically download and run the latest version of the detection scr
 
 ```bash
 # Clone the project
-git clone https://github.com/yourusername/streamcheck.git
-cd streamcheck
+git clone https://github.com/uniquMonte/unlockcheck.git
+cd unlockcheck
 
 # Install dependencies
 pip install -r requirements.txt
 
 # Run detection
-python streamcheck.py
+python unlockcheck.py
 ```
 
 ### Bash Version (Lightweight)
 
 ```bash
 # Clone the project
-git clone https://github.com/yourusername/streamcheck.git
-cd streamcheck
+git clone https://github.com/uniquMonte/unlockcheck.git
+cd unlockcheck
 
 # Add execute permission
-chmod +x streamcheck.sh
+chmod +x unlockcheck.sh
 
 # Run detection
-./streamcheck.sh
+./unlockcheck.sh
 ```
 
 ## Usage
@@ -75,26 +75,26 @@ chmod +x streamcheck.sh
 
 ```bash
 # Full detection
-python streamcheck.py
+python unlockcheck.py
 
 # Check specific service only
-python streamcheck.py --service netflix
+python unlockcheck.py --service netflix
 
 # Check with IPv6
-python streamcheck.py --ipv6
+python unlockcheck.py --ipv6
 
 # Verbose mode
-python streamcheck.py --verbose
+python unlockcheck.py --verbose
 ```
 
 ### Bash Version
 
 ```bash
 # Full detection
-./streamcheck.sh
+./unlockcheck.sh
 
 # Fast detection mode
-./streamcheck.sh --fast
+./unlockcheck.sh --fast
 ```
 
 ## Supported Platforms
@@ -117,10 +117,8 @@ python streamcheck.py --verbose
 
 ```
 ============================================================
-          StreamCheck - Media Unlock Detection Tool v1.2
+          UnlockCheck - Service Unlock Detection Tool v1.3
 ============================================================
-
-[INFO] Fetching IP information...
 
 🌍 Current IP Information
 ────────────────────────────────────────────────────────────
@@ -131,7 +129,7 @@ Registered In: United States              # IP block registration country
 ISP: Cloudflare Inc.
 ASN: AS13335 Cloudflare, Inc.
 
-📺 Streaming Media Detection Results
+📺 Service Unlock Detection Results
 ────────────────────────────────────────────────────────────
 [✓] Netflix         : Full Access (Region: US)
 [✓] Disney+         : Full Access (Region: US)

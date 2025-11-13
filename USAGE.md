@@ -1,4 +1,4 @@
-# StreamCheck 使用指南
+# UnlockCheck 使用指南
 
 ## 快速开始
 
@@ -11,19 +11,19 @@ pip install -r requirements.txt
 
 2. **运行检测**
 ```bash
-python streamcheck.py
+python unlockcheck.py
 ```
 
 ### Bash 版本
 
 1. **添加执行权限**（首次使用）
 ```bash
-chmod +x streamcheck.sh
+chmod +x unlockcheck.sh
 ```
 
 2. **运行检测**
 ```bash
-./streamcheck.sh
+./unlockcheck.sh
 ```
 
 ## 高级用法
@@ -33,46 +33,46 @@ chmod +x streamcheck.sh
 #### 检测单个服务
 ```bash
 # 仅检测 Netflix
-python streamcheck.py --service netflix
+python unlockcheck.py --service netflix
 
 # 仅检测 Disney+
-python streamcheck.py --service disney
+python unlockcheck.py --service disney
 
 # 仅检测 YouTube Premium
-python streamcheck.py --service youtube
+python unlockcheck.py --service youtube
 
 # 仅检测 ChatGPT
-python streamcheck.py --service chatgpt
+python unlockcheck.py --service chatgpt
 
 # 仅检测 Claude
-python streamcheck.py --service claude
+python unlockcheck.py --service claude
 
 # 仅检测 TikTok
-python streamcheck.py --service tiktok
+python unlockcheck.py --service tiktok
 ```
 
 #### 详细模式
 ```bash
 # 显示详细的调试信息
-python streamcheck.py --verbose
+python unlockcheck.py --verbose
 
 # 或使用短选项
-python streamcheck.py -v
+python unlockcheck.py -v
 ```
 
 #### IPv6 检测
 ```bash
 # 使用 IPv6 进行检测
-python streamcheck.py --ipv6
+python unlockcheck.py --ipv6
 ```
 
 #### 组合选项
 ```bash
 # 详细模式 + 单个服务
-python streamcheck.py --verbose --service netflix
+python unlockcheck.py --verbose --service netflix
 
 # IPv6 + 详细模式
-python streamcheck.py --ipv6 --verbose
+python unlockcheck.py --ipv6 --verbose
 ```
 
 ### Bash 版本选项
@@ -80,17 +80,17 @@ python streamcheck.py --ipv6 --verbose
 #### 快速模式
 ```bash
 # 不等待延迟，快速完成所有检测
-./streamcheck.sh --fast
+./unlockcheck.sh --fast
 ```
 
 #### 查看帮助
 ```bash
-./streamcheck.sh --help
+./unlockcheck.sh --help
 ```
 
 #### 查看版本
 ```bash
-./streamcheck.sh --version
+./unlockcheck.sh --version
 ```
 
 ## 输出说明
@@ -150,7 +150,7 @@ export HTTP_PROXY="socks5://127.0.0.1:1080"
 export HTTPS_PROXY="socks5://127.0.0.1:1080"
 
 # 然后运行检测
-python streamcheck.py
+python unlockcheck.py
 ```
 
 Bash 版本需要确保 curl 可以访问代理。
@@ -170,7 +170,7 @@ Bash 版本需要确保 curl 可以访问代理。
 crontab -e
 
 # 每天上午 9 点运行检测，结果保存到文件
-0 9 * * * /path/to/streamcheck.py > /path/to/result.txt 2>&1
+0 9 * * * /path/to/unlockcheck.py > /path/to/result.txt 2>&1
 ```
 
 ## 贡献

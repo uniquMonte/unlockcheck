@@ -1,7 +1,7 @@
 #!/bin/bash
 #
-# StreamCheck - 流媒体解锁检测工具 (Bash 版本)
-# 一键检测当前网络环境的流媒体解锁情况
+# UnlockCheck - 服务解锁检测工具 (Bash 版本)
+# 一键检测当前网络环境的流媒体和AI服务解锁情况
 #
 
 VERSION="1.3"
@@ -29,9 +29,12 @@ IP_REGISTRATION_LOCATION=""
 
 # 打印头部
 print_header() {
-    echo -e "\n${CYAN}============================================================"
-    echo -e "       StreamCheck - 流媒体解锁检测工具 v${VERSION}"
-    echo -e "============================================================${NC}\n"
+    local current_time=$(date "+%Y-%m-%d %H:%M:%S")
+    echo -e "\n${CYAN}=============================================================="
+    echo -e "                UnlockCheck - 服务解锁检测工具"
+    echo -e "          https://github.com/uniquMonte/unlockcheck"
+    echo -e "                检测时间: ${current_time}"
+    echo -e "==============================================================${NC}"
 }
 
 # 日志函数
@@ -99,8 +102,6 @@ check_dns_unlock() {
 
 # 获取 IP 信息（增强版）
 get_ip_info() {
-    log_info "正在获取 IP 信息..."
-
     # 尝试使用 ipapi.co
     local response=$(curl -s --max-time $TIMEOUT \
         -A "$USER_AGENT" \
@@ -285,6 +286,47 @@ convert_country_code() {
         "IN") echo "印度" ;;
         "BR") echo "巴西" ;;
         "RU") echo "俄罗斯" ;;
+        "ES") echo "西班牙" ;;
+        "IT") echo "意大利" ;;
+        "SE") echo "瑞典" ;;
+        "NO") echo "挪威" ;;
+        "DK") echo "丹麦" ;;
+        "FI") echo "芬兰" ;;
+        "PL") echo "波兰" ;;
+        "CH") echo "瑞士" ;;
+        "AT") echo "奥地利" ;;
+        "BE") echo "比利时" ;;
+        "IE") echo "爱尔兰" ;;
+        "PT") echo "葡萄牙" ;;
+        "GR") echo "希腊" ;;
+        "CZ") echo "捷克" ;;
+        "RO") echo "罗马尼亚" ;;
+        "HU") echo "匈牙利" ;;
+        "BG") echo "保加利亚" ;;
+        "TR") echo "土耳其" ;;
+        "IL") echo "以色列" ;;
+        "AE") echo "阿联酋" ;;
+        "SA") echo "沙特阿拉伯" ;;
+        "EG") echo "埃及" ;;
+        "ZA") echo "南非" ;;
+        "MX") echo "墨西哥" ;;
+        "AR") echo "阿根廷" ;;
+        "CL") echo "智利" ;;
+        "CO") echo "哥伦比亚" ;;
+        "PE") echo "秘鲁" ;;
+        "VN") echo "越南" ;;
+        "TH") echo "泰国" ;;
+        "ID") echo "印度尼西亚" ;;
+        "MY") echo "马来西亚" ;;
+        "PH") echo "菲律宾" ;;
+        "NZ") echo "新西兰" ;;
+        "UA") echo "乌克兰" ;;
+        "LT") echo "立陶宛" ;;
+        "LV") echo "拉脱维亚" ;;
+        "EE") echo "爱沙尼亚" ;;
+        "SK") echo "斯洛伐克" ;;
+        "SI") echo "斯洛文尼亚" ;;
+        "HR") echo "克罗地亚" ;;
         *) echo "$code" ;;
     esac
 }
@@ -345,23 +387,23 @@ guess_isp_country() {
 # 打印增强的IP信息
 print_enhanced_ip_info() {
     echo -e "\n${YELLOW}🌍 当前 IP 信息${NC}"
-    echo -e "${CYAN}────────────────────────────────────────────────────────────${NC}"
+    echo -e "${CYAN}──────────────────────────────────────────────────────────────${NC}"
     echo -e "IP 地址: ${GREEN}${CURRENT_IP}${NC}"
 
-    # 显示IP类型（带颜色）
+    # 显示IP类型（带颜色和加粗）
     local type_color
     case "$IP_TYPE" in
         "原生IP")
             type_color="${GREEN}"
             ;;
         "广播IP")
-            type_color="${YELLOW}"
+            type_color="${RED}"
             ;;
         *)
             type_color="${NC}"
             ;;
     esac
-    echo -e "IP 类型: ${type_color}${IP_TYPE}${NC}"
+    echo -e "IP 类型: ${type_color}\033[1m${IP_TYPE}\033[0m${NC}"
 
     # 显示使用地（IP的地理位置）
     if [ -n "$IP_USAGE_LOCATION" ] && [ "$IP_USAGE_LOCATION" != "  " ]; then
@@ -386,17 +428,59 @@ print_enhanced_ip_info() {
 }
 
 # 格式化输出结果
+# Remove ANSI color codes from text
+strip_ansi_codes() {
+    local text="$1"
+    # Remove ANSI escape sequences (using $'...' for proper escape interpretation)
+    printf "%s" "$text" | sed $'s/\033\[[0-9;]*m//g'
+}
+
+# Calculate display width of text (CJK chars count as 2, ASCII as 1), excluding ANSI codes
+get_display_width() {
+    local text="$1"
+    # Remove ANSI color codes first
+    local clean_text=$(strip_ansi_codes "$text")
+    local width=0
+    local char
+    local len=${#clean_text}
+
+    for ((i=0; i<len; i++)); do
+        char="${clean_text:i:1}"
+        # Get ASCII value of character
+        printf -v ascii '%d' "'$char" 2>/dev/null || ascii=0
+
+        # CJK and other wide characters (> 127)
+        if [ "$ascii" -gt 127 ]; then
+            width=$((width + 2))
+        else
+            width=$((width + 1))
+        fi
+    done
+
+    echo "$width"
+}
+
+# Pad text to target display width
+pad_to_width() {
+    local text="$1"
+    local target_width="$2"
+    local current_width=$(get_display_width "$text")
+    local padding=$((target_width - current_width))
+
+    if [ "$padding" -gt 0 ]; then
+        printf "%s%*s" "$text" "$padding" ""
+    else
+        printf "%s" "$text"
+    fi
+}
+
 format_result() {
     local service_name="$1"
     local status="$2"
     local region="$3"
     local detail="$4"
-    local unlock_type="$5"  # 解锁类型 (native/dns)
 
-    # 格式化服务名称（固定宽度）
-    local service_formatted=$(printf "%-15s" "$service_name")
-
-    # 选择图标和颜色
+    # Column 1: Status icon
     local icon color
     case "$status" in
         "success")
@@ -417,23 +501,42 @@ format_result() {
             ;;
     esac
 
-    # 构建详细信息
-    local info="$detail"
+    # Column 2: Service name (fixed display width: 16 display chars)
+    local service_padded=$(pad_to_width "$service_name" 16)
+    local service_formatted="${service_padded}:"
 
-    # 添加解锁类型标识
-    if [ "$status" = "success" ] && [ -n "$unlock_type" ]; then
-        if [ "$unlock_type" = "dns" ]; then
-            info="$info ${MAGENTA}[DNS解锁]${NC}"
-        elif [ "$unlock_type" = "native" ]; then
-            info="$info ${GREEN}[原生]${NC}"
-        fi
+    # Column 3: Status detail (pad to fixed display width: 21 display chars)
+    local detail_formatted=$(pad_to_width "$detail" 21)
+
+    # Column 4: Unlock type label (fixed display width: 8 display chars)
+    # Note: DNS unlock detection is currently disabled to avoid false positives from CDN services
+    # check_dns_unlock() currently always returns "native" for this reason
+    local unlock_type_text=""
+    local unlock_type_color=""
+    if [ "$status" = "success" ]; then
+        # Currently always show native unlock since DNS detection is disabled
+        unlock_type_text="原生"
+        unlock_type_color="${GREEN}"
     fi
 
+    # Pad unlock type to fixed width (8 display chars), then add color
+    local unlock_type_padded=$(pad_to_width "$unlock_type_text" 8)
+    if [ -n "$unlock_type_color" ]; then
+        unlock_type_padded="${unlock_type_color}${unlock_type_padded}${NC}"
+    fi
+
+    # Column 5: Region info (always pad to fixed width: 4 display chars for alignment)
+    local region_colored
     if [ "$region" != "N/A" ] && [ "$region" != "Unknown" ] && [ -n "$region" ]; then
-        info="$info ${CYAN}(区域: $region)${NC}"
+        local region_padded=$(pad_to_width "$region" 4)
+        region_colored="${CYAN}${region_padded}${NC}"
+    else
+        # Use empty spaces to maintain column alignment
+        region_colored=$(pad_to_width "" 4)
     fi
 
-    echo -e "$icon $service_formatted: ${color}${info}${NC}"
+    # Print aligned columns (always include region column separator for consistent alignment)
+    echo -e "$icon $service_formatted ${color}${detail_formatted}${NC} : ${unlock_type_padded}: ${region_colored}"
 }
 
 # 检测 Netflix
@@ -462,7 +565,7 @@ check_netflix() {
         format_result "Netflix" "failed" "N/A" "IP被封禁"
     elif [ "$status_code" = "200" ] || [ "$status_code" = "301" ] || [ "$status_code" = "302" ]; then
         # 200/301/302都表示可以访问
-        format_result "Netflix" "success" "$region" "可访问" "$unlock_type"
+        format_result "Netflix" "success" "$region" "正常访问"
     elif [ "$status_code" = "403" ]; then
         # 403通常是IP被封禁
         format_result "Netflix" "failed" "N/A" "IP被封禁"
@@ -481,7 +584,7 @@ check_disney() {
         "https://www.disneyplus.com/" 2>/dev/null)
 
     if [ "$status_code" = "200" ]; then
-        format_result "Disney+" "success" "$COUNTRY_CODE" "完整解锁" "$unlock_type"
+        format_result "Disney+" "success" "$COUNTRY_CODE" "正常访问"
     elif [ "$status_code" = "403" ]; then
         format_result "Disney+" "failed" "N/A" "不支持"
     else
@@ -498,57 +601,133 @@ check_youtube() {
         "https://www.youtube.com/premium" 2>/dev/null)
 
     if [ "$status_code" = "200" ]; then
-        format_result "YouTube Premium" "success" "$COUNTRY_CODE" "支持" "$unlock_type"
+        format_result "YouTube Premium" "success" "$COUNTRY_CODE" "正常访问"
     else
         format_result "YouTube Premium" "error" "N/A" "检测失败"
     fi
 }
 
-# 检测 ChatGPT
+# 检测 ChatGPT - Smart dual detection
 check_chatgpt() {
-    local unlock_type=$(check_dns_unlock "chat.openai.com")
-    local response=$(curl -s --max-time $TIMEOUT \
-        -A "$USER_AGENT" \
-        -L \
+    local unlock_type=$(check_dns_unlock "api.openai.com")
+    local api_result=""
+    local has_cloudflare=false
+
+    # Step 1: Check API endpoint
+    local api_response=$(curl -s --max-time $TIMEOUT \
+        -H "Content-Type: application/json" \
         -w "\n%{http_code}" \
-        "https://chat.openai.com/" 2>/dev/null)
+        "https://api.openai.com/v1/models" 2>/dev/null)
 
-    local status_code=$(echo "$response" | tail -n 1)
-    local content=$(echo "$response" | head -n -1)
+    local api_status=$(echo "$api_response" | tail -n 1)
+    local api_content=$(echo "$api_response" | head -n -1)
 
-    # 检查是否包含区域限制或IP拦截的关键词
-    if echo "$content" | grep -qi "not available\|unsupported.*region\|not supported in your country\|VPN or proxy\|access denied"; then
-        format_result "ChatGPT" "failed" "N/A" "区域受限"
-    elif [ "$status_code" = "403" ]; then
-        # 403 通常是IP被拦截
-        format_result "ChatGPT" "failed" "N/A" "区域受限"
-    elif [ "$status_code" = "200" ]; then
-        format_result "ChatGPT" "success" "$COUNTRY_CODE" "可访问" "$unlock_type"
+    if [ "$api_status" = "401" ] || [ "$api_status" = "400" ]; then
+        api_result="success"
+    elif [ "$api_status" = "403" ]; then
+        if echo "$api_content" | grep -qi "unsupported_country_region_territory"; then
+            api_result="region_restricted"
+        elif echo "$api_content" | grep -qi "country\|region\|territory"; then
+            api_result="region_restricted"
+        elif echo "$api_content" | grep -qi "cloudflare\|attention required"; then
+            has_cloudflare=true
+        else
+            api_result="access_denied"
+        fi
+    elif [ "$api_status" = "451" ]; then
+        api_result="region_restricted"
+    fi
+
+    # Step 2: Check web if needed (only if no clear result from API)
+    if [ "$has_cloudflare" = "false" ] && [ "$api_result" != "region_restricted" ]; then
+        local web_response=$(curl -s --max-time $TIMEOUT \
+            -A "$USER_AGENT" -L -w "\n%{http_code}" \
+            "https://chatgpt.com/" 2>/dev/null)
+
+        local web_status=$(echo "$web_response" | tail -n 1)
+        local web_content=$(echo "$web_response" | head -n -1)
+
+        if [ "$web_status" = "403" ] || [ "$web_status" = "503" ]; then
+            if echo "$web_content" | grep -qi "just a moment\|checking your browser\|attention required"; then
+                has_cloudflare=true
+            fi
+        fi
+    fi
+
+    # Step 3: Intelligent decision (Priority: region restriction > Cloudflare > API success)
+    if [ "$api_result" = "region_restricted" ]; then
+        format_result "ChatGPT" "failed" "N/A" "该地区不支持"
+    elif [ "$has_cloudflare" = "true" ]; then
+        format_result "ChatGPT" "error" "N/A" "无法检测 (Cloudflare)"
+    elif [ "$api_result" = "success" ]; then
+        format_result "ChatGPT" "success" "$COUNTRY_CODE" "正常访问"
+    elif [ "$api_result" = "access_denied" ]; then
+        format_result "ChatGPT" "failed" "N/A" "访问被拒"
     else
         format_result "ChatGPT" "error" "N/A" "检测失败"
     fi
 }
 
-# 检测 Claude
+# 检测 Claude - Smart dual detection
 check_claude() {
-    local unlock_type=$(check_dns_unlock "claude.ai")
-    local response=$(curl -s --max-time $TIMEOUT \
-        -A "$USER_AGENT" \
-        -L \
+    local unlock_type=$(check_dns_unlock "api.anthropic.com")
+    local api_result=""
+    local web_result=""
+    local has_cloudflare=false
+
+    # Step 1: Check API endpoint
+    local api_response=$(curl -s --max-time $TIMEOUT \
+        -H "Content-Type: application/json" \
+        -H "anthropic-version: 2023-06-01" \
         -w "\n%{http_code}" \
+        "https://api.anthropic.com/v1/messages" 2>/dev/null)
+
+    local api_status=$(echo "$api_response" | tail -n 1)
+    local api_content=$(echo "$api_response" | head -n -1)
+
+    if [ "$api_status" = "401" ] || [ "$api_status" = "400" ]; then
+        api_result="success"
+    elif [ "$api_status" = "403" ]; then
+        if echo "$api_content" | grep -qi "request not allowed\|forbidden"; then
+            api_result="region_restricted"
+        elif echo "$api_content" | grep -qi "region\|country\|territory"; then
+            api_result="region_restricted"
+        else
+            api_result="access_denied"
+        fi
+    elif [ "$api_status" = "451" ]; then
+        api_result="region_restricted"
+    fi
+
+    # Step 2: Check web endpoint
+    local web_response=$(curl -s --max-time $TIMEOUT \
+        -A "$USER_AGENT" -L -w "\n%{http_code}" \
         "https://claude.ai/" 2>/dev/null)
 
-    local status_code=$(echo "$response" | tail -n 1)
-    local content=$(echo "$response" | head -n -1)
+    local web_status=$(echo "$web_response" | tail -n 1)
+    local web_content=$(echo "$web_response" | head -n -1)
 
-    # 检查是否包含区域限制或IP拦截的关键词
-    if echo "$content" | grep -qi "not available\|unsupported.*region\|not supported in your country\|access denied"; then
-        format_result "Claude" "failed" "N/A" "区域受限"
-    elif [ "$status_code" = "403" ]; then
-        # 403 通常是IP被拦截
-        format_result "Claude" "failed" "N/A" "区域受限"
-    elif [ "$status_code" = "200" ]; then
-        format_result "Claude" "success" "$COUNTRY_CODE" "可访问" "$unlock_type"
+    if [ "$web_status" = "403" ] || [ "$web_status" = "503" ]; then
+        if echo "$web_content" | grep -qi "just a moment\|checking your browser"; then
+            has_cloudflare=true
+        fi
+    fi
+
+    if echo "$web_content" | grep -qi "<title>claude - unavailable</title>"; then
+        web_result="region_restricted"
+    elif echo "$web_content" | grep -q "應用程式不可用\|僅在特定地區提供服務"; then
+        web_result="region_restricted"
+    fi
+
+    # Step 3: Intelligent decision (Priority: region restriction > Cloudflare > API success)
+    if [ "$api_result" = "region_restricted" ] || [ "$web_result" = "region_restricted" ]; then
+        format_result "Claude" "failed" "N/A" "该地区不支持"
+    elif [ "$has_cloudflare" = "true" ]; then
+        format_result "Claude" "error" "N/A" "无法检测 (Cloudflare)"
+    elif [ "$api_result" = "success" ]; then
+        format_result "Claude" "success" "$COUNTRY_CODE" "正常访问"
+    elif [ "$api_result" = "access_denied" ]; then
+        format_result "Claude" "failed" "N/A" "访问被拒"
     else
         format_result "Claude" "error" "N/A" "检测失败"
     fi
@@ -564,7 +743,7 @@ check_tiktok() {
         "https://www.tiktok.com/" 2>/dev/null)
 
     if [ "$status_code" = "200" ]; then
-        format_result "TikTok" "success" "$COUNTRY_CODE" "可访问" "$unlock_type"
+        format_result "TikTok" "success" "$COUNTRY_CODE" "正常访问"
     elif [ "$status_code" = "403" ] || [ "$status_code" = "451" ]; then
         format_result "TikTok" "failed" "N/A" "区域受限"
     else
@@ -595,15 +774,15 @@ check_imgur() {
     fi
 
     if [ "$status_code" = "200" ]; then
-        format_result "Imgur" "success" "$region" "可访问" "$unlock_type"
+        format_result "Imgur" "success" "$region" "正常访问"
     elif [ "$status_code" = "403" ] || [ "$status_code" = "451" ]; then
         format_result "Imgur" "failed" "N/A" "区域受限"
     elif [ "$status_code" = "301" ] || [ "$status_code" = "302" ]; then
         # 重定向通常表示可访问
-        format_result "Imgur" "success" "$region" "可访问" "$unlock_type"
+        format_result "Imgur" "success" "$region" "正常访问"
     elif [ "$status_code" = "429" ]; then
         # 速率限制，通常表示服务可访问
-        format_result "Imgur" "success" "$region" "可访问(速率限制)" "$unlock_type"
+        format_result "Imgur" "success" "$region" "正常访问 (速率限制)"
     elif [ -z "$status_code" ] || [ "$status_code" = "000" ]; then
         format_result "Imgur" "error" "N/A" "连接超时"
     else
@@ -625,31 +804,112 @@ check_reddit() {
 
     # 检查是否被安全系统拦截（优先检查内容）
     if echo "$content" | grep -qi "blocked by network security\|blocked by mistake\|access denied"; then
-        format_result "Reddit" "partial" "$COUNTRY_CODE" "IP被限制，需登录访问" "$unlock_type"
+        format_result "Reddit" "partial" "$COUNTRY_CODE" "受限访问 (需登录)"
     elif [ "$status_code" = "403" ] || [ "$status_code" = "451" ]; then
         # 403/451 也可能是安全拦截
-        format_result "Reddit" "partial" "$COUNTRY_CODE" "IP被限制，需登录访问" "$unlock_type"
+        format_result "Reddit" "partial" "$COUNTRY_CODE" "受限访问 (需登录)"
     elif [ "$status_code" = "200" ]; then
         # 200 且内容没有拦截关键词，才是真正可访问
-        format_result "Reddit" "success" "$COUNTRY_CODE" "可访问" "$unlock_type"
+        format_result "Reddit" "success" "$COUNTRY_CODE" "正常访问"
     else
         format_result "Reddit" "error" "N/A" "检测失败(${status_code})"
     fi
 }
 
-# 检测 Google Gemini
+# 检测 Google Gemini - Smart dual detection
 check_gemini() {
-    local unlock_type=$(check_dns_unlock "gemini.google.com")
-    local status_code=$(curl -s -o /dev/null -w "%{http_code}" \
-        --max-time $TIMEOUT \
-        -A "$USER_AGENT" \
-        -L \
+    local unlock_type=$(check_dns_unlock "generativelanguage.googleapis.com")
+    local api_result=""
+    local web_result=""
+    local static_result=""
+    local studio_result=""
+
+    # Step 1: Check API endpoint
+    local api_response=$(curl -s --max-time $TIMEOUT \
+        -H "Content-Type: application/json" \
+        -w "\n%{http_code}" \
+        "https://generativelanguage.googleapis.com/v1beta/models" 2>/dev/null)
+
+    local api_status=$(echo "$api_response" | tail -n 1)
+    local api_content=$(echo "$api_response" | head -n -1)
+
+    if [ "$api_status" = "401" ] || [ "$api_status" = "400" ]; then
+        api_result="success"
+    elif [ "$api_status" = "403" ]; then
+        if echo "$api_content" | grep -qi "PERMISSION_DENIED"; then
+            if echo "$api_content" | grep -qi "api key\|unregistered callers\|established identity"; then
+                api_result="success"
+            else
+                api_result="access_denied"
+            fi
+        elif echo "$api_content" | grep -qi "country\|region\|territory\|not available\|not supported"; then
+            api_result="region_restricted"
+        else
+            # 403 but not JSON response = likely region restriction
+            api_result="region_restricted"
+        fi
+    elif [ "$api_status" = "451" ]; then
+        api_result="region_restricted"
+    fi
+
+    # Step 2: Check web endpoint
+    local web_response=$(curl -s --max-time $TIMEOUT \
+        -A "$USER_AGENT" -L \
+        -w "\n%{http_code}" \
         "https://gemini.google.com/" 2>/dev/null)
 
-    if [ "$status_code" = "200" ]; then
-        format_result "Gemini" "success" "$COUNTRY_CODE" "可访问" "$unlock_type"
-    elif [ "$status_code" = "403" ]; then
-        format_result "Gemini" "failed" "N/A" "区域受限"
+    local web_status=$(echo "$web_response" | tail -n 1)
+    local web_content=$(echo "$web_response" | head -n -1)
+
+    # Check for 403 - region restriction
+    if [ "$web_status" = "403" ]; then
+        if echo "$web_content" | grep -qi "access denied"; then
+            web_result="region_restricted"
+        else
+            web_result="access_denied"
+        fi
+    elif echo "$web_content" | grep -qi "supported in your country\|not available in your country"; then
+        web_result="region_restricted"
+    elif [ "$web_status" = "200" ]; then
+        if echo "$web_content" | grep -qi "sign in\|get started\|continue with google\|chat with gemini"; then
+            web_result="success"
+        fi
+    fi
+
+    # Step 3: Check static resources (if previous checks are inconclusive)
+    if [ "$api_result" != "region_restricted" ] && [ "$web_result" != "region_restricted" ]; then
+        local static_status=$(curl -s -o /dev/null -w "%{http_code}" \
+            --max-time $TIMEOUT \
+            "https://www.gstatic.com/lamda/images/gemini_sparkle_v002_d4735304ff6292a690345.svg" 2>/dev/null)
+
+        if [ "$static_status" = "403" ]; then
+            static_result="region_restricted"
+        elif [ "$static_status" = "200" ]; then
+            static_result="success"
+        fi
+    fi
+
+    # Step 4: Check AI Studio (alternative endpoint)
+    if [ "$api_result" != "region_restricted" ] && [ "$web_result" != "region_restricted" ] && [ "$static_result" != "region_restricted" ]; then
+        local studio_status=$(curl -s -o /dev/null -w "%{http_code}" \
+            --max-time $TIMEOUT \
+            -A "$USER_AGENT" \
+            "https://aistudio.google.com/app/prompts/new_chat" 2>/dev/null)
+
+        if [ "$studio_status" = "403" ]; then
+            studio_result="region_restricted"
+        elif [ "$studio_status" = "200" ] || [ "$studio_status" = "302" ]; then
+            studio_result="success"
+        fi
+    fi
+
+    # Step 5: Intelligent decision (Priority: region restriction > success > access denied)
+    if [ "$api_result" = "region_restricted" ] || [ "$web_result" = "region_restricted" ] || [ "$static_result" = "region_restricted" ] || [ "$studio_result" = "region_restricted" ]; then
+        format_result "Gemini" "failed" "N/A" "该地区不支持"
+    elif [ "$api_result" = "success" ] || [ "$web_result" = "success" ] || [ "$static_result" = "success" ] || [ "$studio_result" = "success" ]; then
+        format_result "Gemini" "success" "$COUNTRY_CODE" "正常访问"
+    elif [ "$api_result" = "access_denied" ]; then
+        format_result "Gemini" "failed" "N/A" "访问被拒"
     else
         format_result "Gemini" "error" "N/A" "检测失败"
     fi
@@ -665,7 +925,7 @@ check_spotify() {
         "https://open.spotify.com/" 2>/dev/null)
 
     if [ "$status_code" = "200" ]; then
-        format_result "Spotify" "success" "$COUNTRY_CODE" "可访问" "$unlock_type"
+        format_result "Spotify" "success" "$COUNTRY_CODE" "正常访问"
     elif [ "$status_code" = "403" ]; then
         format_result "Spotify" "failed" "N/A" "区域受限"
     else
@@ -688,9 +948,9 @@ check_scholar() {
 
     # 检查是否包含机器人流量警告（使用更宽松的匹配）
     if echo "$content" | grep -qi "automated\|unusual traffic\|can't process your request\|We're sorry"; then
-        format_result "Google Scholar" "partial" "$COUNTRY_CODE" "可访问官网，但无法搜索" "$unlock_type"
+        format_result "Google Scholar" "partial" "$COUNTRY_CODE" "受限访问 (机器人)"
     elif [ "$status_code" = "200" ]; then
-        format_result "Google Scholar" "success" "$COUNTRY_CODE" "完全可用" "$unlock_type"
+        format_result "Google Scholar" "success" "$COUNTRY_CODE" "完全可用"
     elif [ "$status_code" = "403" ]; then
         format_result "Google Scholar" "failed" "N/A" "区域受限"
     elif [ "$status_code" = "429" ]; then
@@ -702,8 +962,15 @@ check_scholar() {
 
 # 运行所有检测
 run_all_checks() {
-    echo -e "${YELLOW}📺 流媒体解锁检测结果${NC}"
-    echo -e "${CYAN}────────────────────────────────────────────────────────────${NC}"
+    echo -e "${YELLOW}📺 服务解锁检测结果${NC}"
+    echo -e "${CYAN}──────────────────────────────────────────────────────────────${NC}"
+    # Generate table header with fixed display widths (all using pad_to_width)
+    local header_service=$(pad_to_width "服务名称" 16)
+    local header_status=$(pad_to_width "解锁状态" 21)
+    local header_type=$(pad_to_width "解锁类型" 8)
+    local header_region=$(pad_to_width "区域" 4)
+    echo -e "    ${header_service}: ${header_status} : ${header_type}: ${header_region}"
+    echo -e "${CYAN}──────────────────────────────────────────────────────────────${NC}"
 
     # 视频流媒体
     echo -e "\n${BLUE}🎬 视频流媒体${NC}"
@@ -741,7 +1008,7 @@ run_all_checks() {
     [ -z "$FAST_MODE" ] && sleep 0.5
     check_imgur
 
-    echo -e "\n${CYAN}────────────────────────────────────────────────────────────${NC}"
+    echo -e "\n${CYAN}──────────────────────────────────────────────────────────────${NC}"
     echo -e "检测完成!\n"
 }
 
@@ -776,7 +1043,7 @@ main() {
                 exit 0
                 ;;
             --version|-v)
-                echo "StreamCheck v${VERSION}"
+                echo "UnlockCheck v${VERSION}"
                 exit 0
                 ;;
             *)

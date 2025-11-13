@@ -1,6 +1,6 @@
 # 贡献指南
 
-感谢您对 StreamCheck 项目的关注！我们欢迎各种形式的贡献。
+感谢您对 UnlockCheck 项目的关注！我们欢迎各种形式的贡献。
 
 ## 如何贡献
 
@@ -8,7 +8,7 @@
 
 如果您发现了 bug，请：
 
-1. 检查 [Issues](https://github.com/yourusername/streamcheck/issues) 确认问题是否已被报告
+1. 检查 [Issues](https://github.com/yourusername/unlockcheck/issues) 确认问题是否已被报告
 2. 如果没有，创建新 Issue 并提供：
    - 清晰的标题和描述
    - 重现步骤
@@ -31,8 +31,8 @@
 1. Fork 本项目
 2. 克隆您的 fork
 ```bash
-git clone https://github.com/YOUR_USERNAME/streamcheck.git
-cd streamcheck
+git clone https://github.com/YOUR_USERNAME/unlockcheck.git
+cd unlockcheck
 ```
 
 3. 创建新分支
@@ -69,10 +69,10 @@ git checkout -b fix/your-bug-fix
 
 ```bash
 # Python 版本
-python streamcheck.py --verbose
+python unlockcheck.py --verbose
 
 # Bash 版本
-./streamcheck.sh
+./unlockcheck.sh
 ```
 
 #### 提交更改
@@ -117,7 +117,7 @@ git push origin feature/your-feature-name
 
 ### Python 版本
 
-1. 在 `StreamChecker` 类中添加新方法：
+1. 在 `UnlockChecker` 类中添加新方法：
 
 ```python
 def check_newplatform(self) -> Tuple[str, str, str]:

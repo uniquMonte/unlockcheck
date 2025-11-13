@@ -36,6 +36,15 @@ print_separator() {
     echo -e "${CYAN}${separator}${NC}"
 }
 
+# 生成标题分隔线的辅助函数（使用 = 字符）
+print_header_separator() {
+    local separator=""
+    for ((i=0; i<SEPARATOR_WIDTH; i++)); do
+        separator="${separator}="
+    done
+    echo -e "${CYAN}${separator}${NC}"
+}
+
 # 全局变量
 IP_INFO=""
 COUNTRY_CODE=""
@@ -49,11 +58,12 @@ IP_REGISTRATION_LOCATION=""
 # 打印头部
 print_header() {
     local current_time=$(date "+%Y-%m-%d %H:%M:%S")
-    echo -e "\n${CYAN}=============================================================="
-    echo -e "                UnlockCheck - 服务解锁检测工具"
+    echo -e "\n"
+    print_header_separator
+    echo -e "${CYAN}                UnlockCheck - 服务解锁检测工具"
     echo -e "          https://github.com/uniquMonte/unlockcheck"
-    echo -e "                检测时间: ${current_time}"
-    echo -e "==============================================================${NC}"
+    echo -e "                检测时间: ${current_time}${NC}"
+    print_header_separator
 }
 
 # 日志函数

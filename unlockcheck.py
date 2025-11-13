@@ -39,6 +39,11 @@ def print_separator():
     print(f"{Fore.CYAN}{'─' * SEPARATOR_WIDTH}{Style.RESET_ALL}")
 
 
+def print_header_separator():
+    """Print a header separator line with configurable width (using = character)"""
+    print(f"{Fore.CYAN}{'=' * SEPARATOR_WIDTH}{Style.RESET_ALL}")
+
+
 class UnlockChecker:
     """Main unlock checker class for streaming media and AI services"""
 
@@ -97,11 +102,12 @@ class UnlockChecker:
     def print_header(self):
         """Print program header"""
         current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        print(f"\n{Fore.CYAN}{'='*62}")
-        print(f"{' '*8}UnlockCheck - Service Unlock Detection Tool")
+        print()
+        print_header_separator()
+        print(f"{Fore.CYAN}{' '*8}UnlockCheck - Service Unlock Detection Tool")
         print(f"{' '*10}https://github.com/uniquMonte/unlockcheck")
-        print(f"{' '*16}检测时间: {current_time}")
-        print(f"{'='*62}{Style.RESET_ALL}")
+        print(f"{' '*16}检测时间: {current_time}{Style.RESET_ALL}")
+        print_header_separator()
 
     def get_ip_info(self) -> Dict:
         """Get current IP information (enhanced: includes native IP detection, registration location, etc.)"""

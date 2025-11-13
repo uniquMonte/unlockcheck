@@ -246,22 +246,14 @@ detect_ip_type() {
             IP_REGISTRATION_LOCATION=$(guess_isp_country "$org")
         fi
 
-        # 判断IP类型
-        if [ "$is_hosting" = "true" ] || [ "$is_proxy" = "true" ]; then
-            # 明确标记为托管服务或代理
-            IP_TYPE="广播IP/数据中心"
-        elif [ "$is_mobile" = "true" ]; then
-            # 移动网络
-            IP_TYPE="移动网络"
+        # 判断IP类型：只区分原生IP和广播IP
+        # 原生IP的核心特征：注册地和使用地一致
+        if [ -n "$reg_country" ] && [ "$country_code" = "$reg_country" ]; then
+            # 注册地和使用地一致，是原生IP
+            IP_TYPE="原生IP"
         else
-            # 检查注册地和使用地是否一致（原生IP的核心特征）
-            if [ -n "$reg_country" ] && [ "$country_code" = "$reg_country" ]; then
-                # 注册地和使用地一致，是原生IP
-                IP_TYPE="原生住宅IP"
-            else
-                # 注册地和使用地不一致，是广播IP
-                IP_TYPE="广播IP/数据中心"
-            fi
+            # 其他所有情况都是广播IP（包括hosting、proxy、移动网络、注册地不一致等）
+            IP_TYPE="广播IP"
         fi
     else
         IP_TYPE="未知"
@@ -359,14 +351,11 @@ print_enhanced_ip_info() {
     # 显示IP类型（带颜色）
     local type_color
     case "$IP_TYPE" in
-        "原生住宅IP")
+        "原生IP")
             type_color="${GREEN}"
             ;;
-        "广播IP/数据中心")
+        "广播IP")
             type_color="${YELLOW}"
-            ;;
-        "移动网络")
-            type_color="${CYAN}"
             ;;
         *)
             type_color="${NC}"

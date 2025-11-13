@@ -656,26 +656,31 @@ check_claude() {
     local status_code=$(echo "$response" | tail -n 1)
     local content=$(echo "$response" | head -n -1)
 
-    # 检查 Claude 实际返回的区域限制消息
-    # 优先检查是否是Cloudflare验证页面（常见于反爬虫保护）
-    if echo "$content" | grep -qi "just a moment\|checking your browser\|cloudflare"; then
-        format_result "Claude" "error" "N/A" "无法检测 (Cloudflare)"
-    # 检查明确的地区限制消息
-    elif echo "$content" | grep -qi "only available in certain regions"; then
-        format_result "Claude" "failed" "N/A" "该地区不支持"
-    # 检查中文错误消息（應用程式不可用/僅在特定地區提供服務）
-    elif echo "$content" | grep -q "應用程式不可用\|僅在特定地區提供服務"; then
-        format_result "Claude" "failed" "N/A" "该地区不支持"
-    # 检查明确的地区限制关键词（必须包含region/country）
-    elif echo "$content" | grep -qi "not available in your region\|not available in your country\|unavailable in your region"; then
-        format_result "Claude" "failed" "N/A" "该地区不支持"
-    elif [ "$status_code" = "403" ]; then
-        # 403但不是Cloudflare页面，可能是真正的地区限制
-        format_result "Claude" "failed" "N/A" "该地区不支持"
+    # Priority 1: Check Cloudflare verification page (must check before 403)
+    # Only if HTTP is 403/503 AND contains Cloudflare challenge
+    if [ "$status_code" = "403" ] || [ "$status_code" = "503" ]; then
+        if echo "$content" | grep -qi "just a moment\|checking your browser"; then
+            format_result "Claude" "error" "N/A" "无法检测 (Cloudflare)"
+        else
+            # If 403/503 but no Cloudflare pattern, likely region restriction
+            format_result "Claude" "failed" "N/A" "该地区不支持"
+        fi
+    # Priority 2: Check if HTTP 200 (successful response)
     elif [ "$status_code" = "200" ]; then
-        # Claude是单页应用(SPA)，初始HTML可能不包含关键词
-        # 如果返回200且没有明确错误消息，就认为可访问
-        format_result "Claude" "success" "$COUNTRY_CODE" "正常访问"
+        # Claude is a SPA - the initial HTML contains all JS code including error messages
+        # We need to check if actual error is being displayed (not just in JS code)
+
+        # Check for explicit error pages (displayed to user, not in JS code)
+        if echo "$content" | grep -qi "<title>claude - unavailable</title>"; then
+            format_result "Claude" "failed" "N/A" "该地区不支持"
+        # Check for Chinese error message (應用程式不可用/僅在特定地區提供服務)
+        elif echo "$content" | grep -q "應用程式不可用\|僅在特定地區提供服務"; then
+            format_result "Claude" "failed" "N/A" "该地区不支持"
+        else
+            # If HTTP 200 and no visible error indicators, consider accessible
+            # Note: SPA initial load always returns 200 with full JS bundle
+            format_result "Claude" "success" "$COUNTRY_CODE" "正常访问"
+        fi
     else
         format_result "Claude" "error" "N/A" "检测失败"
     fi

@@ -577,30 +577,31 @@ class UnlockChecker:
             # Check for region restriction messages (actual error messages from Claude)
             content_lower = response.text.lower()
 
-            # Priority: Check if it's Cloudflare verification page (anti-bot protection)
-            if "just a moment" in content_lower or "checking your browser" in content_lower or "cloudflare" in content_lower:
-                return "error", "N/A", "Cannot Detect (Cloudflare)"
-
-            # Claude shows specific error messages when region is not supported
-            if "only available in certain regions" in content_lower:
-                return "failed", "N/A", "Not Available in This Region"
-
-            # Check for Chinese error message (應用程式不可用/僅在特定地區提供服務)
-            if "應用程式不可用" in response.text or "僅在特定地區提供服務" in response.text:
-                return "failed", "N/A", "Not Available in This Region"
-
-            # Check for explicit region restriction keywords (must include region/country)
-            if "not available in your region" in content_lower or "not available in your country" in content_lower or "unavailable in your region" in content_lower:
-                return "failed", "N/A", "Not Available in This Region"
-
-            # Check if region restricted by HTTP status (403 but not Cloudflare)
-            if response.status_code == 403:
+            # Priority 1: Check Cloudflare verification page (must check before 403)
+            # Only if HTTP is 403/503 AND contains Cloudflare challenge
+            if response.status_code in [403, 503]:
+                if "just a moment" in content_lower or "checking your browser" in content_lower:
+                    return "error", "N/A", "Cannot Detect (Cloudflare)"
+                # If 403/503 but no Cloudflare pattern, likely region restriction
                 return "failed", "N/A", "Region Restricted"
 
-            # Check if Claude is accessible
+            # Priority 2: Check if HTTP 200 (successful response)
             if response.status_code == 200:
-                # Claude is a SPA (Single Page Application), initial HTML may not contain keywords
-                # If status is 200 and no explicit error message, consider it accessible
+                # Claude is a SPA - the initial HTML contains all JS code including error messages
+                # We need to check if actual error is being displayed (not just in JS code)
+                # Look for visible error indicators in the rendered content
+
+                # Check for explicit error pages (displayed to user, not in JS code)
+                if "<title>claude - unavailable</title>" in content_lower:
+                    return "failed", "N/A", "Not Available in This Region"
+
+                # Check for Chinese error message (應用程式不可用/僅在特定地區提供服務)
+                # These are likely displayed errors, not JS code
+                if "應用程式不可用" in response.text or "僅在特定地區提供服務" in response.text:
+                    return "failed", "N/A", "Not Available in This Region"
+
+                # If HTTP 200 and no visible error indicators, consider accessible
+                # Note: SPA initial load always returns 200 with full JS bundle
                 return "success", self.ip_info.get('country_code', 'Unknown'), "Normal Access"
 
             return "error", "N/A", "Inaccessible"

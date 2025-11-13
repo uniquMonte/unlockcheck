@@ -821,6 +821,8 @@ check_gemini() {
     local unlock_type=$(check_dns_unlock "generativelanguage.googleapis.com")
     local api_result=""
     local web_result=""
+    local static_result=""
+    local studio_result=""
 
     # Step 1: Check API endpoint
     local api_response=$(curl -s --max-time $TIMEOUT \
@@ -843,7 +845,8 @@ check_gemini() {
         elif echo "$api_content" | grep -qi "country\|region\|territory\|not available\|not supported"; then
             api_result="region_restricted"
         else
-            api_result="access_denied"
+            # 403 but not JSON response = likely region restriction
+            api_result="region_restricted"
         fi
     elif [ "$api_status" = "451" ]; then
         api_result="region_restricted"
@@ -852,18 +855,58 @@ check_gemini() {
     # Step 2: Check web endpoint
     local web_response=$(curl -s --max-time $TIMEOUT \
         -A "$USER_AGENT" -L \
+        -w "\n%{http_code}" \
         "https://gemini.google.com/" 2>/dev/null)
 
-    if echo "$web_response" | grep -qi "supported in your country\|not available in your country"; then
+    local web_status=$(echo "$web_response" | tail -n 1)
+    local web_content=$(echo "$web_response" | head -n -1)
+
+    # Check for 403 - region restriction
+    if [ "$web_status" = "403" ]; then
+        if echo "$web_content" | grep -qi "access denied"; then
+            web_result="region_restricted"
+        else
+            web_result="access_denied"
+        fi
+    elif echo "$web_content" | grep -qi "supported in your country\|not available in your country"; then
         web_result="region_restricted"
-    elif echo "$web_response" | grep -qi "sign in\|get started\|continue with google\|chat with gemini"; then
-        web_result="success"
+    elif [ "$web_status" = "200" ]; then
+        if echo "$web_content" | grep -qi "sign in\|get started\|continue with google\|chat with gemini"; then
+            web_result="success"
+        fi
     fi
 
-    # Step 3: Intelligent decision (Priority: region restriction > API/web success)
-    if [ "$api_result" = "region_restricted" ] || [ "$web_result" = "region_restricted" ]; then
+    # Step 3: Check static resources (if previous checks are inconclusive)
+    if [ "$api_result" != "region_restricted" ] && [ "$web_result" != "region_restricted" ]; then
+        local static_status=$(curl -s -o /dev/null -w "%{http_code}" \
+            --max-time $TIMEOUT \
+            "https://www.gstatic.com/lamda/images/gemini_sparkle_v002_d4735304ff6292a690345.svg" 2>/dev/null)
+
+        if [ "$static_status" = "403" ]; then
+            static_result="region_restricted"
+        elif [ "$static_status" = "200" ]; then
+            static_result="success"
+        fi
+    fi
+
+    # Step 4: Check AI Studio (alternative endpoint)
+    if [ "$api_result" != "region_restricted" ] && [ "$web_result" != "region_restricted" ] && [ "$static_result" != "region_restricted" ]; then
+        local studio_status=$(curl -s -o /dev/null -w "%{http_code}" \
+            --max-time $TIMEOUT \
+            -A "$USER_AGENT" \
+            "https://aistudio.google.com/app/prompts/new_chat" 2>/dev/null)
+
+        if [ "$studio_status" = "403" ]; then
+            studio_result="region_restricted"
+        elif [ "$studio_status" = "200" ] || [ "$studio_status" = "302" ]; then
+            studio_result="success"
+        fi
+    fi
+
+    # Step 5: Intelligent decision (Priority: region restriction > success > access denied)
+    if [ "$api_result" = "region_restricted" ] || [ "$web_result" = "region_restricted" ] || [ "$static_result" = "region_restricted" ] || [ "$studio_result" = "region_restricted" ]; then
         format_result "Gemini" "failed" "N/A" "该地区不支持"
-    elif [ "$api_result" = "success" ] || [ "$web_result" = "success" ]; then
+    elif [ "$api_result" = "success" ] || [ "$web_result" = "success" ] || [ "$static_result" = "success" ] || [ "$studio_result" = "success" ]; then
         format_result "Gemini" "success" "$COUNTRY_CODE" "正常访问"
     elif [ "$api_result" = "access_denied" ]; then
         format_result "Gemini" "failed" "N/A" "访问被拒"

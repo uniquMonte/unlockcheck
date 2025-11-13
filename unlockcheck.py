@@ -835,7 +835,8 @@ class UnlockChecker:
 
     def check_gemini(self) -> Tuple[str, str, str]:
         """
-        Check Google Gemini AI accessibility using both API and web endpoints
+        Check Google Gemini AI accessibility using multi-point detection
+        Tests: API endpoint, main site, static resources, AI Studio
         Smart detection with priority: region restriction > Cloudflare > API availability
         Returns: (status, region, detail)
         """
@@ -843,6 +844,8 @@ class UnlockChecker:
 
         api_result = None
         web_result = None
+        static_result = None
+        studio_result = None
 
         # Step 1: Check API endpoint
         try:
@@ -876,13 +879,14 @@ class UnlockChecker:
                     else:
                         api_result = ("failed", "Access Denied")
                 except:
+                    # 403 but not JSON response = likely region restriction
                     api_result = ("failed", "Region Restricted")
             elif api_response.status_code == 451:
                 api_result = ("failed", "Region Restricted")
         except:
             pass
 
-        # Step 2: Check web endpoint for additional signals
+        # Step 2: Check web endpoint
         try:
             web_response = self.session.get(
                 "https://gemini.google.com/",
@@ -892,8 +896,14 @@ class UnlockChecker:
 
             content_lower = web_response.text.lower()
 
+            # Check for 403 - region restriction
+            if web_response.status_code == 403:
+                if "access denied" in content_lower:
+                    web_result = ("failed", "Region Restricted")
+                else:
+                    web_result = ("failed", "Access Denied")
             # Check for explicit region restriction messages
-            if "supported in your country" in content_lower or "not available in your country" in content_lower:
+            elif "supported in your country" in content_lower or "not available in your country" in content_lower:
                 web_result = ("failed", "Region Restricted")
             elif web_response.status_code == 200:
                 # Check if it has actual Gemini app interface (not error page)
@@ -902,17 +912,54 @@ class UnlockChecker:
         except:
             pass
 
-        # Step 3: Intelligent decision based on priority
-        # Priority 1: Explicit region restriction (from API or web)
+        # Step 3: Check static resources (if previous checks are inconclusive)
+        if not (api_result and api_result[0] == "failed") and not (web_result and web_result[0] == "failed"):
+            try:
+                static_response = self.session.get(
+                    "https://www.gstatic.com/lamda/images/gemini_sparkle_v002_d4735304ff6292a690345.svg",
+                    timeout=TIMEOUT
+                )
+                if static_response.status_code == 403:
+                    static_result = ("failed", "Region Restricted")
+                elif static_response.status_code == 200:
+                    static_result = ("success", "Normal Access")
+            except:
+                pass
+
+        # Step 4: Check AI Studio (alternative endpoint)
+        if not (api_result and api_result[0] == "failed") and not (web_result and web_result[0] == "failed") and not (static_result and static_result[0] == "failed"):
+            try:
+                studio_response = self.session.get(
+                    "https://aistudio.google.com/app/prompts/new_chat",
+                    timeout=TIMEOUT,
+                    allow_redirects=False
+                )
+                if studio_response.status_code == 403:
+                    studio_result = ("failed", "Region Restricted")
+                elif studio_response.status_code in [200, 302]:
+                    studio_result = ("success", "Normal Access")
+            except:
+                pass
+
+        # Step 5: Intelligent decision based on priority
+        # Priority 1: Any explicit region restriction
         if api_result and api_result[0] == "failed" and "Region Restricted" in api_result[1]:
             return "failed", "N/A", "Region Restricted"
         if web_result and web_result[0] == "failed":
             return "failed", "N/A", "Region Restricted"
+        if static_result and static_result[0] == "failed":
+            return "failed", "N/A", "Region Restricted"
+        if studio_result and studio_result[0] == "failed":
+            return "failed", "N/A", "Region Restricted"
 
-        # Priority 2: API or web success indicates availability
+        # Priority 2: Any success indicates availability
         if api_result and api_result[0] == "success":
             return "success", self.ip_info.get('country_code', 'Unknown'), "Normal Access"
         if web_result and web_result[0] == "success":
+            return "success", self.ip_info.get('country_code', 'Unknown'), "Normal Access"
+        if static_result and static_result[0] == "success":
+            return "success", self.ip_info.get('country_code', 'Unknown'), "Normal Access"
+        if studio_result and studio_result[0] == "success":
             return "success", self.ip_info.get('country_code', 'Unknown'), "Normal Access"
 
         # Priority 3: Access denied

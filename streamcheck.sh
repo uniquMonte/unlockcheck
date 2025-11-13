@@ -355,7 +355,7 @@ print_enhanced_ip_info() {
             type_color="${GREEN}"
             ;;
         "广播IP")
-            type_color="${YELLOW}"
+            type_color="${RED}"
             ;;
         *)
             type_color="${NC}"

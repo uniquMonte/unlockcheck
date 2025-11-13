@@ -268,18 +268,34 @@ class StreamChecker:
         # IP address
         print(f"IP Address: {Fore.GREEN}{self.ip_info.get('ip', 'N/A')}{Style.RESET_ALL}")
 
-        # IP type (native IP or broadcast IP)
-        ip_type = self.ip_info.get('ip_type', 'Unknown')
-        if ip_type == 'Residential':
+        # IP type (native IP or broadcast IP) - determine based on registration vs usage location
+        ip_type_raw = self.ip_info.get('ip_type', 'Unknown')
+        reg_loc = self.ip_info.get('registration_location', '')
+        usage_loc = self.ip_info.get('usage_location', '')
+
+        # Determine if it's native or broadcast IP
+        is_native = False
+        ip_type_display = ip_type_raw
+
+        if ip_type_raw == 'Residential' or ip_type_raw == 'Mobile Network':
+            # Residential and mobile are always considered native
+            is_native = True
+            ip_type_display = "Native IP"
             type_color = Fore.GREEN
-        elif ip_type == 'Datacenter/Hosting':
-            type_color = Fore.YELLOW
-        elif ip_type == 'Mobile Network':
-            type_color = Fore.CYAN
+        elif ip_type_raw == 'Datacenter/Hosting':
+            # For datacenter, check if registration location matches usage location
+            if reg_loc and usage_loc and reg_loc == usage_loc:
+                is_native = True
+                ip_type_display = "Native IP"
+                type_color = Fore.GREEN
+            else:
+                is_native = False
+                ip_type_display = "Broadcast IP"
+                type_color = Fore.RED
         else:
             type_color = Fore.WHITE
 
-        print(f"IP Type: {type_color}{ip_type}{Style.RESET_ALL}")
+        print(f"IP Type: {type_color}{ip_type_display}{Style.RESET_ALL}")
 
         # Usage location (IP's actual geographic location)
         if 'usage_location' in self.ip_info and self.ip_info.get('usage_location', '').strip():

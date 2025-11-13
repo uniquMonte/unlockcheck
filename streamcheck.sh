@@ -626,18 +626,24 @@ check_spotify() {
 # 检测 Google Scholar
 check_scholar() {
     local unlock_type=$(check_dns_unlock "scholar.google.com")
-    local status_code=$(curl -s -o /dev/null -w "%{http_code}" \
-        --max-time $TIMEOUT \
+    local response=$(curl -s --max-time $TIMEOUT \
         -A "$USER_AGENT" \
         -L \
+        -w "\n%{http_code}" \
         "https://scholar.google.com/" 2>/dev/null)
 
-    if [ "$status_code" = "200" ]; then
-        format_result "Google Scholar" "success" "$COUNTRY_CODE" "可访问" "$unlock_type"
+    local status_code=$(echo "$response" | tail -n 1)
+    local content=$(echo "$response" | head -n -1)
+
+    # 检查是否包含机器人流量警告
+    if echo "$content" | grep -qi "automated queries\|unusual traffic\|sorry.*can't process\|sorry.*computer or network"; then
+        format_result "Google Scholar" "partial" "$COUNTRY_CODE" "可访问但IP被标记" "$unlock_type"
+    elif [ "$status_code" = "200" ]; then
+        format_result "Google Scholar" "success" "$COUNTRY_CODE" "完全可用" "$unlock_type"
     elif [ "$status_code" = "403" ]; then
         format_result "Google Scholar" "failed" "N/A" "区域受限"
     elif [ "$status_code" = "429" ]; then
-        format_result "Google Scholar" "failed" "N/A" "需要验证/IP被限制"
+        format_result "Google Scholar" "failed" "N/A" "速率限制"
     else
         format_result "Google Scholar" "error" "N/A" "检测失败"
     fi

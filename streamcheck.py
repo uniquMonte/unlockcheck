@@ -937,9 +937,8 @@ class StreamChecker:
             return text + ' ' * (target_width - current_width)
         return text
 
-    def format_result(self, service_name: str, status: str, region: str, detail: str,
-                      max_service_width: int = 18, max_detail_width: int = 22):
-        """Format output for individual check result with aligned columns"""
+    def format_result(self, service_name: str, status: str, region: str, detail: str):
+        """Format output for individual check result with aligned columns using fixed widths"""
         # Column 1: Status icon
         if status == "success":
             icon = f"{Fore.GREEN}[✓]{Style.RESET_ALL}"
@@ -954,11 +953,11 @@ class StreamChecker:
             icon = f"{Fore.MAGENTA}[?]{Style.RESET_ALL}"
             status_color = Fore.MAGENTA
 
-        # Column 2: Service name (dynamic width based on max)
-        service_formatted = f"{service_name:<{max_service_width}}:"
+        # Column 2: Service name (fixed width: 16 chars + colon)
+        service_formatted = f"{service_name:<16}:"
 
-        # Column 3: Status detail (pad to dynamic display width)
-        detail_padded = self.pad_to_width(detail, max_detail_width)
+        # Column 3: Status detail (pad to fixed display width: 20 display chars)
+        detail_padded = self.pad_to_width(detail, 20)
         detail_colored = f"{status_color}{detail_padded}{Style.RESET_ALL}"
 
         # Column 4: Unlock type label (fixed display width: 8 display chars including brackets)
@@ -1016,22 +1015,18 @@ class StreamChecker:
             results.append((service_name, status, region, detail))
             time.sleep(0.5)  # Avoid requests too fast
 
-        # Calculate maximum widths for alignment
-        max_service_width = max(len(service_name) for service_name, _, _, _ in results)
-        max_detail_width = max(self.get_display_width(detail) for _, _, _, detail in results)
-
-        # Print table header
+        # Print table header with fixed widths
         print(f"\n{Fore.CYAN}{'─'*60}{Style.RESET_ALL}")
-        header_service = f"{'服务名称':<{max_service_width}}"
-        header_status = self.pad_to_width("解锁状态", max_detail_width)
+        header_service = f"{'服务名称':<16}"
+        header_status = self.pad_to_width("解锁状态", 20)
         header_type = self.pad_to_width("解锁类型", 8)
-        header_region = self.pad_to_width("区域", 4)  # Shortened and padded to 4
+        header_region = self.pad_to_width("区域", 4)
         print(f"    {header_service}: {header_status} : {header_type}: {header_region}")
         print(f"{Fore.CYAN}{'─'*60}{Style.RESET_ALL}")
 
         # Print all results with aligned columns
         for service_name, status, region, detail in results:
-            self.format_result(service_name, status, region, detail, max_service_width, max_detail_width)
+            self.format_result(service_name, status, region, detail)
 
         # Statistics
         success_count = sum(1 for _, status, _, _ in results if status == "success")

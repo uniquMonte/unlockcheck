@@ -503,8 +503,8 @@ format_result() {
     # Column 2: Service name (fixed width: 16 chars + colon)
     local service_formatted=$(printf "%-16s:" "$service_name")
 
-    # Column 3: Status detail (pad to fixed display width: 14 display chars)
-    local detail_formatted=$(pad_to_width "$detail" 14)
+    # Column 3: Status detail (pad to fixed display width: 20 display chars)
+    local detail_formatted=$(pad_to_width "$detail" 20)
 
     # Column 4: Unlock type label (fixed display width: 8 display chars)
     # Note: DNS unlock detection is currently disabled to avoid false positives from CDN services
@@ -835,7 +835,7 @@ check_scholar() {
 run_all_checks() {
     echo -e "${YELLOW}📺 流媒体解锁检测结果${NC}"
     echo -e "${CYAN}────────────────────────────────────────────────────────────${NC}"
-    echo -e "    服务名称        : 解锁状态     : 解锁类型: 区域"
+    echo -e "    服务名称        : 解锁状态            : 解锁类型: 区域"
     echo -e "${CYAN}────────────────────────────────────────────────────────────${NC}"
 
     # 视频流媒体

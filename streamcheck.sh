@@ -637,7 +637,7 @@ check_scholar() {
 
     # 检查是否包含机器人流量警告
     if echo "$content" | grep -qi "automated queries\|unusual traffic\|sorry.*can't process\|sorry.*computer or network"; then
-        format_result "Google Scholar" "partial" "$COUNTRY_CODE" "可访问但IP被标记" "$unlock_type"
+        format_result "Google Scholar" "partial" "$COUNTRY_CODE" "IP被限制，无法搜索" "$unlock_type"
     elif [ "$status_code" = "200" ]; then
         format_result "Google Scholar" "success" "$COUNTRY_CODE" "完全可用" "$unlock_type"
     elif [ "$status_code" = "403" ]; then

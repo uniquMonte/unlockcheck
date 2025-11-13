@@ -1,14 +1,14 @@
 #!/bin/bash
 #
-# StreamCheck - 流媒体解锁检测工具 (Bash版本)
-# 一键检测当前网络环境对各大流媒体平台的解锁情况
+# StreamCheck - Streaming Media Unlock Detection Tool (Bash Version)
+# One-click detection of streaming media unlock status for current network
 #
 
 VERSION="1.2"
 TIMEOUT=10
 USER_AGENT="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
-# 颜色定义
+# Color definitions
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -17,24 +17,24 @@ CYAN='\033[0;36m'
 MAGENTA='\033[0;35m'
 NC='\033[0m' # No Color
 
-# 全局变量
+# Global variables
 IP_INFO=""
 COUNTRY_CODE=""
 CURRENT_IP=""
-IP_TYPE="未知"
+IP_TYPE="Unknown"
 IP_ISP=""
 IP_ASN=""
 IP_USAGE_LOCATION=""
 IP_REGISTRATION_LOCATION=""
 
-# 打印头部
+# Print header
 print_header() {
     echo -e "\n${CYAN}============================================================"
-    echo -e "          StreamCheck - 流媒体解锁检测工具 v${VERSION}"
+    echo -e "       StreamCheck - Media Unlock Detection Tool v${VERSION}"
     echo -e "============================================================${NC}\n"
 }
 
-# 日志函数
+# Logging functions
 log_info() {
     echo -e "${CYAN}[INFO]${NC} $1"
 }
@@ -51,19 +51,19 @@ log_warning() {
     echo -e "${YELLOW}[!]${NC} $1"
 }
 
-# 检查依赖
+# Check dependencies
 check_dependencies() {
     if ! command -v curl &> /dev/null; then
-        log_error "curl 未安装，请先安装 curl"
+        log_error "curl is not installed, please install curl first"
         exit 1
     fi
 }
 
-# 获取 IP 信息（增强版）
+# Get IP information (enhanced)
 get_ip_info() {
-    log_info "正在获取 IP 信息..."
+    log_info "Fetching IP information..."
 
-    # 尝试使用 ipapi.co
+    # Try using ipapi.co
     local response=$(curl -s --max-time $TIMEOUT \
         -A "$USER_AGENT" \
         "https://ipapi.co/json/" 2>/dev/null)
@@ -80,16 +80,16 @@ get_ip_info() {
             IP_INFO="$country $region $city"
             IP_ISP="$isp"
 
-            # 检测IP类型
+            # Detect IP type
             detect_ip_type
 
-            # 打印 IP 信息
+            # Print IP info
             print_enhanced_ip_info
             return 0
         fi
     fi
 
-    # 备用方案1：使用 ipinfo.io
+    # Fallback 1: use ipinfo.io
     response=$(curl -s --max-time $TIMEOUT \
         -A "$USER_AGENT" \
         "https://ipinfo.io/json" 2>/dev/null)
@@ -105,16 +105,16 @@ get_ip_info() {
             IP_INFO="$region $city"
             IP_ISP="$isp"
 
-            # 检测IP类型
+            # Detect IP type
             detect_ip_type
 
-            # 打印 IP 信息
+            # Print IP info
             print_enhanced_ip_info
             return 0
         fi
     fi
 
-    # 备用方案2：使用 ipapi.com（无需API密钥）
+    # Fallback 2: use ip-api.com (no API key needed)
     response=$(curl -s --max-time $TIMEOUT \
         "http://ip-api.com/json/?fields=status,message,country,countryCode,region,city,isp,org,as,query" 2>/dev/null)
 
@@ -130,40 +130,40 @@ get_ip_info() {
             IP_INFO="$country $region $city"
             IP_ISP="$isp"
 
-            # 检测IP类型
+            # Detect IP type
             detect_ip_type
 
-            # 打印 IP 信息
+            # Print IP info
             print_enhanced_ip_info
             return 0
         fi
     fi
 
-    # 最后的fallback：只获取IP地址
+    # Last fallback: only get IP address
     CURRENT_IP=$(curl -s --max-time 5 https://api.ipify.org 2>/dev/null)
     if [ -z "$CURRENT_IP" ]; then
         CURRENT_IP=$(curl -s --max-time 5 https://icanhazip.com 2>/dev/null | tr -d '\n')
     fi
 
     if [ -n "$CURRENT_IP" ]; then
-        log_warning "仅获取到IP地址: ${CURRENT_IP}，无法获取详细位置信息"
-        # 即使没有完整信息，也尝试检测IP类型
+        log_warning "Only obtained IP address: ${CURRENT_IP}, unable to get detailed location info"
+        # Even without complete info, try to detect IP type
         detect_ip_type
-        echo -e "\n${YELLOW}🌍 当前 IP 信息${NC}"
+        echo -e "\n${YELLOW}🌍 Current IP Information${NC}"
         echo -e "${CYAN}────────────────────────────────────────────────────────────${NC}"
-        echo -e "IP 地址: ${GREEN}${CURRENT_IP}${NC}"
-        echo -e "IP 类型: ${YELLOW}${IP_TYPE}${NC}"
+        echo -e "IP Address: ${GREEN}${CURRENT_IP}${NC}"
+        echo -e "IP Type: ${YELLOW}${IP_TYPE}${NC}"
         echo ""
         return 0
     fi
 
-    log_error "无法获取 IP 信息，将继续进行检测（区域信息可能不准确）"
+    log_error "Unable to obtain IP information, continuing detection (region info may be inaccurate)"
     return 1
 }
 
-# 检测IP类型（原生IP或广播IP）
+# Detect IP type (residential vs datacenter)
 detect_ip_type() {
-    # 通过 ip-api.com 获取更详细的IP信息
+    # Get more detailed IP info via ip-api.com
     local ip_detail=$(curl -s --max-time $TIMEOUT \
         "http://ip-api.com/json/${CURRENT_IP}?fields=hosting,proxy,mobile,country,countryCode,regionName,city,isp,org,as" 2>/dev/null)
 
@@ -172,130 +172,130 @@ detect_ip_type() {
         local is_proxy=$(echo "$ip_detail" | grep -oP '"proxy":\K(true|false)' | head -1)
         local is_mobile=$(echo "$ip_detail" | grep -oP '"mobile":\K(true|false)' | head -1)
 
-        # 获取ASN信息（包含注册地信息）
+        # Get ASN info (contains registration location)
         IP_ASN=$(echo "$ip_detail" | grep -oP '"as":"\K[^"]+' | head -1)
 
-        # 使用地：IP的实际地理位置（只显示国家）
+        # Usage location: actual geographic location of IP (country only)
         local country=$(echo "$ip_detail" | grep -oP '"country":"\K[^"]+' | head -1)
         IP_USAGE_LOCATION="$country"
 
-        # 注册地：尝试获取IP段注册的国家
-        # 方法1：尝试从ASN查询注册国家
+        # Registration location: try to get country where IP block is registered
+        # Method 1: try to query ASN registration country
         local asn_num=$(echo "$IP_ASN" | grep -oP 'AS\K[0-9]+' | head -1)
         if [ -n "$asn_num" ]; then
-            # 查询ASN的注册国家
+            # Query ASN registration country
             local asn_info=$(curl -s --max-time 3 "https://api.bgpview.io/asn/${asn_num}" 2>/dev/null)
             local reg_country=$(echo "$asn_info" | grep -oP '"country_code":"\K[^"]+' | head -1)
 
             if [ -n "$reg_country" ]; then
-                # 转换国家代码为国家名
+                # Convert country code to country name
                 IP_REGISTRATION_LOCATION=$(convert_country_code "$reg_country")
             fi
         fi
 
-        # 如果无法从ASN获取，使用备用方案
+        # If unable to get from ASN, use fallback
         if [ -z "$IP_REGISTRATION_LOCATION" ]; then
             local org=$(echo "$ip_detail" | grep -oP '"org":"\K[^"]+' | head -1)
-            # 检查常见ISP的国家
+            # Check common ISP countries
             IP_REGISTRATION_LOCATION=$(guess_isp_country "$org")
         fi
 
         if [ "$is_hosting" = "true" ] || [ "$is_proxy" = "true" ]; then
-            IP_TYPE="广播IP/数据中心"
+            IP_TYPE="Datacenter/Hosting"
         elif [ "$is_mobile" = "true" ]; then
-            IP_TYPE="移动网络"
+            IP_TYPE="Mobile Network"
         else
-            IP_TYPE="原生住宅IP"
+            IP_TYPE="Residential"
         fi
     else
-        IP_TYPE="未知"
+        IP_TYPE="Unknown"
     fi
 }
 
-# 转换国家代码为国家名
+# Convert country code to country name
 convert_country_code() {
     local code="$1"
     case "$code" in
-        "US") echo "美国" ;;
-        "CA") echo "加拿大" ;;
-        "GB") echo "英国" ;;
-        "DE") echo "德国" ;;
-        "FR") echo "法国" ;;
-        "JP") echo "日本" ;;
-        "CN") echo "中国" ;;
-        "HK") echo "香港" ;;
-        "SG") echo "新加坡" ;;
-        "AU") echo "澳大利亚" ;;
-        "NL") echo "荷兰" ;;
-        "KR") echo "韩国" ;;
-        "TW") echo "台湾" ;;
-        "IN") echo "印度" ;;
-        "BR") echo "巴西" ;;
-        "RU") echo "俄罗斯" ;;
+        "US") echo "United States" ;;
+        "CA") echo "Canada" ;;
+        "GB") echo "United Kingdom" ;;
+        "DE") echo "Germany" ;;
+        "FR") echo "France" ;;
+        "JP") echo "Japan" ;;
+        "CN") echo "China" ;;
+        "HK") echo "Hong Kong" ;;
+        "SG") echo "Singapore" ;;
+        "AU") echo "Australia" ;;
+        "NL") echo "Netherlands" ;;
+        "KR") echo "South Korea" ;;
+        "TW") echo "Taiwan" ;;
+        "IN") echo "India" ;;
+        "BR") echo "Brazil" ;;
+        "RU") echo "Russia" ;;
         *) echo "$code" ;;
     esac
 }
 
-# 根据ISP名称推断国家（常见ISP）
+# Guess ISP country from organization name (common ISPs)
 guess_isp_country() {
     local org="$1"
     local org_lower=$(echo "$org" | tr '[:upper:]' '[:lower:]')
 
-    if [[ "$org_lower" == *"hostpapa"* ]]; then echo "加拿大"
-    elif [[ "$org_lower" == *"cloudflare"* ]]; then echo "美国"
-    elif [[ "$org_lower" == *"google"* ]]; then echo "美国"
-    elif [[ "$org_lower" == *"amazon"* ]]; then echo "美国"
-    elif [[ "$org_lower" == *"microsoft"* ]]; then echo "美国"
-    elif [[ "$org_lower" == *"digitalocean"* ]]; then echo "美国"
-    elif [[ "$org_lower" == *"linode"* ]]; then echo "美国"
-    elif [[ "$org_lower" == *"vultr"* ]]; then echo "美国"
-    elif [[ "$org_lower" == *"alibaba"* ]]; then echo "中国"
-    elif [[ "$org_lower" == *"tencent"* ]]; then echo "中国"
-    elif [[ "$org_lower" == *"ovh"* ]]; then echo "法国"
-    elif [[ "$org_lower" == *"hetzner"* ]]; then echo "德国"
-    else echo "数据中心"
+    if [[ "$org_lower" == *"hostpapa"* ]]; then echo "Canada"
+    elif [[ "$org_lower" == *"cloudflare"* ]]; then echo "United States"
+    elif [[ "$org_lower" == *"google"* ]]; then echo "United States"
+    elif [[ "$org_lower" == *"amazon"* ]]; then echo "United States"
+    elif [[ "$org_lower" == *"microsoft"* ]]; then echo "United States"
+    elif [[ "$org_lower" == *"digitalocean"* ]]; then echo "United States"
+    elif [[ "$org_lower" == *"linode"* ]]; then echo "United States"
+    elif [[ "$org_lower" == *"vultr"* ]]; then echo "United States"
+    elif [[ "$org_lower" == *"alibaba"* ]]; then echo "China"
+    elif [[ "$org_lower" == *"tencent"* ]]; then echo "China"
+    elif [[ "$org_lower" == *"ovh"* ]]; then echo "France"
+    elif [[ "$org_lower" == *"hetzner"* ]]; then echo "Germany"
+    else echo "Datacenter"
     fi
 }
 
-# 打印增强的IP信息
+# Print enhanced IP information
 print_enhanced_ip_info() {
-    echo -e "\n${YELLOW}🌍 当前 IP 信息${NC}"
+    echo -e "\n${YELLOW}🌍 Current IP Information${NC}"
     echo -e "${CYAN}────────────────────────────────────────────────────────────${NC}"
-    echo -e "IP 地址: ${GREEN}${CURRENT_IP}${NC}"
+    echo -e "IP Address: ${GREEN}${CURRENT_IP}${NC}"
 
-    # IP类型显示（带颜色）
+    # Display IP type (with colors)
     local type_color
     case "$IP_TYPE" in
-        "原生住宅IP")
+        "Residential")
             type_color="${GREEN}"
             ;;
-        "广播IP/数据中心")
+        "Datacenter/Hosting")
             type_color="${YELLOW}"
             ;;
-        "移动网络")
+        "Mobile Network")
             type_color="${CYAN}"
             ;;
         *)
             type_color="${NC}"
             ;;
     esac
-    echo -e "IP 类型: ${type_color}${IP_TYPE}${NC}"
+    echo -e "IP Type: ${type_color}${IP_TYPE}${NC}"
 
-    # 显示使用地（IP的地理位置）
+    # Display usage location (IP's geographic location)
     if [ -n "$IP_USAGE_LOCATION" ] && [ "$IP_USAGE_LOCATION" != "  " ]; then
-        echo -e "使用地: ${IP_USAGE_LOCATION}"
+        echo -e "Usage Location: ${IP_USAGE_LOCATION}"
     else
-        echo -e "使用地: ${IP_INFO}"
+        echo -e "Usage Location: ${IP_INFO}"
     fi
 
-    # 显示注册地（ISP/ASN注册信息）
+    # Display registration location (ISP/ASN registration info)
     if [ -n "$IP_REGISTRATION_LOCATION" ]; then
-        echo -e "注册地: ${IP_REGISTRATION_LOCATION}"
+        echo -e "Registered In: ${IP_REGISTRATION_LOCATION}"
     fi
 
     echo -e "ISP: ${IP_ISP}"
 
-    # 显示ASN信息
+    # Display ASN info
     if [ -n "$IP_ASN" ]; then
         echo -e "ASN: ${IP_ASN}"
     fi
@@ -303,17 +303,17 @@ print_enhanced_ip_info() {
     echo ""
 }
 
-# 格式化输出结果
+# Format output results
 format_result() {
     local service_name="$1"
     local status="$2"
     local region="$3"
     local detail="$4"
 
-    # 格式化服务名称（固定宽度）
+    # Format service name (fixed width)
     local service_formatted=$(printf "%-15s" "$service_name")
 
-    # 选择图标和颜色
+    # Select icon and color
     local icon color
     case "$status" in
         "success")
@@ -334,18 +334,18 @@ format_result() {
             ;;
     esac
 
-    # 构建详细信息
+    # Build detailed info
     local info="$detail"
     if [ "$region" != "N/A" ] && [ "$region" != "Unknown" ] && [ -n "$region" ]; then
-        info="$info ${CYAN}(区域: $region)${NC}"
+        info="$info ${CYAN}(Region: $region)${NC}"
     fi
 
     echo -e "$icon $service_formatted: ${color}${info}${NC}"
 }
 
-# 检测 Netflix
+# Check Netflix
 check_netflix() {
-    # 先检测Netflix原创内容（用于判断完整解锁）
+    # First check Netflix original content (to determine full unlock)
     local response=$(curl -s --max-time $TIMEOUT \
         -A "$USER_AGENT" \
         -w "\n%{http_code}" \
@@ -355,20 +355,20 @@ check_netflix() {
     local region="${COUNTRY_CODE:-Unknown}"
 
     if [ "$status_code" = "200" ]; then
-        # 尝试从响应中提取区域信息
+        # Try to extract region info from response
         if [ -z "$COUNTRY_CODE" ] || [ "$COUNTRY_CODE" = "Unknown" ]; then
-            # 如果没有区域码，尝试从cookie或重定向中获取
+            # If no region code, try to get from cookie or redirect
             region=$(echo "$response" | grep -oP 'country-code=\K[A-Z]{2}' | head -1)
             [ -z "$region" ] && region="Unknown"
         fi
-        format_result "Netflix" "success" "$region" "完整解锁"
+        format_result "Netflix" "success" "$region" "Full Access"
     elif [ "$status_code" = "403" ]; then
-        format_result "Netflix" "failed" "N/A" "不支持"
+        format_result "Netflix" "failed" "N/A" "Blocked"
     elif [ "$status_code" = "404" ]; then
-        # 404表示内容不可用，可能是仅自制剧
-        format_result "Netflix" "partial" "$region" "仅自制剧"
+        # 404 means content unavailable, possibly only originals
+        format_result "Netflix" "partial" "$region" "Originals Only"
     else
-        # 尝试访问主页
+        # Try accessing homepage
         response=$(curl -s --max-time $TIMEOUT \
             -A "$USER_AGENT" \
             -w "\n%{http_code}" \
@@ -377,14 +377,14 @@ check_netflix() {
         status_code=$(echo "$response" | tail -n 1)
 
         if [ "$status_code" = "200" ]; then
-            format_result "Netflix" "success" "$region" "可访问"
+            format_result "Netflix" "success" "$region" "Accessible"
         else
-            format_result "Netflix" "error" "N/A" "检测失败"
+            format_result "Netflix" "error" "N/A" "Detection Failed"
         fi
     fi
 }
 
-# 检测 Disney+
+# Check Disney+
 check_disney() {
     local status_code=$(curl -s -o /dev/null -w "%{http_code}" \
         --max-time $TIMEOUT \
@@ -393,15 +393,15 @@ check_disney() {
         "https://www.disneyplus.com/" 2>/dev/null)
 
     if [ "$status_code" = "200" ]; then
-        format_result "Disney+" "success" "$COUNTRY_CODE" "完整解锁"
+        format_result "Disney+" "success" "$COUNTRY_CODE" "Full Access"
     elif [ "$status_code" = "403" ]; then
-        format_result "Disney+" "failed" "N/A" "不支持"
+        format_result "Disney+" "failed" "N/A" "Blocked"
     else
-        format_result "Disney+" "error" "N/A" "检测失败"
+        format_result "Disney+" "error" "N/A" "Detection Failed"
     fi
 }
 
-# 检测 YouTube Premium
+# Check YouTube Premium
 check_youtube() {
     local status_code=$(curl -s -o /dev/null -w "%{http_code}" \
         --max-time $TIMEOUT \
@@ -409,13 +409,13 @@ check_youtube() {
         "https://www.youtube.com/premium" 2>/dev/null)
 
     if [ "$status_code" = "200" ]; then
-        format_result "YouTube Premium" "success" "$COUNTRY_CODE" "支持"
+        format_result "YouTube Premium" "success" "$COUNTRY_CODE" "Supported"
     else
-        format_result "YouTube Premium" "error" "N/A" "检测失败"
+        format_result "YouTube Premium" "error" "N/A" "Detection Failed"
     fi
 }
 
-# 检测 ChatGPT
+# Check ChatGPT
 check_chatgpt() {
     local status_code=$(curl -s -o /dev/null -w "%{http_code}" \
         --max-time $TIMEOUT \
@@ -424,15 +424,15 @@ check_chatgpt() {
         "https://chat.openai.com/" 2>/dev/null)
 
     if [ "$status_code" = "200" ]; then
-        format_result "ChatGPT" "success" "$COUNTRY_CODE" "可访问"
+        format_result "ChatGPT" "success" "$COUNTRY_CODE" "Accessible"
     elif [ "$status_code" = "403" ]; then
-        format_result "ChatGPT" "failed" "N/A" "区域受限"
+        format_result "ChatGPT" "failed" "N/A" "Region Restricted"
     else
-        format_result "ChatGPT" "error" "N/A" "检测失败"
+        format_result "ChatGPT" "error" "N/A" "Detection Failed"
     fi
 }
 
-# 检测 Claude
+# Check Claude
 check_claude() {
     local status_code=$(curl -s -o /dev/null -w "%{http_code}" \
         --max-time $TIMEOUT \
@@ -441,15 +441,15 @@ check_claude() {
         "https://claude.ai/" 2>/dev/null)
 
     if [ "$status_code" = "200" ]; then
-        format_result "Claude" "success" "$COUNTRY_CODE" "可访问"
+        format_result "Claude" "success" "$COUNTRY_CODE" "Accessible"
     elif [ "$status_code" = "403" ]; then
-        format_result "Claude" "failed" "N/A" "区域受限"
+        format_result "Claude" "failed" "N/A" "Region Restricted"
     else
-        format_result "Claude" "error" "N/A" "检测失败"
+        format_result "Claude" "error" "N/A" "Detection Failed"
     fi
 }
 
-# 检测 TikTok
+# Check TikTok
 check_tiktok() {
     local status_code=$(curl -s -o /dev/null -w "%{http_code}" \
         --max-time $TIMEOUT \
@@ -458,17 +458,17 @@ check_tiktok() {
         "https://www.tiktok.com/" 2>/dev/null)
 
     if [ "$status_code" = "200" ]; then
-        format_result "TikTok" "success" "$COUNTRY_CODE" "可访问"
+        format_result "TikTok" "success" "$COUNTRY_CODE" "Accessible"
     elif [ "$status_code" = "403" ] || [ "$status_code" = "451" ]; then
-        format_result "TikTok" "failed" "N/A" "区域受限"
+        format_result "TikTok" "failed" "N/A" "Region Restricted"
     else
-        format_result "TikTok" "error" "N/A" "检测失败"
+        format_result "TikTok" "error" "N/A" "Detection Failed"
     fi
 }
 
-# 检测 Imgur
+# Check Imgur
 check_imgur() {
-    # 检测Imgur，使用更宽容的超时和重试
+    # Check Imgur with more lenient timeout and retry
     local response=$(curl -s --max-time $TIMEOUT \
         -A "$USER_AGENT" \
         -L \
@@ -478,9 +478,9 @@ check_imgur() {
     local status_code=$(echo "$response" | tail -n 1)
     local region="${COUNTRY_CODE:-Unknown}"
 
-    # 检查curl是否成功执行
+    # Check if curl executed successfully
     if [ -z "$status_code" ]; then
-        # 尝试备用URL
+        # Try fallback URL
         status_code=$(curl -s -o /dev/null -w "%{http_code}" \
             --max-time $TIMEOUT \
             -A "$USER_AGENT" \
@@ -488,23 +488,23 @@ check_imgur() {
     fi
 
     if [ "$status_code" = "200" ]; then
-        format_result "Imgur" "success" "$region" "可访问"
+        format_result "Imgur" "success" "$region" "Accessible"
     elif [ "$status_code" = "403" ] || [ "$status_code" = "451" ]; then
-        format_result "Imgur" "failed" "N/A" "区域受限"
+        format_result "Imgur" "failed" "N/A" "Region Restricted"
     elif [ "$status_code" = "301" ] || [ "$status_code" = "302" ]; then
-        # 重定向通常表示可以访问
-        format_result "Imgur" "success" "$region" "可访问"
+        # Redirect usually means accessible
+        format_result "Imgur" "success" "$region" "Accessible"
     elif [ "$status_code" = "429" ]; then
-        # 速率限制，通常说明服务可访问但请求过多
-        format_result "Imgur" "success" "$region" "可访问(速率限制)"
+        # Rate limit, usually means service is accessible
+        format_result "Imgur" "success" "$region" "Accessible (Rate Limited)"
     elif [ -z "$status_code" ] || [ "$status_code" = "000" ]; then
-        format_result "Imgur" "error" "N/A" "连接超时"
+        format_result "Imgur" "error" "N/A" "Connection Timeout"
     else
-        format_result "Imgur" "error" "N/A" "检测失败(${status_code})"
+        format_result "Imgur" "error" "N/A" "Detection Failed (${status_code})"
     fi
 }
 
-# 检测 Reddit
+# Check Reddit
 check_reddit() {
     local status_code=$(curl -s -o /dev/null -w "%{http_code}" \
         --max-time $TIMEOUT \
@@ -513,15 +513,15 @@ check_reddit() {
         "https://www.reddit.com/" 2>/dev/null)
 
     if [ "$status_code" = "200" ]; then
-        format_result "Reddit" "success" "$COUNTRY_CODE" "可访问"
+        format_result "Reddit" "success" "$COUNTRY_CODE" "Accessible"
     elif [ "$status_code" = "403" ] || [ "$status_code" = "451" ]; then
-        format_result "Reddit" "failed" "N/A" "区域受限"
+        format_result "Reddit" "failed" "N/A" "Region Restricted"
     else
-        format_result "Reddit" "error" "N/A" "检测失败"
+        format_result "Reddit" "error" "N/A" "Detection Failed"
     fi
 }
 
-# 检测 Google Gemini
+# Check Google Gemini
 check_gemini() {
     local status_code=$(curl -s -o /dev/null -w "%{http_code}" \
         --max-time $TIMEOUT \
@@ -530,15 +530,15 @@ check_gemini() {
         "https://gemini.google.com/" 2>/dev/null)
 
     if [ "$status_code" = "200" ]; then
-        format_result "Gemini" "success" "$COUNTRY_CODE" "可访问"
+        format_result "Gemini" "success" "$COUNTRY_CODE" "Accessible"
     elif [ "$status_code" = "403" ]; then
-        format_result "Gemini" "failed" "N/A" "区域受限"
+        format_result "Gemini" "failed" "N/A" "Region Restricted"
     else
-        format_result "Gemini" "error" "N/A" "检测失败"
+        format_result "Gemini" "error" "N/A" "Detection Failed"
     fi
 }
 
-# 检测 Spotify
+# Check Spotify
 check_spotify() {
     local status_code=$(curl -s -o /dev/null -w "%{http_code}" \
         --max-time $TIMEOUT \
@@ -547,15 +547,15 @@ check_spotify() {
         "https://open.spotify.com/" 2>/dev/null)
 
     if [ "$status_code" = "200" ]; then
-        format_result "Spotify" "success" "$COUNTRY_CODE" "可访问"
+        format_result "Spotify" "success" "$COUNTRY_CODE" "Accessible"
     elif [ "$status_code" = "403" ]; then
-        format_result "Spotify" "failed" "N/A" "区域受限"
+        format_result "Spotify" "failed" "N/A" "Region Restricted"
     else
-        format_result "Spotify" "error" "N/A" "检测失败"
+        format_result "Spotify" "error" "N/A" "Detection Failed"
     fi
 }
 
-# 检测 Google Scholar
+# Check Google Scholar
 check_scholar() {
     local status_code=$(curl -s -o /dev/null -w "%{http_code}" \
         --max-time $TIMEOUT \
@@ -564,19 +564,19 @@ check_scholar() {
         "https://scholar.google.com/" 2>/dev/null)
 
     if [ "$status_code" = "200" ]; then
-        format_result "Google Scholar" "success" "$COUNTRY_CODE" "可访问"
+        format_result "Google Scholar" "success" "$COUNTRY_CODE" "Accessible"
     elif [ "$status_code" = "403" ]; then
-        format_result "Google Scholar" "failed" "N/A" "区域受限"
+        format_result "Google Scholar" "failed" "N/A" "Region Restricted"
     elif [ "$status_code" = "429" ]; then
-        format_result "Google Scholar" "failed" "N/A" "需要验证/IP被限制"
+        format_result "Google Scholar" "failed" "N/A" "Verification Required/IP Restricted"
     else
-        format_result "Google Scholar" "error" "N/A" "检测失败"
+        format_result "Google Scholar" "error" "N/A" "Detection Failed"
     fi
 }
 
-# 运行所有检测
+# Run all checks
 run_all_checks() {
-    echo -e "${YELLOW}📺 流媒体检测结果${NC}"
+    echo -e "${YELLOW}📺 Streaming Media Detection Results${NC}"
     echo -e "${CYAN}────────────────────────────────────────────────────────────${NC}"
 
     check_netflix
@@ -612,29 +612,29 @@ run_all_checks() {
     check_spotify
 
     echo -e "\n${CYAN}────────────────────────────────────────────────────────────${NC}"
-    echo -e "检测完成!\n"
+    echo -e "Detection Complete!\n"
 }
 
-# 显示帮助
+# Show help
 show_help() {
-    echo "使用方法: $0 [选项]"
+    echo "Usage: $0 [options]"
     echo ""
-    echo "选项:"
-    echo "  --fast          快速检测模式（不延迟）"
-    echo "  --help, -h      显示帮助信息"
-    echo "  --version, -v   显示版本信息"
+    echo "Options:"
+    echo "  --fast          Fast detection mode (no delay)"
+    echo "  --help, -h      Show help information"
+    echo "  --version, -v   Show version information"
     echo ""
-    echo "示例:"
-    echo "  $0              运行完整检测"
-    echo "  $0 --fast       快速检测"
+    echo "Examples:"
+    echo "  $0              Run full detection"
+    echo "  $0 --fast       Fast detection"
 }
 
-# 主函数
+# Main function
 main() {
-    # 检查依赖
+    # Check dependencies
     check_dependencies
 
-    # 解析参数
+    # Parse arguments
     while [[ $# -gt 0 ]]; do
         case $1 in
             --fast)
@@ -650,25 +650,25 @@ main() {
                 exit 0
                 ;;
             *)
-                echo "未知选项: $1"
+                echo "Unknown option: $1"
                 show_help
                 exit 1
                 ;;
         esac
     done
 
-    # 打印头部
+    # Print header
     print_header
 
-    # 获取 IP 信息
+    # Get IP info
     get_ip_info
 
-    # 运行检测
+    # Run detections
     run_all_checks
 }
 
-# 捕获 Ctrl+C
-trap 'echo -e "\n\n${YELLOW}检测已取消${NC}"; exit 0' INT
+# Capture Ctrl+C
+trap 'echo -e "\n\n${YELLOW}Detection Cancelled${NC}"; exit 0' INT
 
-# 运行主函数
+# Run main function
 main "$@"

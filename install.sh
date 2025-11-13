@@ -1,32 +1,32 @@
 #!/bin/bash
 #
-# StreamCheck 一键安装运行脚本
-# 使用方法:
+# StreamCheck One-Click Installation Script
+# Usage:
 #   bash <(curl -Ls https://raw.githubusercontent.com/uniquMonte/streamcheck/main/install.sh)
 #
-# 使用特定分支:
+# Use specific branch:
 #   BRANCH=main bash <(curl -Ls https://raw.githubusercontent.com/.../install.sh)
 #
 
 set -e
 
-# 颜色定义
+# Color definitions
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 CYAN='\033[0;36m'
 NC='\033[0m'
 
-# 配置：可通过环境变量覆盖
+# Configuration: can be overridden by environment variables
 GITHUB_REPO="${GITHUB_REPO:-uniquMonte/streamcheck}"
 BRANCH="${BRANCH:-main}"
 SCRIPT_NAME="streamcheck.sh"
 TEMP_DIR="/tmp/streamcheck_$$"
 
-# 构建脚本URL
+# Build script URL
 SCRIPT_URL="https://raw.githubusercontent.com/${GITHUB_REPO}/${BRANCH}/${SCRIPT_NAME}"
 
-# 打印消息
+# Print message functions
 print_info() {
     echo -e "${CYAN}[INFO]${NC} $1"
 }
@@ -43,143 +43,143 @@ print_warning() {
     echo -e "${YELLOW}[!]${NC} $1"
 }
 
-# 清理函数
+# Cleanup function
 cleanup() {
     if [ -d "$TEMP_DIR" ]; then
         rm -rf "$TEMP_DIR"
     fi
 }
 
-# 设置退出时清理
+# Set cleanup on exit
 trap cleanup EXIT
 
-# 检查依赖
+# Check dependencies
 check_dependencies() {
-    print_info "检查系统依赖..."
+    print_info "Checking system dependencies..."
 
     if ! command -v curl &> /dev/null; then
-        print_error "curl 未安装"
-        echo "请先安装 curl:"
+        print_error "curl is not installed"
+        echo "Please install curl first:"
         echo "  Ubuntu/Debian: sudo apt-get install curl"
         echo "  CentOS/RHEL:   sudo yum install curl"
         echo "  macOS:         brew install curl"
         exit 1
     fi
 
-    print_success "依赖检查完成"
+    print_success "Dependency check completed"
 }
 
-# 下载脚本
+# Download script
 download_script() {
-    print_info "正在下载 StreamCheck 脚本..."
-    print_info "仓库: ${GITHUB_REPO}"
-    print_info "分支: ${BRANCH}"
+    print_info "Downloading StreamCheck script..."
+    print_info "Repository: ${GITHUB_REPO}"
+    print_info "Branch: ${BRANCH}"
 
-    # 创建临时目录
+    # Create temporary directory
     mkdir -p "$TEMP_DIR"
 
-    # 下载脚本
-    print_info "下载地址: ${SCRIPT_URL}"
+    # Download script
+    print_info "Download URL: ${SCRIPT_URL}"
     if curl -fsSL "$SCRIPT_URL" -o "$TEMP_DIR/$SCRIPT_NAME" 2>/dev/null; then
-        # 检查下载的文件是否有效
+        # Check if downloaded file is valid
         if [ -s "$TEMP_DIR/$SCRIPT_NAME" ] && head -n 1 "$TEMP_DIR/$SCRIPT_NAME" | grep -q "^#!/bin/bash"; then
-            print_success "脚本下载成功"
+            print_success "Script downloaded successfully"
         else
-            print_error "下载的文件无效（可能是404页面）"
+            print_error "Downloaded file is invalid (may be a 404 page)"
             echo ""
-            echo "可能的原因："
-            echo "  1. 分支 '${BRANCH}' 不存在"
-            echo "  2. 文件路径不正确"
+            echo "Possible causes:"
+            echo "  1. Branch '${BRANCH}' does not exist"
+            echo "  2. File path is incorrect"
             echo ""
-            echo "尝试使用开发分支："
+            echo "Try using development branch:"
             echo "  BRANCH=claude/streaming-unlock-detector-011CV57GxrMmMPUDAAu5JKt6 bash <(curl -Ls ...)"
             rm -f "$TEMP_DIR/$SCRIPT_NAME"
             exit 1
         fi
     else
-        print_error "脚本下载失败"
+        print_error "Script download failed"
         echo ""
-        echo "请检查："
-        echo "  1. 网络连接是否正常"
-        echo "  2. URL是否正确: $SCRIPT_URL"
+        echo "Please check:"
+        echo "  1. Network connection is normal"
+        echo "  2. URL is correct: $SCRIPT_URL"
         echo ""
-        echo "或尝试手动下载："
+        echo "Or try manual download:"
         echo "  curl -O $SCRIPT_URL"
         exit 1
     fi
 
-    # 添加执行权限
+    # Add execute permission
     chmod +x "$TEMP_DIR/$SCRIPT_NAME"
 }
 
-# 运行检测
+# Run detection
 run_check() {
-    print_info "启动流媒体解锁检测...\n"
+    print_info "Starting media unlock detection...\n"
 
-    # 执行脚本
+    # Execute script
     cd "$TEMP_DIR"
     ./"$SCRIPT_NAME" "$@"
 }
 
-# 提示安装选项
+# Show installation option
 show_install_option() {
     echo ""
-    print_info "是否要将脚本安装到系统? (y/N)"
+    print_info "Do you want to install the script to your system? (y/N)"
     read -r response
 
     if [[ "$response" =~ ^[Yy]$ ]]; then
         install_to_system
     else
-        print_info "跳过安装，临时文件将在退出时自动清理"
+        print_info "Skipping installation, temporary files will be cleaned up on exit"
     fi
 }
 
-# 安装到系统
+# Install to system
 install_to_system() {
     local install_dir="$HOME/.local/bin"
     local install_path="$install_dir/streamcheck"
 
-    # 创建目录
+    # Create directory
     mkdir -p "$install_dir"
 
-    # 复制脚本
+    # Copy script
     cp "$TEMP_DIR/$SCRIPT_NAME" "$install_path"
     chmod +x "$install_path"
 
-    print_success "已安装到: $install_path"
+    print_success "Installed to: $install_path"
 
-    # 检查 PATH
+    # Check PATH
     if [[ ":$PATH:" != *":$install_dir:"* ]]; then
-        print_warning "请将以下行添加到 ~/.bashrc 或 ~/.zshrc:"
+        print_warning "Please add the following line to ~/.bashrc or ~/.zshrc:"
         echo "  export PATH=\"\$HOME/.local/bin:\$PATH\""
         echo ""
-        echo "然后运行: source ~/.bashrc (或 source ~/.zshrc)"
+        echo "Then run: source ~/.bashrc (or source ~/.zshrc)"
     fi
 
-    print_success "安装完成! 下次可以直接运行: streamcheck"
+    print_success "Installation complete! You can now run: streamcheck"
 }
 
-# 主函数
+# Main function
 main() {
     echo -e "${CYAN}"
     echo "╔════════════════════════════════════════════════════════════╗"
-    echo "║         StreamCheck - 流媒体解锁检测工具                  ║"
-    echo "║                   一键安装运行脚本                         ║"
+    echo "║         StreamCheck - Media Unlock Detection Tool         ║"
+    echo "║              One-Click Installation Script                 ║"
     echo "╚════════════════════════════════════════════════════════════╝"
     echo -e "${NC}"
 
-    # 检查依赖
+    # Check dependencies
     check_dependencies
 
-    # 下载脚本
+    # Download script
     download_script
 
-    # 运行检测
+    # Run detection
     run_check "$@"
 
-    # 提示安装选项
+    # Show installation option
     show_install_option
 }
 
-# 运行主函数
+# Run main function
 main "$@"

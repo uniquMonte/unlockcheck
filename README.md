@@ -252,4 +252,6 @@ MIT License
 
 ## Acknowledgments
 
-Thanks to all open-source projects that contributed to streaming media unlock detection.
+Thanks to all open-source projects that contributed to streaming media unlock detection:
+
+- [IPQuality](https://github.com/xykt/IPQuality) - Netflix detection implementation reference. Their approach of using specific Netflix title pages for more accurate unlock detection inspired improvements to this project.

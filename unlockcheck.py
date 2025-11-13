@@ -388,49 +388,68 @@ class UnlockChecker:
     def check_netflix(self) -> Tuple[str, str, str]:
         """
         Check Netflix unlock status
+        Reference implementation: https://github.com/xykt/IPQuality
+
+        Uses specific Netflix title pages to determine unlock status:
+        - 81280792: The Queen's Gambit (Netflix Original, available globally)
+        - 70143836: Friends (Licensed content, region-dependent)
+
         Returns: (status, region, detail)
         """
         self.log("Checking Netflix...", "debug")
 
         try:
-            # Method 1: Check Netflix original content
-            response = self.session.get(
-                "https://www.netflix.com/title/80018499",  # Original series
+            # Check Netflix original content
+            result1 = self.session.get(
+                "https://www.netflix.com/title/81280792",
                 timeout=TIMEOUT,
-                allow_redirects=False
+                allow_redirects=True
             )
 
-            if response.status_code == 200:
-                return "success", self.ip_info.get('country_code', 'Unknown'), "Normal Access"
-            elif response.status_code == 403:
-                return "failed", "N/A", "IP Blocked"
-            elif response.status_code == 404:
-                # Might be originals only
-                return "partial", self.ip_info.get('country_code', 'Unknown'), "Originals Only"
-
-            # Method 2: Check Netflix homepage for error messages
-            response = self.session.get(
-                "https://www.netflix.com/",
-                timeout=TIMEOUT
+            # Check licensed content
+            result2 = self.session.get(
+                "https://www.netflix.com/title/70143836",
+                timeout=TIMEOUT,
+                allow_redirects=True
             )
 
-            content_lower = response.text.lower()
+            # Both requests failed
+            if result1.status_code >= 500 and result2.status_code >= 500:
+                return "error", "N/A", "Detection Failed"
 
-            # Check for region restriction messages
-            if "not available in your country" in content_lower or "not available in your location" in content_lower:
-                return "failed", "N/A", "Not Available in This Region"
+            # Extract region code from response
+            # Look for "currentCountry" in the page HTML/JSON
+            import re
+            region1 = re.search(r'"currentCountry"\s*:\s*"([^"]+)"', result1.text)
+            region2 = re.search(r'"currentCountry"\s*:\s*"([^"]+)"', result2.text)
 
-            if "not available" in content_lower:
-                return "failed", "N/A", "Not Available in This Region"
+            region = None
+            if region1:
+                region = region1.group(1)
+            elif region2:
+                region = region2.group(1)
+            else:
+                region = self.ip_info.get('country_code', 'Unknown')
 
-            # Check if it's actually Netflix (200 with Netflix content)
-            if response.status_code == 200:
-                if "netflix" in content_lower:
-                    return "success", self.ip_info.get('country_code', 'Unknown'), "Normal Access"
-                else:
-                    return "failed", "N/A", "Service Unavailable"
+            # Check for error messages indicating unavailability
+            error_keywords = ["not available", "страница отсутствует", "page manquante", "not found"]
+            error1 = any(keyword in result1.text.lower() for keyword in error_keywords)
+            error2 = any(keyword in result2.text.lower() for keyword in error_keywords)
 
-            return "error", "N/A", "Detection Failed"
+            # Determine unlock status:
+            # 1. Both accessible -> Full unlock
+            # 2. Only originals accessible -> Originals only
+            # 3. Neither accessible -> Not supported
+
+            if not error1 and not error2 and result1.status_code == 200 and result2.status_code == 200:
+                # Both can be accessed - full unlock
+                return "success", region, "Full Unlock"
+            elif not error1 and result1.status_code == 200:
+                # Only originals can be accessed
+                return "partial", region, "Originals Only"
+            else:
+                # Neither can be accessed
+                return "failed", "N/A", "Not Supported"
 
         except requests.exceptions.Timeout:
             return "error", "N/A", "Timeout"

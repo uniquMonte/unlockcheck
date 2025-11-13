@@ -575,37 +575,53 @@ format_result() {
 }
 
 # 检测 Netflix
+# 参考实现: https://github.com/xykt/IPQuality
 check_netflix() {
-    local unlock_type=$(check_dns_unlock "netflix.com")
-    local region="${COUNTRY_CODE:-Unknown}"
-
-    # 检测Netflix首页（更可靠的检测方法）
-    local response=$(curl -s --max-time $TIMEOUT \
+    # 使用特定的Netflix标题页面进行检测（自制剧，全球可用）
+    # 81280792 - The Queen's Gambit (自制剧)
+    # 70143836 - Friends (授权内容，部分地区可用)
+    local result1=$(curl -s --max-time $TIMEOUT \
         -A "$USER_AGENT" \
-        -L \
-        -w "\n%{http_code}" \
-        "https://www.netflix.com/" 2>/dev/null)
+        -X GET \
+        "https://www.netflix.com/title/81280792" 2>/dev/null)
 
-    local status_code=$(echo "$response" | tail -n 1)
-    local content=$(echo "$response" | head -n -1)
+    local result2=$(curl -s --max-time $TIMEOUT \
+        -A "$USER_AGENT" \
+        -X GET \
+        "https://www.netflix.com/title/70143836" 2>/dev/null)
 
     # 检查响应是否为空
-    if [ -z "$status_code" ] || [ -z "$content" ]; then
+    if [ -z "$result1" ] && [ -z "$result2" ]; then
         format_result "Netflix" "error" "N/A" "检测失败"
         return
     fi
 
-    # 检查是否被区域限制或IP封禁
-    if echo "$content" | grep -qi "not available\|not streaming in your country\|access denied\|blocked"; then
-        format_result "Netflix" "failed" "N/A" "IP被封禁"
-    elif [ "$status_code" = "200" ] || [ "$status_code" = "301" ] || [ "$status_code" = "302" ]; then
-        # 200/301/302都表示可以访问
-        format_result "Netflix" "success" "$region" "正常访问"
-    elif [ "$status_code" = "403" ]; then
-        # 403通常是IP被封禁
-        format_result "Netflix" "failed" "N/A" "IP被封禁"
+    # 从响应中提取地区代码（从JSON中提取currentCountry字段）
+    local region1=$(echo "$result1" | grep -oP '"currentCountry"\s*:\s*"\K[^"]+' | head -n1)
+    local region2=$(echo "$result2" | grep -oP '"currentCountry"\s*:\K[^"]+' | head -n1)
+
+    # 优先使用检测到的地区，如果没有则使用IP地区
+    local region="${region1:-${region2:-${COUNTRY_CODE}}}"
+
+    # 检查是否有"不可用"的提示
+    # Netflix在IP被封禁或地区不可用时会显示错误页面
+    local error1=$(echo "$result1" | grep -i "not available\|страница отсутствует\|page manquante")
+    local error2=$(echo "$result2" | grep -i "not available\|страница отсутствует\|page manquante")
+
+    # 判断逻辑：
+    # 1. 如果自制剧和授权内容都能访问 -> 完全解锁
+    # 2. 如果只有自制剧能访问 -> 仅自制剧
+    # 3. 如果都无法访问 -> IP被封禁或不支持
+
+    if [ -z "$error1" ] && [ -z "$error2" ]; then
+        # 都可以访问，完全解锁
+        format_result "Netflix" "success" "$region" "完全解锁"
+    elif [ -z "$error1" ] && [ -n "$error2" ]; then
+        # 只有自制剧可以访问
+        format_result "Netflix" "partial" "$region" "仅自制剧"
     else
-        format_result "Netflix" "error" "N/A" "检测失败(${status_code})"
+        # 都无法访问或出错
+        format_result "Netflix" "failed" "N/A" "不支持"
     fi
 }
 

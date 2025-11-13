@@ -8,6 +8,15 @@ VERSION="1.3"
 TIMEOUT=10
 USER_AGENT="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
+# ========================================================================
+# 表格布局常量 - 请勿修改！这些值是精心调整过的，确保所有行完美对齐
+# ========================================================================
+readonly COLUMN_WIDTH_SERVICE=16      # 服务名称列宽度（显示字符数）
+readonly COLUMN_WIDTH_STATUS=21       # 解锁状态列宽度（显示字符数）
+readonly COLUMN_WIDTH_UNLOCK_TYPE=8   # 解锁类型列宽度（显示字符数）
+readonly COLUMN_WIDTH_REGION=4        # 区域列宽度（显示字符数）
+# ========================================================================
+
 # 颜色定义
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -481,6 +490,11 @@ format_result() {
     local region="$3"
     local detail="$4"
 
+    # ====================================================================
+    # 警告：此函数使用固定的列宽常量来确保表格对齐
+    # 请勿修改 pad_to_width 的参数，否则会破坏对齐！
+    # ====================================================================
+
     # Column 1: Status icon
     local icon color
     case "$status" in
@@ -502,14 +516,14 @@ format_result() {
             ;;
     esac
 
-    # Column 2: Service name (fixed display width: 16 display chars)
-    local service_padded=$(pad_to_width "$service_name" 16)
+    # Column 2: Service name (使用固定列宽常量)
+    local service_padded=$(pad_to_width "$service_name" $COLUMN_WIDTH_SERVICE)
     local service_formatted="${service_padded}:"
 
-    # Column 3: Status detail (pad to fixed display width: 21 display chars)
-    local detail_formatted=$(pad_to_width "$detail" 21)
+    # Column 3: Status detail (使用固定列宽常量)
+    local detail_formatted=$(pad_to_width "$detail" $COLUMN_WIDTH_STATUS)
 
-    # Column 4: Unlock type label (fixed display width: 8 display chars)
+    # Column 4: Unlock type label (使用固定列宽常量)
     # Note: DNS unlock detection is currently disabled to avoid false positives from CDN services
     # check_dns_unlock() currently always returns "native" for this reason
     local unlock_type_text=""
@@ -520,20 +534,20 @@ format_result() {
         unlock_type_color="${GREEN}"
     fi
 
-    # Pad unlock type to fixed width (8 display chars), then add color
-    local unlock_type_padded=$(pad_to_width "$unlock_type_text" 8)
+    # Pad unlock type to fixed width, then add color
+    local unlock_type_padded=$(pad_to_width "$unlock_type_text" $COLUMN_WIDTH_UNLOCK_TYPE)
     if [ -n "$unlock_type_color" ]; then
         unlock_type_padded="${unlock_type_color}${unlock_type_padded}${NC}"
     fi
 
-    # Column 5: Region info (always pad to fixed width: 4 display chars for alignment)
+    # Column 5: Region info (使用固定列宽常量)
     local region_colored
     if [ "$region" != "N/A" ] && [ "$region" != "Unknown" ] && [ -n "$region" ]; then
-        local region_padded=$(pad_to_width "$region" 4)
+        local region_padded=$(pad_to_width "$region" $COLUMN_WIDTH_REGION)
         region_colored="${CYAN}${region_padded}${NC}"
     else
         # Use empty spaces to maintain column alignment
-        region_colored=$(pad_to_width "" 4)
+        region_colored=$(pad_to_width "" $COLUMN_WIDTH_REGION)
     fi
 
     # Print aligned columns (always include region column separator for consistent alignment)
@@ -1012,11 +1026,12 @@ check_scholar() {
 run_all_checks() {
     echo -e "${YELLOW}📺 服务解锁检测结果${NC}"
     echo -e "${CYAN}──────────────────────────────────────────────────────────────${NC}"
-    # Generate table header with fixed display widths (all using pad_to_width)
-    local header_service=$(pad_to_width "服务名称" 16)
-    local header_status=$(pad_to_width "解锁状态" 21)
-    local header_type=$(pad_to_width "解锁类型" 8)
-    local header_region=$(pad_to_width "区域" 4)
+    # Generate table header with fixed display widths (使用固定列宽常量)
+    # 警告：请勿修改列宽参数，这些值与 format_result 函数保持一致
+    local header_service=$(pad_to_width "服务名称" $COLUMN_WIDTH_SERVICE)
+    local header_status=$(pad_to_width "解锁状态" $COLUMN_WIDTH_STATUS)
+    local header_type=$(pad_to_width "解锁类型" $COLUMN_WIDTH_UNLOCK_TYPE)
+    local header_region=$(pad_to_width "区域" $COLUMN_WIDTH_REGION)
     echo -e "    ${header_service}: ${header_status} : ${header_type}: ${header_region}"
     echo -e "${CYAN}──────────────────────────────────────────────────────────────${NC}"
 

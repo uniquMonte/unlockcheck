@@ -23,6 +23,15 @@ VERSION = "1.2"
 TIMEOUT = 10
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
+# ========================================================================
+# 表格布局常量 - 请勿修改！这些值是精心调整过的，确保所有行完美对齐
+# ========================================================================
+COLUMN_WIDTH_SERVICE = 16      # 服务名称列宽度（显示字符数）
+COLUMN_WIDTH_STATUS = 21       # 解锁状态列宽度（显示字符数）
+COLUMN_WIDTH_UNLOCK_TYPE = 8   # 解锁类型列宽度（显示字符数）
+COLUMN_WIDTH_REGION = 4        # 区域列宽度（显示字符数）
+# ========================================================================
+
 
 class UnlockChecker:
     """Main unlock checker class for streaming media and AI services"""
@@ -1181,7 +1190,11 @@ class UnlockChecker:
         return text
 
     def format_result(self, service_name: str, status: str, region: str, detail: str):
-        """Format output for individual check result with aligned columns using fixed widths"""
+        """Format output for individual check result with aligned columns using fixed widths
+
+        警告：此函数使用固定的列宽常量来确保表格对齐
+        请勿修改 pad_to_width 的参数，否则会破坏对齐！
+        """
         # Column 1: Status icon
         if status == "success":
             icon = f"{Fore.GREEN}[✓]{Style.RESET_ALL}"
@@ -1196,15 +1209,15 @@ class UnlockChecker:
             icon = f"{Fore.MAGENTA}[?]{Style.RESET_ALL}"
             status_color = Fore.MAGENTA
 
-        # Column 2: Service name (fixed display width: 16 display chars)
-        service_padded = self.pad_to_width(service_name, 16)
+        # Column 2: Service name (使用固定列宽常量)
+        service_padded = self.pad_to_width(service_name, COLUMN_WIDTH_SERVICE)
         service_formatted = f"{service_padded}:"
 
-        # Column 3: Status detail (pad to fixed display width: 21 display chars)
-        detail_padded = self.pad_to_width(detail, 21)
+        # Column 3: Status detail (使用固定列宽常量)
+        detail_padded = self.pad_to_width(detail, COLUMN_WIDTH_STATUS)
         detail_colored = f"{status_color}{detail_padded}{Style.RESET_ALL}"
 
-        # Column 4: Unlock type label (fixed display width: 8 display chars)
+        # Column 4: Unlock type label (使用固定列宽常量)
         # Note: DNS unlock detection is currently disabled to avoid false positives from CDN services
         # In the future, this could call check_dns_unlock() for each service domain
         unlock_type_text = ""
@@ -1215,18 +1228,18 @@ class UnlockChecker:
             unlock_type_text = "原生"
             unlock_type_color = Fore.GREEN
 
-        # Pad unlock type to fixed width (8 display chars), then add color
-        unlock_type_padded = self.pad_to_width(unlock_type_text, 8)
+        # Pad unlock type to fixed width, then add color
+        unlock_type_padded = self.pad_to_width(unlock_type_text, COLUMN_WIDTH_UNLOCK_TYPE)
         if unlock_type_color:
             unlock_type_padded = f"{unlock_type_color}{unlock_type_padded}{Style.RESET_ALL}"
 
-        # Column 5: Region info (always pad to fixed width: 4 display chars for alignment)
+        # Column 5: Region info (使用固定列宽常量)
         if region != "N/A" and region != "Unknown":
-            region_padded = self.pad_to_width(region, 4)
+            region_padded = self.pad_to_width(region, COLUMN_WIDTH_REGION)
             region_colored = f"{Fore.CYAN}{region_padded}{Style.RESET_ALL}"
         else:
             # Use empty spaces to maintain column alignment
-            region_colored = self.pad_to_width("", 4)
+            region_colored = self.pad_to_width("", COLUMN_WIDTH_REGION)
 
         # Print aligned columns (always include region column separator for consistent alignment)
         print(f"{icon} {service_formatted} {detail_colored} : {unlock_type_padded}: {region_colored}")
@@ -1265,12 +1278,13 @@ class UnlockChecker:
             results.append((service_name, status, region, detail))
             time.sleep(0.5)  # Avoid requests too fast
 
-        # Print table header with fixed widths (all using display width)
+        # Print table header with fixed widths (使用固定列宽常量)
+        # 警告：请勿修改列宽参数，这些值与 format_result 函数保持一致
         print(f"\n{Fore.CYAN}{'─'*62}{Style.RESET_ALL}")
-        header_service = self.pad_to_width("服务名称", 16)
-        header_status = self.pad_to_width("解锁状态", 21)
-        header_type = self.pad_to_width("解锁类型", 8)
-        header_region = self.pad_to_width("区域", 4)
+        header_service = self.pad_to_width("服务名称", COLUMN_WIDTH_SERVICE)
+        header_status = self.pad_to_width("解锁状态", COLUMN_WIDTH_STATUS)
+        header_type = self.pad_to_width("解锁类型", COLUMN_WIDTH_UNLOCK_TYPE)
+        header_region = self.pad_to_width("区域", COLUMN_WIDTH_REGION)
         print(f"    {header_service}: {header_status} : {header_type}: {header_region}")
         print(f"{Fore.CYAN}{'─'*62}{Style.RESET_ALL}")
 

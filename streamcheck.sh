@@ -507,28 +507,21 @@ format_result() {
     local detail_formatted=$(pad_to_width "$detail" 14)
 
     # Column 4: Unlock type label (fixed display width: 8 display chars)
+    # Note: DNS unlock detection is currently disabled to avoid false positives from CDN services
+    # check_dns_unlock() currently always returns "native" for this reason
     local unlock_type_label=""
     if [ "$status" = "success" ]; then
-        case "$IP_TYPE" in
-            "原生IP")
-                unlock_type_label="${GREEN}[原生]${NC}"
-                ;;
-            "广播IP")
-                unlock_type_label="${YELLOW}[DNS]${NC}"
-                ;;
-            *)
-                unlock_type_label="${CYAN}[未知]${NC}"
-                ;;
-        esac
+        # Currently always show native unlock since DNS detection is disabled
+        unlock_type_label="${GREEN}[原生]${NC}"
     fi
 
     # Pad unlock type to fixed width (8 display chars)
     local unlock_type_padded=$(pad_to_width "$unlock_type_label" 8)
 
-    # Column 5: Region info
+    # Column 5: Region info (just show the country code directly)
     local region_info=""
     if [ "$region" != "N/A" ] && [ "$region" != "Unknown" ] && [ -n "$region" ]; then
-        region_info=": ${CYAN}(区域: $region)${NC}"
+        region_info=": ${CYAN}${region}${NC}"
     fi
 
     # Print aligned columns with colon separators

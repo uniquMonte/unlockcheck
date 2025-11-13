@@ -10,6 +10,7 @@ import json
 import sys
 import argparse
 import time
+import socket
 from typing import Dict, Tuple, Optional
 from colorama import init, Fore, Style
 
@@ -47,6 +48,35 @@ class StreamChecker:
             print(f"{Fore.YELLOW}[!]{Style.RESET_ALL} {message}")
         elif level == "debug" and self.verbose:
             print(f"{Fore.MAGENTA}[DEBUG]{Style.RESET_ALL} {message}")
+
+    def check_dns_unlock(self, domain: str) -> str:
+        """
+        Check if DNS unlock is being used for a domain
+
+        Note: Many services use CDN (like Cloudflare), different DNS servers returning
+        different IPs is normal load balancing behavior. True DNS unlock detection requires
+        more complex logic (checking IP ownership, AS numbers, etc.)
+
+        Currently disabled to avoid false positives.
+
+        Returns: 'native' or 'dns'
+        """
+        # Currently always return 'native' to avoid false positives
+        # DNS unlock detection is disabled because CDN services naturally return different IPs
+        return "native"
+
+        # The following code is preserved but not used:
+        # try:
+        #     # Resolve using system default DNS
+        #     system_ip = socket.getaddrinfo(domain, None)[0][4][0]
+        #
+        #     # Would need to resolve using public DNS (8.8.8.8) for comparison
+        #     # But this requires more complex implementation with dnspython library
+        #     #
+        #     # For now, just return 'native'
+        #     return "native"
+        # except:
+        #     return "native"
 
     def print_header(self):
         """Print program header"""
@@ -932,33 +962,21 @@ class StreamChecker:
         detail_colored = f"{status_color}{detail_padded}{Style.RESET_ALL}"
 
         # Column 4: Unlock type label (fixed display width: 8 display chars including brackets)
+        # Note: DNS unlock detection is currently disabled to avoid false positives from CDN services
+        # In the future, this could call check_dns_unlock() for each service domain
         unlock_type_label = ""
         if status == "success":
-            ip_type = self.ip_info.get('ip_type', 'Unknown')
-            if ip_type == 'Residential' or ip_type == 'Mobile Network':
-                # Residential and Mobile are always native unlock
-                unlock_type_label = f"{Fore.GREEN}[原生]{Style.RESET_ALL}"
-            elif ip_type == 'Datacenter/Hosting':
-                # For datacenter IPs, check if registration location matches usage location
-                reg_loc = self.ip_info.get('registration_location', '')
-                usage_loc = self.ip_info.get('usage_location', '')
-                if reg_loc and usage_loc and reg_loc == usage_loc:
-                    # Native IP from datacenter
-                    unlock_type_label = f"{Fore.GREEN}[原生]{Style.RESET_ALL}"
-                else:
-                    # Broadcast IP accessing via DNS unlock
-                    unlock_type_label = f"{Fore.YELLOW}[DNS]{Style.RESET_ALL}"
-            else:
-                # Unknown IP type, assume DNS unlock if accessible
-                unlock_type_label = f"{Fore.YELLOW}[DNS]{Style.RESET_ALL}"
+            # Currently always show native unlock
+            # TODO: Implement proper DNS unlock detection by calling check_dns_unlock() for each service
+            unlock_type_label = f"{Fore.GREEN}[原生]{Style.RESET_ALL}"
 
         # Pad unlock type to fixed width (8 display chars)
         unlock_type_padded = self.pad_to_width(unlock_type_label if unlock_type_label else "", 8)
 
-        # Column 5: Region info
+        # Column 5: Region info (just show the country code directly)
         region_info = ""
         if region != "N/A" and region != "Unknown":
-            region_info = f": {Fore.CYAN}(区域: {region}){Style.RESET_ALL}"
+            region_info = f": {Fore.CYAN}{region}{Style.RESET_ALL}"
 
         # Print aligned columns
         print(f"{icon} {service_formatted} {detail_colored} : {unlock_type_padded}{region_info}")

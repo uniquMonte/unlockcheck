@@ -886,24 +886,29 @@ class UnlockChecker:
 
             content_lower = response.text.lower()
 
+            # Check if response is empty
+            if not response.text:
+                return "error", "N/A", "Network Error"
+
+            # Check for blocking (403/451)
+            if response.status_code in [403, 451]:
+                return "failed", "N/A", "Region Restricted"
+
             # Check for region restriction messages
-            if "not available in your region" in content_lower or "not available in your country" in content_lower:
-                return "failed", "N/A", "Not Available in This Region"
+            if "not available in your region" in content_lower or \
+               "not available in your country" in content_lower or \
+               "blocked" in content_lower or \
+               "banned" in content_lower:
+                return "failed", "N/A", "Region Restricted"
 
-            if "blocked" in content_lower or "banned" in content_lower:
-                return "failed", "N/A", "Not Available in This Region"
-
-            # 403/451 usually means region blocked
-            if response.status_code == 403 or response.status_code == 451:
-                return "failed", "N/A", "Not Available in This Region"
-
-            # Check if it's actually TikTok (200 with TikTok content)
-            if response.status_code == 200:
-                if "tiktok" in content_lower:
+            # Check if TikTok is available (more lenient check)
+            if response.status_code in [200, 301, 302]:
+                # Check for TikTok content or sufficient response size
+                if "tiktok" in content_lower or len(response.text) > 1000:
                     region = self.ip_info.get('country_code', 'Unknown')
                     return "success", region, "Full Access"
                 else:
-                    return "failed", "N/A", "Service Unavailable"
+                    return "error", "N/A", "Detection Failed"
 
             return "error", "N/A", "Detection Failed"
 

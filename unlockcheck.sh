@@ -950,17 +950,43 @@ check_claude() {
 
 # 检测 TikTok
 check_tiktok() {
-    local unlock_type=$(check_dns_unlock "tiktok.com")
-    local status_code=$(curl -s -o /dev/null -w "%{http_code}" \
-        --max-time $TIMEOUT \
+    local response=$(curl -s --max-time $TIMEOUT \
+        -w "\n%{http_code}" \
         -A "$USER_AGENT" \
         -L \
         "https://www.tiktok.com/" 2>/dev/null)
 
-    if [ "$status_code" = "200" ]; then
-        format_result "TikTok" "success" "$COUNTRY_CODE" "完全解锁"
-    elif [ "$status_code" = "403" ] || [ "$status_code" = "451" ]; then
+    local status_code=$(echo "$response" | tail -n 1)
+    local content=$(echo "$response" | head -n -1)
+
+    if [ -z "$status_code" ]; then
+        format_result "TikTok" "error" "N/A" "网络错误"
+        return
+    fi
+
+    # 检查是否被屏蔽
+    if [ "$status_code" = "403" ] || [ "$status_code" = "451" ]; then
         format_result "TikTok" "failed" "N/A" "区域受限"
+        return
+    fi
+
+    # 转换为小写
+    local content_lower=$(echo "$content" | tr '[:upper:]' '[:lower:]')
+
+    # 检查地区限制信息
+    if echo "$content_lower" | grep -q "not available in your region\|not available in your country\|blocked\|banned"; then
+        format_result "TikTok" "failed" "N/A" "区域受限"
+        return
+    fi
+
+    # 检查是否成功访问
+    if [ "$status_code" = "200" ] || [ "$status_code" = "301" ] || [ "$status_code" = "302" ]; then
+        # 检查是否包含 TikTok 内容
+        if echo "$content_lower" | grep -q "tiktok" || [ ${#content} -gt 1000 ]; then
+            format_result "TikTok" "success" "$COUNTRY_CODE" "完全解锁"
+        else
+            format_result "TikTok" "error" "N/A" "检测失败"
+        fi
     else
         format_result "TikTok" "error" "N/A" "检测失败"
     fi

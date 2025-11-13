@@ -612,6 +612,8 @@ check_chatgpt() {
     local unlock_type=$(check_dns_unlock "chat.openai.com")
     local response=$(curl -s --max-time $TIMEOUT \
         -A "$USER_AGENT" \
+        -H "Cache-Control: no-cache, no-store, must-revalidate" \
+        -H "Pragma: no-cache" \
         -L \
         -w "\n%{http_code}" \
         "https://chat.openai.com/" 2>/dev/null)
@@ -642,6 +644,8 @@ check_claude() {
     local unlock_type=$(check_dns_unlock "claude.ai")
     local response=$(curl -s --max-time $TIMEOUT \
         -A "$USER_AGENT" \
+        -H "Cache-Control: no-cache, no-store, must-revalidate" \
+        -H "Pragma: no-cache" \
         -L \
         -w "\n%{http_code}" \
         "https://claude.ai/" 2>/dev/null)

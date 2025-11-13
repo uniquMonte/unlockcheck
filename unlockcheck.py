@@ -514,7 +514,11 @@ class UnlockChecker:
             response = self.session.get(
                 "https://chat.openai.com/",
                 timeout=TIMEOUT,
-                allow_redirects=True
+                allow_redirects=True,
+                headers={
+                    'Cache-Control': 'no-cache, no-store, must-revalidate',
+                    'Pragma': 'no-cache'
+                }
             )
 
             # Check for region restriction messages (actual error messages from OpenAI)
@@ -559,7 +563,11 @@ class UnlockChecker:
             response = self.session.get(
                 "https://claude.ai/",
                 timeout=TIMEOUT,
-                allow_redirects=True
+                allow_redirects=True,
+                headers={
+                    'Cache-Control': 'no-cache, no-store, must-revalidate',
+                    'Pragma': 'no-cache'
+                }
             )
 
             # Check for region restriction messages (actual error messages from Claude)

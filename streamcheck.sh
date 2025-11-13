@@ -739,10 +739,10 @@ check_reddit() {
 
     # 检查是否被安全系统拦截（优先检查内容）
     if echo "$content" | grep -qi "blocked by network security\|blocked by mistake\|access denied"; then
-        format_result "Reddit" "partial" "$COUNTRY_CODE" "IP被限制，需登录访问"
+        format_result "Reddit" "partial" "$COUNTRY_CODE" "需登录访问"
     elif [ "$status_code" = "403" ] || [ "$status_code" = "451" ]; then
         # 403/451 也可能是安全拦截
-        format_result "Reddit" "partial" "$COUNTRY_CODE" "IP被限制，需登录访问"
+        format_result "Reddit" "partial" "$COUNTRY_CODE" "需登录访问"
     elif [ "$status_code" = "200" ]; then
         # 200 且内容没有拦截关键词，才是真正可访问
         format_result "Reddit" "success" "$COUNTRY_CODE" "可访问"
@@ -818,7 +818,7 @@ check_scholar() {
 
     # 检查是否包含机器人流量警告（使用更宽松的匹配）
     if echo "$content" | grep -qi "automated\|unusual traffic\|can't process your request\|We're sorry"; then
-        format_result "Google Scholar" "partial" "$COUNTRY_CODE" "可访问官网，但无法搜索"
+        format_result "Google Scholar" "partial" "$COUNTRY_CODE" "无法搜索"
     elif [ "$status_code" = "200" ]; then
         format_result "Google Scholar" "success" "$COUNTRY_CODE" "完全可用"
     elif [ "$status_code" = "403" ]; then

@@ -731,7 +731,7 @@ class StreamChecker:
 
             # Check for blocked/banned messages
             if "blocked by network security" in content_lower or "blocked by mistake" in content_lower:
-                return "partial", self.ip_info.get('country_code', 'Unknown'), "IP Restricted, Login Required"
+                return "partial", self.ip_info.get('country_code', 'Unknown'), "Login Required"
 
             if "blocked" in content_lower or "banned" in content_lower:
                 return "failed", "N/A", "Not Available in This Region"
@@ -739,7 +739,7 @@ class StreamChecker:
             # 403/451 usually means region blocked or IP restricted
             if response.status_code == 403 or response.status_code == 451:
                 # Could be IP restriction that allows access after login
-                return "partial", self.ip_info.get('country_code', 'Unknown'), "IP Restricted, Login Required"
+                return "partial", self.ip_info.get('country_code', 'Unknown'), "Login Required"
 
             # Check if Reddit is accessible (200 with Reddit content)
             if response.status_code == 200:
@@ -879,11 +879,11 @@ class StreamChecker:
 
             # Check if redirected to sorry page (CAPTCHA/verification)
             if "sorry" in response.url.lower():
-                return "failed", "N/A", "Verification Required/IP Restricted"
+                return "partial", self.ip_info.get('country_code', 'Unknown'), "Unable to Search"
 
             # Check for unusual traffic detection or CAPTCHA
             if "unusual traffic" in content_lower or "captcha" in content_lower:
-                return "failed", "N/A", "Unusual Traffic Detected"
+                return "partial", self.ip_info.get('country_code', 'Unknown'), "Unable to Search"
 
             # 403 usually means IP blocked
             if response.status_code == 403:
@@ -891,7 +891,7 @@ class StreamChecker:
 
             # 429 means rate limited
             if response.status_code == 429:
-                return "failed", "N/A", "Rate Limited/IP Restricted"
+                return "failed", "N/A", "Rate Limited"
 
             # Check if Google Scholar is accessible (200 with Scholar content)
             if response.status_code == 200:

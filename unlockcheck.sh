@@ -8,6 +8,16 @@ VERSION="1.3"
 TIMEOUT=10
 USER_AGENT="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
+# ========================================================================
+# 表格布局常量 - 请勿修改！这些值是精心调整过的，确保所有行完美对齐
+# ========================================================================
+readonly COLUMN_WIDTH_SERVICE=16      # 服务名称列宽度（显示字符数）
+readonly COLUMN_WIDTH_STATUS=20       # 解锁状态列宽度（显示字符数）
+readonly COLUMN_WIDTH_UNLOCK_TYPE=8   # 解锁类型列宽度（显示字符数）
+readonly COLUMN_WIDTH_REGION=3        # 区域列宽度（显示字符数）
+readonly SEPARATOR_WIDTH=59           # 分隔线长度（字符数）
+# ========================================================================
+
 # 颜色定义
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -16,6 +26,24 @@ BLUE='\033[0;34m'
 CYAN='\033[0;36m'
 MAGENTA='\033[0;35m'
 NC='\033[0m' # No Color
+
+# 生成分隔线的辅助函数
+print_separator() {
+    local separator=""
+    for ((i=0; i<SEPARATOR_WIDTH; i++)); do
+        separator="${separator}─"
+    done
+    echo -e "${CYAN}${separator}${NC}"
+}
+
+# 生成标题分隔线的辅助函数（使用 = 字符）
+print_header_separator() {
+    local separator=""
+    for ((i=0; i<SEPARATOR_WIDTH; i++)); do
+        separator="${separator}="
+    done
+    echo -e "${CYAN}${separator}${NC}"
+}
 
 # 全局变量
 IP_INFO=""
@@ -30,11 +58,12 @@ IP_REGISTRATION_LOCATION=""
 # 打印头部
 print_header() {
     local current_time=$(date "+%Y-%m-%d %H:%M:%S")
-    echo -e "\n${CYAN}=============================================================="
-    echo -e "                UnlockCheck - 服务解锁检测工具"
+    echo -e "\n"
+    print_header_separator
+    echo -e "${CYAN}                UnlockCheck - 服务解锁检测工具"
     echo -e "          https://github.com/uniquMonte/unlockcheck"
-    echo -e "                检测时间: ${current_time}"
-    echo -e "==============================================================${NC}"
+    echo -e "                检测时间: ${current_time}${NC}"
+    print_header_separator
 }
 
 # 日志函数
@@ -189,7 +218,7 @@ get_ip_info() {
         # 即使没有完整信息，也尝试检测IP类型
         detect_ip_type
         echo -e "\n${YELLOW}🌍 当前 IP 信息${NC}"
-        echo -e "${CYAN}────────────────────────────────────────────────────────────${NC}"
+        print_separator
         echo -e "IP 地址: ${GREEN}${CURRENT_IP}${NC}"
         echo -e "IP 类型: ${YELLOW}${IP_TYPE}${NC}"
         echo ""
@@ -387,7 +416,7 @@ guess_isp_country() {
 # 打印增强的IP信息
 print_enhanced_ip_info() {
     echo -e "\n${YELLOW}🌍 当前 IP 信息${NC}"
-    echo -e "${CYAN}──────────────────────────────────────────────────────────────${NC}"
+    print_separator
     echo -e "IP 地址: ${GREEN}${CURRENT_IP}${NC}"
 
     # 显示IP类型（带颜色和加粗）
@@ -431,8 +460,9 @@ print_enhanced_ip_info() {
 # Remove ANSI color codes from text
 strip_ansi_codes() {
     local text="$1"
-    # Remove ANSI escape sequences (using $'...' for proper escape interpretation)
-    printf "%s" "$text" | sed $'s/\033\[[0-9;]*m//g'
+    # Remove both actual ANSI escape sequences and literal \033 strings
+    # This handles both $'\033[...' and '\033[...' style color codes
+    printf "%s" "$text" | sed -e $'s/\033\[[0-9;]*m//g' -e 's/\\033\[[0-9;]*m//g'
 }
 
 # Calculate display width of text (CJK chars count as 2, ASCII as 1), excluding ANSI codes
@@ -480,6 +510,11 @@ format_result() {
     local region="$3"
     local detail="$4"
 
+    # ====================================================================
+    # 警告：此函数使用固定的列宽常量来确保表格对齐
+    # 请勿修改 pad_to_width 的参数，否则会破坏对齐！
+    # ====================================================================
+
     # Column 1: Status icon
     local icon color
     case "$status" in
@@ -501,14 +536,14 @@ format_result() {
             ;;
     esac
 
-    # Column 2: Service name (fixed display width: 16 display chars)
-    local service_padded=$(pad_to_width "$service_name" 16)
+    # Column 2: Service name (使用固定列宽常量)
+    local service_padded=$(pad_to_width "$service_name" $COLUMN_WIDTH_SERVICE)
     local service_formatted="${service_padded}:"
 
-    # Column 3: Status detail (pad to fixed display width: 21 display chars)
-    local detail_formatted=$(pad_to_width "$detail" 21)
+    # Column 3: Status detail (使用固定列宽常量)
+    local detail_formatted=$(pad_to_width "$detail" $COLUMN_WIDTH_STATUS)
 
-    # Column 4: Unlock type label (fixed display width: 8 display chars)
+    # Column 4: Unlock type label (使用固定列宽常量)
     # Note: DNS unlock detection is currently disabled to avoid false positives from CDN services
     # check_dns_unlock() currently always returns "native" for this reason
     local unlock_type_text=""
@@ -519,20 +554,20 @@ format_result() {
         unlock_type_color="${GREEN}"
     fi
 
-    # Pad unlock type to fixed width (8 display chars), then add color
-    local unlock_type_padded=$(pad_to_width "$unlock_type_text" 8)
+    # Pad unlock type to fixed width, then add color
+    local unlock_type_padded=$(pad_to_width "$unlock_type_text" $COLUMN_WIDTH_UNLOCK_TYPE)
     if [ -n "$unlock_type_color" ]; then
         unlock_type_padded="${unlock_type_color}${unlock_type_padded}${NC}"
     fi
 
-    # Column 5: Region info (always pad to fixed width: 4 display chars for alignment)
+    # Column 5: Region info (使用固定列宽常量)
     local region_colored
     if [ "$region" != "N/A" ] && [ "$region" != "Unknown" ] && [ -n "$region" ]; then
-        local region_padded=$(pad_to_width "$region" 4)
+        local region_padded=$(pad_to_width "$region" $COLUMN_WIDTH_REGION)
         region_colored="${CYAN}${region_padded}${NC}"
     else
         # Use empty spaces to maintain column alignment
-        region_colored=$(pad_to_width "" 4)
+        region_colored=$(pad_to_width "" $COLUMN_WIDTH_REGION)
     fi
 
     # Print aligned columns (always include region column separator for consistent alignment)
@@ -540,37 +575,53 @@ format_result() {
 }
 
 # 检测 Netflix
+# 参考实现: https://github.com/xykt/IPQuality
 check_netflix() {
-    local unlock_type=$(check_dns_unlock "netflix.com")
-    local region="${COUNTRY_CODE:-Unknown}"
-
-    # 检测Netflix首页（更可靠的检测方法）
-    local response=$(curl -s --max-time $TIMEOUT \
+    # 使用特定的Netflix标题页面进行检测（自制剧，全球可用）
+    # 81280792 - The Queen's Gambit (自制剧)
+    # 70143836 - Friends (授权内容，部分地区可用)
+    local result1=$(curl -s --max-time $TIMEOUT \
         -A "$USER_AGENT" \
-        -L \
-        -w "\n%{http_code}" \
-        "https://www.netflix.com/" 2>/dev/null)
+        -X GET \
+        "https://www.netflix.com/title/81280792" 2>/dev/null)
 
-    local status_code=$(echo "$response" | tail -n 1)
-    local content=$(echo "$response" | head -n -1)
+    local result2=$(curl -s --max-time $TIMEOUT \
+        -A "$USER_AGENT" \
+        -X GET \
+        "https://www.netflix.com/title/70143836" 2>/dev/null)
 
     # 检查响应是否为空
-    if [ -z "$status_code" ] || [ -z "$content" ]; then
+    if [ -z "$result1" ] && [ -z "$result2" ]; then
         format_result "Netflix" "error" "N/A" "检测失败"
         return
     fi
 
-    # 检查是否被区域限制或IP封禁
-    if echo "$content" | grep -qi "not available\|not streaming in your country\|access denied\|blocked"; then
-        format_result "Netflix" "failed" "N/A" "IP被封禁"
-    elif [ "$status_code" = "200" ] || [ "$status_code" = "301" ] || [ "$status_code" = "302" ]; then
-        # 200/301/302都表示可以访问
-        format_result "Netflix" "success" "$region" "正常访问"
-    elif [ "$status_code" = "403" ]; then
-        # 403通常是IP被封禁
-        format_result "Netflix" "failed" "N/A" "IP被封禁"
+    # 从响应中提取地区代码（从JSON中提取currentCountry字段）
+    local region1=$(echo "$result1" | grep -oP '"currentCountry"\s*:\s*"\K[^"]+' | head -n1)
+    local region2=$(echo "$result2" | grep -oP '"currentCountry"\s*:\K[^"]+' | head -n1)
+
+    # 优先使用检测到的地区，如果没有则使用IP地区
+    local region="${region1:-${region2:-${COUNTRY_CODE}}}"
+
+    # 检查是否有"不可用"的提示
+    # Netflix在IP被封禁或地区不可用时会显示错误页面
+    local error1=$(echo "$result1" | grep -i "not available\|страница отсутствует\|page manquante")
+    local error2=$(echo "$result2" | grep -i "not available\|страница отсутствует\|page manquante")
+
+    # 判断逻辑：
+    # 1. 如果自制剧和授权内容都能访问 -> 完全解锁
+    # 2. 如果只有自制剧能访问 -> 仅自制剧
+    # 3. 如果都无法访问 -> IP被封禁或不支持
+
+    if [ -z "$error1" ] && [ -z "$error2" ]; then
+        # 都可以访问，完全解锁
+        format_result "Netflix" "success" "$region" "完全解锁"
+    elif [ -z "$error1" ] && [ -n "$error2" ]; then
+        # 只有自制剧可以访问
+        format_result "Netflix" "partial" "$region" "仅自制剧"
     else
-        format_result "Netflix" "error" "N/A" "检测失败(${status_code})"
+        # 都无法访问或出错
+        format_result "Netflix" "failed" "N/A" "不支持"
     fi
 }
 
@@ -665,13 +716,20 @@ check_chatgpt() {
         fi
     fi
 
-    # Step 3: Intelligent decision (Priority: region restriction > Cloudflare > API success)
+    # Step 3: Intelligent decision (Priority: region restriction > API success > Cloudflare)
     if [ "$api_result" = "region_restricted" ]; then
         format_result "ChatGPT" "failed" "N/A" "该地区不支持"
-    elif [ "$has_cloudflare" = "true" ]; then
-        format_result "ChatGPT" "error" "N/A" "无法检测 (Cloudflare)"
     elif [ "$api_result" = "success" ]; then
-        format_result "ChatGPT" "success" "$COUNTRY_CODE" "正常访问"
+        # API成功表示服务可用,即使Web端有Cloudflare验证
+        if [ "$has_cloudflare" = "true" ]; then
+            format_result "ChatGPT" "success" "$COUNTRY_CODE" "正常访问${YELLOW}(需CF验证)${GREEN}"
+        else
+            format_result "ChatGPT" "success" "$COUNTRY_CODE" "正常访问"
+        fi
+    elif [ "$has_cloudflare" = "true" ]; then
+        # 只有当API无法确认时,Cloudflare才可能是问题
+        # 提示用户:脚本遇到Cloudflare,但浏览器可能可以访问
+        format_result "ChatGPT" "partial" "$COUNTRY_CODE" "脚本受限(浏览器可用)"
     elif [ "$api_result" = "access_denied" ]; then
         format_result "ChatGPT" "failed" "N/A" "访问被拒"
     else
@@ -741,13 +799,20 @@ check_claude() {
         web_result="region_restricted"
     fi
 
-    # Step 3: Intelligent decision (Priority: region restriction > Cloudflare > API success)
+    # Step 3: Intelligent decision (Priority: region restriction > API success > Cloudflare)
     if [ "$api_result" = "region_restricted" ] || [ "$web_result" = "region_restricted" ]; then
         format_result "Claude" "failed" "N/A" "该地区不支持"
-    elif [ "$has_cloudflare" = "true" ]; then
-        format_result "Claude" "error" "N/A" "无法检测 (Cloudflare)"
     elif [ "$api_result" = "success" ]; then
-        format_result "Claude" "success" "$COUNTRY_CODE" "正常访问"
+        # API成功表示服务可用,即使Web端有Cloudflare验证
+        if [ "$has_cloudflare" = "true" ]; then
+            format_result "Claude" "success" "$COUNTRY_CODE" "正常访问${YELLOW}(需CF验证)${GREEN}"
+        else
+            format_result "Claude" "success" "$COUNTRY_CODE" "正常访问"
+        fi
+    elif [ "$has_cloudflare" = "true" ]; then
+        # 只有当API无法确认时,Cloudflare才可能是问题
+        # 提示用户:脚本遇到Cloudflare,但浏览器可能可以访问
+        format_result "Claude" "partial" "$COUNTRY_CODE" "脚本受限(浏览器可用)"
     elif [ "$api_result" = "access_denied" ]; then
         format_result "Claude" "failed" "N/A" "访问被拒"
     else
@@ -996,14 +1061,15 @@ check_scholar() {
 # 运行所有检测
 run_all_checks() {
     echo -e "${YELLOW}📺 服务解锁检测结果${NC}"
-    echo -e "${CYAN}──────────────────────────────────────────────────────────────${NC}"
-    # Generate table header with fixed display widths (all using pad_to_width)
-    local header_service=$(pad_to_width "服务名称" 16)
-    local header_status=$(pad_to_width "解锁状态" 21)
-    local header_type=$(pad_to_width "解锁类型" 8)
-    local header_region=$(pad_to_width "区域" 4)
+    print_separator
+    # Generate table header with fixed display widths (使用固定列宽常量)
+    # 警告：请勿修改列宽参数，这些值与 format_result 函数保持一致
+    local header_service=$(pad_to_width "服务名称" $COLUMN_WIDTH_SERVICE)
+    local header_status=$(pad_to_width "解锁状态" $COLUMN_WIDTH_STATUS)
+    local header_type=$(pad_to_width "解锁类型" $COLUMN_WIDTH_UNLOCK_TYPE)
+    local header_region=$(pad_to_width "区域" $COLUMN_WIDTH_REGION)
     echo -e "    ${header_service}: ${header_status} : ${header_type}: ${header_region}"
-    echo -e "${CYAN}──────────────────────────────────────────────────────────────${NC}"
+    print_separator
 
     # 视频流媒体
     echo -e "\n${BLUE}🎬 视频流媒体${NC}"
@@ -1041,7 +1107,8 @@ run_all_checks() {
     [ -z "$FAST_MODE" ] && sleep 0.5
     check_imgur
 
-    echo -e "\n${CYAN}──────────────────────────────────────────────────────────────${NC}"
+    echo ""
+    print_separator
     echo -e "检测完成!\n"
 }
 

@@ -23,6 +23,26 @@ VERSION = "1.2"
 TIMEOUT = 10
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
+# ========================================================================
+# 表格布局常量 - 请勿修改！这些值是精心调整过的，确保所有行完美对齐
+# ========================================================================
+COLUMN_WIDTH_SERVICE = 16      # 服务名称列宽度（显示字符数）
+COLUMN_WIDTH_STATUS = 20       # 解锁状态列宽度（显示字符数）
+COLUMN_WIDTH_UNLOCK_TYPE = 8   # 解锁类型列宽度（显示字符数）
+COLUMN_WIDTH_REGION = 3        # 区域列宽度（显示字符数）
+SEPARATOR_WIDTH = 59           # 分隔线长度（字符数）
+# ========================================================================
+
+
+def print_separator():
+    """Print a separator line with configurable width"""
+    print(f"{Fore.CYAN}{'─' * SEPARATOR_WIDTH}{Style.RESET_ALL}")
+
+
+def print_header_separator():
+    """Print a header separator line with configurable width (using = character)"""
+    print(f"{Fore.CYAN}{'=' * SEPARATOR_WIDTH}{Style.RESET_ALL}")
+
 
 class UnlockChecker:
     """Main unlock checker class for streaming media and AI services"""
@@ -82,11 +102,12 @@ class UnlockChecker:
     def print_header(self):
         """Print program header"""
         current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        print(f"\n{Fore.CYAN}{'='*62}")
-        print(f"{' '*8}UnlockCheck - Service Unlock Detection Tool")
+        print()
+        print_header_separator()
+        print(f"{Fore.CYAN}{' '*8}UnlockCheck - Service Unlock Detection Tool")
         print(f"{' '*10}https://github.com/uniquMonte/unlockcheck")
-        print(f"{' '*16}检测时间: {current_time}")
-        print(f"{'='*62}{Style.RESET_ALL}")
+        print(f"{' '*16}检测时间: {current_time}{Style.RESET_ALL}")
+        print_header_separator()
 
     def get_ip_info(self) -> Dict:
         """Get current IP information (enhanced: includes native IP detection, registration location, etc.)"""
@@ -305,7 +326,7 @@ class UnlockChecker:
             return
 
         print(f"\n{Fore.YELLOW}🌍 Current IP Information{Style.RESET_ALL}")
-        print(f"{Fore.CYAN}{'─'*62}{Style.RESET_ALL}")
+        print_separator()
 
         # IP address
         print(f"IP Address: {Fore.GREEN}{self.ip_info.get('ip', 'N/A')}{Style.RESET_ALL}")
@@ -367,49 +388,68 @@ class UnlockChecker:
     def check_netflix(self) -> Tuple[str, str, str]:
         """
         Check Netflix unlock status
+        Reference implementation: https://github.com/xykt/IPQuality
+
+        Uses specific Netflix title pages to determine unlock status:
+        - 81280792: The Queen's Gambit (Netflix Original, available globally)
+        - 70143836: Friends (Licensed content, region-dependent)
+
         Returns: (status, region, detail)
         """
         self.log("Checking Netflix...", "debug")
 
         try:
-            # Method 1: Check Netflix original content
-            response = self.session.get(
-                "https://www.netflix.com/title/80018499",  # Original series
+            # Check Netflix original content
+            result1 = self.session.get(
+                "https://www.netflix.com/title/81280792",
                 timeout=TIMEOUT,
-                allow_redirects=False
+                allow_redirects=True
             )
 
-            if response.status_code == 200:
-                return "success", self.ip_info.get('country_code', 'Unknown'), "Normal Access"
-            elif response.status_code == 403:
-                return "failed", "N/A", "IP Blocked"
-            elif response.status_code == 404:
-                # Might be originals only
-                return "partial", self.ip_info.get('country_code', 'Unknown'), "Originals Only"
-
-            # Method 2: Check Netflix homepage for error messages
-            response = self.session.get(
-                "https://www.netflix.com/",
-                timeout=TIMEOUT
+            # Check licensed content
+            result2 = self.session.get(
+                "https://www.netflix.com/title/70143836",
+                timeout=TIMEOUT,
+                allow_redirects=True
             )
 
-            content_lower = response.text.lower()
+            # Both requests failed
+            if result1.status_code >= 500 and result2.status_code >= 500:
+                return "error", "N/A", "Detection Failed"
 
-            # Check for region restriction messages
-            if "not available in your country" in content_lower or "not available in your location" in content_lower:
-                return "failed", "N/A", "Not Available in This Region"
+            # Extract region code from response
+            # Look for "currentCountry" in the page HTML/JSON
+            import re
+            region1 = re.search(r'"currentCountry"\s*:\s*"([^"]+)"', result1.text)
+            region2 = re.search(r'"currentCountry"\s*:\s*"([^"]+)"', result2.text)
 
-            if "not available" in content_lower:
-                return "failed", "N/A", "Not Available in This Region"
+            region = None
+            if region1:
+                region = region1.group(1)
+            elif region2:
+                region = region2.group(1)
+            else:
+                region = self.ip_info.get('country_code', 'Unknown')
 
-            # Check if it's actually Netflix (200 with Netflix content)
-            if response.status_code == 200:
-                if "netflix" in content_lower:
-                    return "success", self.ip_info.get('country_code', 'Unknown'), "Normal Access"
-                else:
-                    return "failed", "N/A", "Service Unavailable"
+            # Check for error messages indicating unavailability
+            error_keywords = ["not available", "страница отсутствует", "page manquante", "not found"]
+            error1 = any(keyword in result1.text.lower() for keyword in error_keywords)
+            error2 = any(keyword in result2.text.lower() for keyword in error_keywords)
 
-            return "error", "N/A", "Detection Failed"
+            # Determine unlock status:
+            # 1. Both accessible -> Full unlock
+            # 2. Only originals accessible -> Originals only
+            # 3. Neither accessible -> Not supported
+
+            if not error1 and not error2 and result1.status_code == 200 and result2.status_code == 200:
+                # Both can be accessed - full unlock
+                return "success", region, "Full Unlock"
+            elif not error1 and result1.status_code == 200:
+                # Only originals can be accessed
+                return "partial", region, "Originals Only"
+            else:
+                # Neither can be accessed
+                return "failed", "N/A", "Not Supported"
 
         except requests.exceptions.Timeout:
             return "error", "N/A", "Timeout"
@@ -598,13 +638,17 @@ class UnlockChecker:
         if api_result and api_result[0] == "failed" and "Region Restricted" in api_result[1]:
             return "failed", "N/A", "Region Restricted"
 
-        # Priority 2: Cloudflare blocking
-        if has_cloudflare:
-            return "error", "N/A", "Cannot Detect (Cloudflare)"
-
-        # Priority 3: API success indicates availability
+        # Priority 2: API success indicates availability (even if web has Cloudflare)
         if api_result and api_result[0] == "success":
-            return "success", self.ip_info.get('country_code', 'Unknown'), "Normal Access"
+            if has_cloudflare:
+                return "success", self.ip_info.get('country_code', 'Unknown'), f"Normal Access{Fore.YELLOW}(CF Check){Fore.GREEN}"
+            else:
+                return "success", self.ip_info.get('country_code', 'Unknown'), "Normal Access"
+
+        # Priority 3: Cloudflare blocking (only if API cannot confirm availability)
+        # This suggests browser might still work
+        if has_cloudflare:
+            return "partial", self.ip_info.get('country_code', 'Unknown'), "Script Blocked(Browser OK)"
 
         # Priority 4: Access denied
         if api_result and api_result[0] == "failed":
@@ -707,13 +751,17 @@ class UnlockChecker:
         if web_result and web_result[0] == "failed":
             return "failed", "N/A", "Region Restricted"
 
-        # Priority 2: Cloudflare blocking (only if no explicit region restriction)
-        if has_cloudflare:
-            return "error", "N/A", "Cannot Detect (Cloudflare)"
-
-        # Priority 3: API success indicates availability
+        # Priority 2: API success indicates availability (even if web has Cloudflare)
         if api_result and api_result[0] == "success":
-            return "success", self.ip_info.get('country_code', 'Unknown'), "Normal Access"
+            if has_cloudflare:
+                return "success", self.ip_info.get('country_code', 'Unknown'), f"Normal Access{Fore.YELLOW}(CF Check){Fore.GREEN}"
+            else:
+                return "success", self.ip_info.get('country_code', 'Unknown'), "Normal Access"
+
+        # Priority 3: Cloudflare blocking (only if API cannot confirm availability)
+        # This suggests browser might still work
+        if has_cloudflare:
+            return "partial", self.ip_info.get('country_code', 'Unknown'), "Script Blocked(Browser OK)"
 
         # Priority 4: Access denied (not region-specific)
         if api_result and api_result[0] == "failed":
@@ -1173,7 +1221,11 @@ class UnlockChecker:
         return text
 
     def format_result(self, service_name: str, status: str, region: str, detail: str):
-        """Format output for individual check result with aligned columns using fixed widths"""
+        """Format output for individual check result with aligned columns using fixed widths
+
+        警告：此函数使用固定的列宽常量来确保表格对齐
+        请勿修改 pad_to_width 的参数，否则会破坏对齐！
+        """
         # Column 1: Status icon
         if status == "success":
             icon = f"{Fore.GREEN}[✓]{Style.RESET_ALL}"
@@ -1188,15 +1240,15 @@ class UnlockChecker:
             icon = f"{Fore.MAGENTA}[?]{Style.RESET_ALL}"
             status_color = Fore.MAGENTA
 
-        # Column 2: Service name (fixed display width: 16 display chars)
-        service_padded = self.pad_to_width(service_name, 16)
+        # Column 2: Service name (使用固定列宽常量)
+        service_padded = self.pad_to_width(service_name, COLUMN_WIDTH_SERVICE)
         service_formatted = f"{service_padded}:"
 
-        # Column 3: Status detail (pad to fixed display width: 21 display chars)
-        detail_padded = self.pad_to_width(detail, 21)
+        # Column 3: Status detail (使用固定列宽常量)
+        detail_padded = self.pad_to_width(detail, COLUMN_WIDTH_STATUS)
         detail_colored = f"{status_color}{detail_padded}{Style.RESET_ALL}"
 
-        # Column 4: Unlock type label (fixed display width: 8 display chars)
+        # Column 4: Unlock type label (使用固定列宽常量)
         # Note: DNS unlock detection is currently disabled to avoid false positives from CDN services
         # In the future, this could call check_dns_unlock() for each service domain
         unlock_type_text = ""
@@ -1207,18 +1259,18 @@ class UnlockChecker:
             unlock_type_text = "原生"
             unlock_type_color = Fore.GREEN
 
-        # Pad unlock type to fixed width (8 display chars), then add color
-        unlock_type_padded = self.pad_to_width(unlock_type_text, 8)
+        # Pad unlock type to fixed width, then add color
+        unlock_type_padded = self.pad_to_width(unlock_type_text, COLUMN_WIDTH_UNLOCK_TYPE)
         if unlock_type_color:
             unlock_type_padded = f"{unlock_type_color}{unlock_type_padded}{Style.RESET_ALL}"
 
-        # Column 5: Region info (always pad to fixed width: 4 display chars for alignment)
+        # Column 5: Region info (使用固定列宽常量)
         if region != "N/A" and region != "Unknown":
-            region_padded = self.pad_to_width(region, 4)
+            region_padded = self.pad_to_width(region, COLUMN_WIDTH_REGION)
             region_colored = f"{Fore.CYAN}{region_padded}{Style.RESET_ALL}"
         else:
             # Use empty spaces to maintain column alignment
-            region_colored = self.pad_to_width("", 4)
+            region_colored = self.pad_to_width("", COLUMN_WIDTH_REGION)
 
         # Print aligned columns (always include region column separator for consistent alignment)
         print(f"{icon} {service_formatted} {detail_colored} : {unlock_type_padded}: {region_colored}")
@@ -1233,7 +1285,7 @@ class UnlockChecker:
 
         # Display detection start
         print(f"{Fore.YELLOW}📺 Service Unlock Detection Results{Style.RESET_ALL}")
-        print(f"{Fore.CYAN}{'─'*62}{Style.RESET_ALL}")
+        print_separator()
 
         # Check each service
         checks = [
@@ -1257,14 +1309,16 @@ class UnlockChecker:
             results.append((service_name, status, region, detail))
             time.sleep(0.5)  # Avoid requests too fast
 
-        # Print table header with fixed widths (all using display width)
-        print(f"\n{Fore.CYAN}{'─'*62}{Style.RESET_ALL}")
-        header_service = self.pad_to_width("服务名称", 16)
-        header_status = self.pad_to_width("解锁状态", 21)
-        header_type = self.pad_to_width("解锁类型", 8)
-        header_region = self.pad_to_width("区域", 4)
+        # Print table header with fixed widths (使用固定列宽常量)
+        # 警告：请勿修改列宽参数，这些值与 format_result 函数保持一致
+        print()
+        print_separator()
+        header_service = self.pad_to_width("服务名称", COLUMN_WIDTH_SERVICE)
+        header_status = self.pad_to_width("解锁状态", COLUMN_WIDTH_STATUS)
+        header_type = self.pad_to_width("解锁类型", COLUMN_WIDTH_UNLOCK_TYPE)
+        header_region = self.pad_to_width("区域", COLUMN_WIDTH_REGION)
         print(f"    {header_service}: {header_status} : {header_type}: {header_region}")
-        print(f"{Fore.CYAN}{'─'*62}{Style.RESET_ALL}")
+        print_separator()
 
         # Print all results with aligned columns
         for service_name, status, region, detail in results:
@@ -1274,7 +1328,7 @@ class UnlockChecker:
         success_count = sum(1 for _, status, _, _ in results if status == "success")
         total_count = len(results)
 
-        print(f"\n{Fore.CYAN}{'─'*62}{Style.RESET_ALL}")
+        print_separator()
         print(f"Detection Complete! {Fore.GREEN}{success_count}/{total_count}{Style.RESET_ALL} services available\n")
 
 

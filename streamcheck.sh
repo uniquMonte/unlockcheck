@@ -469,16 +469,21 @@ check_youtube() {
 # 检测 ChatGPT
 check_chatgpt() {
     local unlock_type=$(check_dns_unlock "chat.openai.com")
-    local status_code=$(curl -s -o /dev/null -w "%{http_code}" \
-        --max-time $TIMEOUT \
+    local response=$(curl -s --max-time $TIMEOUT \
         -A "$USER_AGENT" \
         -L \
+        -w "\n%{http_code}" \
         "https://chat.openai.com/" 2>/dev/null)
 
-    if [ "$status_code" = "200" ]; then
-        format_result "ChatGPT" "success" "$COUNTRY_CODE" "可访问" "$unlock_type"
-    elif [ "$status_code" = "403" ]; then
+    local status_code=$(echo "$response" | tail -n 1)
+    local content=$(echo "$response" | head -n -1)
+
+    # 检查是否包含区域限制的关键词
+    if echo "$content" | grep -qi "not available\|unsupported.*region\|not supported in your country\|VPN or proxy"; then
         format_result "ChatGPT" "failed" "N/A" "区域受限"
+    elif [ "$status_code" = "200" ] || [ "$status_code" = "403" ]; then
+        # 403可能是Cloudflare验证，不代表区域受限
+        format_result "ChatGPT" "success" "$COUNTRY_CODE" "可访问" "$unlock_type"
     else
         format_result "ChatGPT" "error" "N/A" "检测失败"
     fi
@@ -487,16 +492,21 @@ check_chatgpt() {
 # 检测 Claude
 check_claude() {
     local unlock_type=$(check_dns_unlock "claude.ai")
-    local status_code=$(curl -s -o /dev/null -w "%{http_code}" \
-        --max-time $TIMEOUT \
+    local response=$(curl -s --max-time $TIMEOUT \
         -A "$USER_AGENT" \
         -L \
+        -w "\n%{http_code}" \
         "https://claude.ai/" 2>/dev/null)
 
-    if [ "$status_code" = "200" ]; then
-        format_result "Claude" "success" "$COUNTRY_CODE" "可访问" "$unlock_type"
-    elif [ "$status_code" = "403" ]; then
+    local status_code=$(echo "$response" | tail -n 1)
+    local content=$(echo "$response" | head -n -1)
+
+    # 检查是否包含区域限制的关键词
+    if echo "$content" | grep -qi "not available\|unsupported.*region\|not supported in your country"; then
         format_result "Claude" "failed" "N/A" "区域受限"
+    elif [ "$status_code" = "200" ] || [ "$status_code" = "403" ]; then
+        # 403可能是Cloudflare验证，不代表区域受限
+        format_result "Claude" "success" "$COUNTRY_CODE" "可访问" "$unlock_type"
     else
         format_result "Claude" "error" "N/A" "检测失败"
     fi

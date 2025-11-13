@@ -83,9 +83,9 @@ class UnlockChecker:
         """Print program header"""
         current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         print(f"\n{Fore.CYAN}{'='*60}")
-        print(f"{' '*10}UnlockCheck - Service Unlock Detection Tool")
-        print(f"{' '*6}https://github.com/uniquMonte/unlockcheck")
-        print(f"{' '*15}检测时间: {current_time}")
+        print(f"{' '*8}UnlockCheck - Service Unlock Detection Tool")
+        print(f"{' '*10}https://github.com/uniquMonte/unlockcheck")
+        print(f"{' '*16}检测时间: {current_time}")
         print(f"{'='*60}{Style.RESET_ALL}")
 
     def get_ip_info(self) -> Dict:

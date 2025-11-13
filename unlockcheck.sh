@@ -31,9 +31,9 @@ IP_REGISTRATION_LOCATION=""
 print_header() {
     local current_time=$(date "+%Y-%m-%d %H:%M:%S")
     echo -e "\n${CYAN}============================================================"
-    echo -e "          UnlockCheck - 服务解锁检测工具"
-    echo -e "      https://github.com/uniquMonte/unlockcheck"
-    echo -e "               检测时间: ${current_time}"
+    echo -e "                UnlockCheck - 服务解锁检测工具"
+    echo -e "          https://github.com/uniquMonte/unlockcheck"
+    echo -e "                检测时间: ${current_time}"
     echo -e "============================================================${NC}"
 }
 

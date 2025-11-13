@@ -467,40 +467,109 @@ class UnlockChecker:
 
     def check_disney(self) -> Tuple[str, str, str]:
         """
-        Check Disney+ unlock status
+        Check Disney+ unlock status using official API
+        Reference: IPQuality project implementation
         Returns: (status, region, detail)
         """
         self.log("Checking Disney+...", "debug")
 
         try:
-            # Check Disney+ homepage
-            response = self.session.get(
-                "https://www.disneyplus.com/",
-                timeout=TIMEOUT,
-                allow_redirects=True
+            # Step 1: Device registration
+            device_payload = {
+                "deviceFamily": "browser",
+                "applicationRuntime": "chrome",
+                "deviceProfile": "windows",
+                "attributes": {}
+            }
+
+            device_headers = {
+                "authorization": "Bearer ZGlzbmV5JmJyb3dzZXImMS4wLjA.Cu56AgSfBTDag5NiRA81oLHkDZfu5L3CKadnefEAY84",
+                "content-type": "application/json"
+            }
+
+            device_response = self.session.post(
+                "https://disney.api.edge.bamgrid.com/devices",
+                json=device_payload,
+                headers=device_headers,
+                timeout=TIMEOUT
             )
 
-            content_lower = response.text.lower()
+            if device_response.status_code != 200:
+                return "error", "N/A", "Network Error"
 
-            # Check for region restriction messages
-            if "not available in your region" in content_lower or "not available in your country" in content_lower:
-                return "failed", "N/A", "Not Available in This Region"
+            device_data = device_response.json()
+            assertion = device_data.get("assertion")
 
-            if "unavailable" in content_lower or "not available" in content_lower:
-                return "failed", "N/A", "Not Available in This Region"
+            if not assertion:
+                return "error", "N/A", "Detection Failed"
 
-            # 403 usually means IP blocked
-            if response.status_code == 403:
-                return "failed", "N/A", "Not Available in This Region"
+            # Step 2: Get token
+            token_payload = {
+                "grant_type": "urn:ietf:params:oauth:grant-type:token-exchange",
+                "latitude": 0,
+                "longitude": 0,
+                "platform": "browser",
+                "subject_token": assertion,
+                "subject_token_type": "urn:bamtech:params:oauth:token-type:device"
+            }
 
-            # Check if it's actually Disney+ (200 with Disney+ content)
-            if response.status_code == 200:
-                if "disney" in content_lower or "disneyplus" in content_lower:
-                    return "success", self.ip_info.get('country_code', 'Unknown'), "Full Access"
+            token_response = self.session.post(
+                "https://disney.api.edge.bamgrid.com/token",
+                json=token_payload,
+                headers=device_headers,
+                timeout=TIMEOUT
+            )
+
+            if token_response.status_code != 200:
+                return "error", "N/A", "Detection Failed"
+
+            token_data = token_response.json()
+            access_token = token_data.get("access_token")
+
+            if not access_token:
+                return "error", "N/A", "Detection Failed"
+
+            # Step 3: GraphQL query for region info
+            graphql_headers = {
+                "authorization": f"Bearer {access_token}",
+                "content-type": "application/json"
+            }
+
+            graphql_payload = {
+                "query": "query{getCurrentLocation{countryCode}inSupportedLocation}"
+            }
+
+            graphql_response = self.session.post(
+                "https://disney.api.edge.bamgrid.com/graph/v1/device/graphql",
+                json=graphql_payload,
+                headers=graphql_headers,
+                timeout=TIMEOUT
+            )
+
+            if graphql_response.status_code != 200:
+                return "error", "N/A", "Detection Failed"
+
+            graphql_data = graphql_response.json()
+
+            # Extract region and support status
+            data = graphql_data.get("data", {})
+            current_location = data.get("getCurrentLocation", {})
+            region = current_location.get("countryCode")
+            in_supported = data.get("inSupportedLocation")
+
+            # Determine unlock status
+            if in_supported is True:
+                if region and region != "null":
+                    return "success", region, "Full Access"
                 else:
-                    return "failed", "N/A", "Service Unavailable"
-
-            return "error", "N/A", "Detection Failed"
+                    return "success", self.ip_info.get('country_code', 'Unknown'), "Full Access"
+            elif in_supported is False:
+                if region and region != "null":
+                    return "failed", region, "Coming Soon"
+                else:
+                    return "failed", "N/A", "Coming Soon"
+            else:
+                return "failed", "N/A", "Not Supported"
 
         except requests.exceptions.Timeout:
             return "error", "N/A", "Timeout"

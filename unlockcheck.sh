@@ -609,34 +609,41 @@ check_youtube() {
 
 # 检测 ChatGPT
 check_chatgpt() {
-    local unlock_type=$(check_dns_unlock "chat.openai.com")
+    local unlock_type=$(check_dns_unlock "api.openai.com")
+    # Use API endpoint for accurate region detection
     local response=$(curl -s --max-time $TIMEOUT \
-        -A "$USER_AGENT" \
-        -H "Cache-Control: no-cache, no-store, must-revalidate" \
-        -H "Pragma: no-cache" \
-        -L \
+        -H "Content-Type: application/json" \
         -w "\n%{http_code}" \
-        "https://chat.openai.com/" 2>/dev/null)
+        "https://api.openai.com/v1/models" 2>/dev/null)
 
     local status_code=$(echo "$response" | tail -n 1)
     local content=$(echo "$response" | head -n -1)
 
-    # 检查 OpenAI/ChatGPT 实际返回的区域限制消息
-    # 优先检查是否是Cloudflare验证页面（常见于反爬虫保护）
-    if echo "$content" | grep -qi "just a moment\|checking your browser\|cloudflare"; then
-        format_result "ChatGPT" "error" "N/A" "无法检测 (Cloudflare)"
-    # 检查明确的地区限制消息
-    elif echo "$content" | grep -qi "not available in your country\|unavailable in your country"; then
-        format_result "ChatGPT" "failed" "N/A" "该地区不支持"
-    elif echo "$content" | grep -qi "chatgpt.*not supported in.*country\|openai.*not supported"; then
-        format_result "ChatGPT" "failed" "N/A" "该地区不支持"
-    elif [ "$status_code" = "403" ]; then
-        # 403但不是Cloudflare页面，可能是真正的地区限制
-        format_result "ChatGPT" "failed" "N/A" "该地区不支持"
-    elif [ "$status_code" = "200" ]; then
-        # ChatGPT是单页应用(SPA)，初始HTML可能不包含关键词
-        # 如果返回200且没有明确错误消息，就认为可访问
+    # API responses:
+    # - 401: Missing API key (service available)
+    # - 403: Region restricted or access denied
+    # - 400: Bad request (service available)
+
+    if [ "$status_code" = "401" ]; then
+        # Missing API key = service is accessible
         format_result "ChatGPT" "success" "$COUNTRY_CODE" "正常访问"
+    elif [ "$status_code" = "403" ]; then
+        # Check for explicit region restriction
+        if echo "$content" | grep -qi "unsupported_country_region_territory"; then
+            format_result "ChatGPT" "failed" "N/A" "该地区不支持"
+        elif echo "$content" | grep -qi "country\|region\|territory"; then
+            format_result "ChatGPT" "failed" "N/A" "该地区不支持"
+        elif echo "$content" | grep -qi "cloudflare\|attention required"; then
+            format_result "ChatGPT" "error" "N/A" "无法检测 (Cloudflare)"
+        else
+            format_result "ChatGPT" "failed" "N/A" "访问被拒"
+        fi
+    elif [ "$status_code" = "400" ]; then
+        # Bad request = service is accessible
+        format_result "ChatGPT" "success" "$COUNTRY_CODE" "正常访问"
+    elif [ "$status_code" = "451" ]; then
+        # HTTP 451: Unavailable For Legal Reasons
+        format_result "ChatGPT" "failed" "N/A" "该地区不支持"
     else
         format_result "ChatGPT" "error" "N/A" "检测失败"
     fi
@@ -644,43 +651,40 @@ check_chatgpt() {
 
 # 检测 Claude
 check_claude() {
-    local unlock_type=$(check_dns_unlock "claude.ai")
+    local unlock_type=$(check_dns_unlock "api.anthropic.com")
+    # Use API endpoint for accurate region detection
     local response=$(curl -s --max-time $TIMEOUT \
-        -A "$USER_AGENT" \
-        -H "Cache-Control: no-cache, no-store, must-revalidate" \
-        -H "Pragma: no-cache" \
-        -L \
+        -H "Content-Type: application/json" \
+        -H "anthropic-version: 2023-06-01" \
         -w "\n%{http_code}" \
-        "https://claude.ai/" 2>/dev/null)
+        "https://api.anthropic.com/v1/messages" 2>/dev/null)
 
     local status_code=$(echo "$response" | tail -n 1)
     local content=$(echo "$response" | head -n -1)
 
-    # Priority 1: Check Cloudflare verification page (must check before 403)
-    # Only if HTTP is 403/503 AND contains Cloudflare challenge
-    if [ "$status_code" = "403" ] || [ "$status_code" = "503" ]; then
-        if echo "$content" | grep -qi "just a moment\|checking your browser"; then
-            format_result "Claude" "error" "N/A" "无法检测 (Cloudflare)"
-        else
-            # If 403/503 but no Cloudflare pattern, likely region restriction
-            format_result "Claude" "failed" "N/A" "该地区不支持"
-        fi
-    # Priority 2: Check if HTTP 200 (successful response)
-    elif [ "$status_code" = "200" ]; then
-        # Claude is a SPA - the initial HTML contains all JS code including error messages
-        # We need to check if actual error is being displayed (not just in JS code)
+    # API responses:
+    # - 401: Missing API key (service available)
+    # - 403: Region restricted or access denied
+    # - 400: Bad request (service available)
 
-        # Check for explicit error pages (displayed to user, not in JS code)
-        if echo "$content" | grep -qi "<title>claude - unavailable</title>"; then
+    if [ "$status_code" = "401" ]; then
+        # Missing API key = service is accessible
+        format_result "Claude" "success" "$COUNTRY_CODE" "正常访问"
+    elif [ "$status_code" = "403" ]; then
+        # Check if it's region restriction
+        if echo "$content" | grep -qi "request not allowed\|forbidden"; then
             format_result "Claude" "failed" "N/A" "该地区不支持"
-        # Check for Chinese error message (應用程式不可用/僅在特定地區提供服務)
-        elif echo "$content" | grep -q "應用程式不可用\|僅在特定地區提供服務"; then
+        elif echo "$content" | grep -qi "region\|country\|territory\|location"; then
             format_result "Claude" "failed" "N/A" "该地区不支持"
         else
-            # If HTTP 200 and no visible error indicators, consider accessible
-            # Note: SPA initial load always returns 200 with full JS bundle
-            format_result "Claude" "success" "$COUNTRY_CODE" "正常访问"
+            format_result "Claude" "failed" "N/A" "访问被拒"
         fi
+    elif [ "$status_code" = "400" ]; then
+        # Bad request = service is accessible
+        format_result "Claude" "success" "$COUNTRY_CODE" "正常访问"
+    elif [ "$status_code" = "451" ]; then
+        # HTTP 451: Unavailable For Legal Reasons
+        format_result "Claude" "failed" "N/A" "该地区不支持"
     else
         format_result "Claude" "error" "N/A" "检测失败"
     fi
@@ -771,37 +775,46 @@ check_reddit() {
 
 # 检测 Google Gemini
 check_gemini() {
-    local unlock_type=$(check_dns_unlock "gemini.google.com")
+    local unlock_type=$(check_dns_unlock "generativelanguage.googleapis.com")
+    # Use API endpoint for accurate region detection
     local response=$(curl -s --max-time $TIMEOUT \
-        -A "$USER_AGENT" \
-        -L \
+        -H "Content-Type: application/json" \
         -w "\n%{http_code}" \
-        "https://gemini.google.com/" 2>/dev/null)
+        "https://generativelanguage.googleapis.com/v1beta/models" 2>/dev/null)
 
     local status_code=$(echo "$response" | tail -n 1)
     local content=$(echo "$response" | head -n -1)
 
-    # 检查 Gemini 实际返回的区域限制消息
-    # 示例："Gemini isn't currently supported in your country"
-    # 示例："Gemini is currently not supported in your country"
-    # 检查关键短语"supported in your country"（覆盖所有变体）
-    if echo "$content" | grep -qi "supported in your country"; then
-        format_result "Gemini" "failed" "N/A" "该地区不支持"
-    # 检查其他 Gemini 相关的不可用消息
-    elif echo "$content" | grep -qi "gemini" && echo "$content" | grep -qi "not available\|unavailable"; then
-        format_result "Gemini" "failed" "N/A" "该地区不支持"
+    # API responses:
+    # - 401: Missing API key (service available)
+    # - 403 with PERMISSION_DENIED: Missing API key (service available)
+    # - 403 with region message: Region restricted
+    # - 400: Bad request (service available)
+
+    if [ "$status_code" = "401" ]; then
+        # Missing API key = service is accessible
+        format_result "Gemini" "success" "$COUNTRY_CODE" "正常访问"
     elif [ "$status_code" = "403" ]; then
-        format_result "Gemini" "failed" "N/A" "区域受限"
-    elif [ "$status_code" = "200" ]; then
-        # 验证是否真的是 Gemini 应用（需要更严格的检查）
-        # 检查实际的应用界面元素，而不仅仅是关键词
-        if echo "$content" | grep -qi "sign in\|get started\|continue with google\|bard\|chat with gemini"; then
-            # 包含应用界面元素，说明可以访问
-            format_result "Gemini" "success" "$COUNTRY_CODE" "正常访问"
-        else
-            # 200 但没有应用界面 - 可能是区域限制的错误页面
+        # Need to differentiate between API key missing and region block
+        if echo "$content" | grep -qi "PERMISSION_DENIED"; then
+            # Check if it's about API key
+            if echo "$content" | grep -qi "api key\|unregistered callers\|established identity"; then
+                format_result "Gemini" "success" "$COUNTRY_CODE" "正常访问"
+            else
+                format_result "Gemini" "failed" "N/A" "访问被拒"
+            fi
+        # Check for region restriction
+        elif echo "$content" | grep -qi "country\|region\|territory\|not available\|not supported"; then
             format_result "Gemini" "failed" "N/A" "该地区不支持"
+        else
+            format_result "Gemini" "failed" "N/A" "访问被拒"
         fi
+    elif [ "$status_code" = "400" ]; then
+        # Bad request = service is accessible
+        format_result "Gemini" "success" "$COUNTRY_CODE" "正常访问"
+    elif [ "$status_code" = "451" ]; then
+        # HTTP 451: Unavailable For Legal Reasons
+        format_result "Gemini" "failed" "N/A" "该地区不支持"
     else
         format_result "Gemini" "error" "N/A" "检测失败"
     fi

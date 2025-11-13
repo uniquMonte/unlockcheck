@@ -190,26 +190,72 @@ class StreamChecker:
                 if 'as' in data:
                     self.ip_info['as_info'] = data.get('as', 'N/A')
 
-                # 实际使用地（从IP地理位置获取）
-                self.ip_info['usage_location'] = f"{data.get('country', 'N/A')} {data.get('regionName', '')} {data.get('city', '')}"
+                # 使用地：IP的实际地理位置（只显示国家）
+                self.ip_info['usage_location'] = data.get('country', 'N/A')
 
-                # 注册地：从ISP/组织信息推断
-                org = data.get('org', '')
-                if org:
-                    # 对于数据中心IP，注册地通常是ISP的注册国家
-                    import re
-                    # 从ASN信息中提取可能的国家代码
-                    as_info = data.get('as', '')
-                    country_match = re.search(r'\b([A-Z]{2})\b', as_info)
-                    if country_match:
-                        self.ip_info['registration_location'] = country_match.group(1)
-                    else:
-                        self.ip_info['registration_location'] = org
+                # 注册地：尝试从ASN获取IP段注册的国家
+                import re
+                as_info = data.get('as', '')
+                asn_match = re.search(r'AS(\d+)', as_info)
+
+                if asn_match:
+                    asn_num = asn_match.group(1)
+                    try:
+                        # 查询ASN的注册国家
+                        asn_response = self.session.get(
+                            f"https://api.bgpview.io/asn/{asn_num}",
+                            timeout=3
+                        )
+                        if asn_response.status_code == 200:
+                            asn_data = asn_response.json()
+                            reg_country_code = asn_data.get('data', {}).get('country_code', '')
+                            if reg_country_code:
+                                self.ip_info['registration_location'] = self._convert_country_code(reg_country_code)
+                    except:
+                        pass
+
+                # 如果无法从ASN获取，使用备用方案
+                if 'registration_location' not in self.ip_info:
+                    org = data.get('org', '')
+                    self.ip_info['registration_location'] = self._guess_isp_country(org)
 
         except Exception as e:
             self.log(f"检测IP类型失败: {e}", "debug")
             # 如果检测失败，使用默认值
             self.ip_info['ip_type'] = '未知'
+
+    def _convert_country_code(self, code: str) -> str:
+        """转换国家代码为国家名"""
+        country_map = {
+            'US': '美国', 'CA': '加拿大', 'GB': '英国', 'DE': '德国',
+            'FR': '法国', 'JP': '日本', 'CN': '中国', 'HK': '香港',
+            'SG': '新加坡', 'AU': '澳大利亚', 'NL': '荷兰', 'KR': '韩国',
+            'TW': '台湾', 'IN': '印度', 'BR': '巴西', 'RU': '俄罗斯'
+        }
+        return country_map.get(code.upper(), code)
+
+    def _guess_isp_country(self, org: str) -> str:
+        """根据ISP名称推断国家"""
+        isp_country_map = {
+            'HostPapa': '加拿大',
+            'Cloudflare': '美国',
+            'Google': '美国',
+            'Amazon': '美国',
+            'Microsoft': '美国',
+            'Alibaba': '中国',
+            'Tencent': '中国',
+            'OVH': '法国',
+            'Hetzner': '德国',
+            'DigitalOcean': '美国',
+            'Linode': '美国',
+            'Vultr': '美国'
+        }
+
+        for key, country in isp_country_map.items():
+            if key.lower() in org.lower():
+                return country
+
+        return '数据中心'
 
     def print_ip_info(self):
         """打印 IP 信息（增强版）"""

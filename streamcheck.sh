@@ -175,23 +175,29 @@ detect_ip_type() {
         # 获取ASN信息（包含注册地信息）
         IP_ASN=$(echo "$ip_detail" | grep -oP '"as":"\K[^"]+' | head -1)
 
-        # 使用地：IP的实际地理位置
+        # 使用地：IP的实际地理位置（只显示国家）
         local country=$(echo "$ip_detail" | grep -oP '"country":"\K[^"]+' | head -1)
-        local region=$(echo "$ip_detail" | grep -oP '"regionName":"\K[^"]+' | head -1)
-        local city=$(echo "$ip_detail" | grep -oP '"city":"\K[^"]+' | head -1)
-        IP_USAGE_LOCATION="$country $region $city"
+        IP_USAGE_LOCATION="$country"
 
-        # 注册地：从ISP/组织信息推断
-        local org=$(echo "$ip_detail" | grep -oP '"org":"\K[^"]+' | head -1)
-        if [ -n "$org" ]; then
-            # 对于数据中心IP，注册地通常是ISP的注册国家
-            # 从ASN信息中提取国家代码或公司信息
-            if [[ "$IP_ASN" =~ ([A-Z]{2})[[:space:]] ]]; then
-                IP_REGISTRATION_LOCATION="${BASH_REMATCH[1]}"
-            else
-                # 从组织名称推断（这是近似值）
-                IP_REGISTRATION_LOCATION="$org"
+        # 注册地：尝试获取IP段注册的国家
+        # 方法1：尝试从ASN查询注册国家
+        local asn_num=$(echo "$IP_ASN" | grep -oP 'AS\K[0-9]+' | head -1)
+        if [ -n "$asn_num" ]; then
+            # 查询ASN的注册国家
+            local asn_info=$(curl -s --max-time 3 "https://api.bgpview.io/asn/${asn_num}" 2>/dev/null)
+            local reg_country=$(echo "$asn_info" | grep -oP '"country_code":"\K[^"]+' | head -1)
+
+            if [ -n "$reg_country" ]; then
+                # 转换国家代码为国家名
+                IP_REGISTRATION_LOCATION=$(convert_country_code "$reg_country")
             fi
+        fi
+
+        # 如果无法从ASN获取，使用备用方案
+        if [ -z "$IP_REGISTRATION_LOCATION" ]; then
+            local org=$(echo "$ip_detail" | grep -oP '"org":"\K[^"]+' | head -1)
+            # 检查常见ISP的国家
+            IP_REGISTRATION_LOCATION=$(guess_isp_country "$org")
         fi
 
         if [ "$is_hosting" = "true" ] || [ "$is_proxy" = "true" ]; then
@@ -203,6 +209,51 @@ detect_ip_type() {
         fi
     else
         IP_TYPE="未知"
+    fi
+}
+
+# 转换国家代码为国家名
+convert_country_code() {
+    local code="$1"
+    case "$code" in
+        "US") echo "美国" ;;
+        "CA") echo "加拿大" ;;
+        "GB") echo "英国" ;;
+        "DE") echo "德国" ;;
+        "FR") echo "法国" ;;
+        "JP") echo "日本" ;;
+        "CN") echo "中国" ;;
+        "HK") echo "香港" ;;
+        "SG") echo "新加坡" ;;
+        "AU") echo "澳大利亚" ;;
+        "NL") echo "荷兰" ;;
+        "KR") echo "韩国" ;;
+        "TW") echo "台湾" ;;
+        "IN") echo "印度" ;;
+        "BR") echo "巴西" ;;
+        "RU") echo "俄罗斯" ;;
+        *) echo "$code" ;;
+    esac
+}
+
+# 根据ISP名称推断国家（常见ISP）
+guess_isp_country() {
+    local org="$1"
+    local org_lower=$(echo "$org" | tr '[:upper:]' '[:lower:]')
+
+    if [[ "$org_lower" == *"hostpapa"* ]]; then echo "加拿大"
+    elif [[ "$org_lower" == *"cloudflare"* ]]; then echo "美国"
+    elif [[ "$org_lower" == *"google"* ]]; then echo "美国"
+    elif [[ "$org_lower" == *"amazon"* ]]; then echo "美国"
+    elif [[ "$org_lower" == *"microsoft"* ]]; then echo "美国"
+    elif [[ "$org_lower" == *"digitalocean"* ]]; then echo "美国"
+    elif [[ "$org_lower" == *"linode"* ]]; then echo "美国"
+    elif [[ "$org_lower" == *"vultr"* ]]; then echo "美国"
+    elif [[ "$org_lower" == *"alibaba"* ]]; then echo "中国"
+    elif [[ "$org_lower" == *"tencent"* ]]; then echo "中国"
+    elif [[ "$org_lower" == *"ovh"* ]]; then echo "法国"
+    elif [[ "$org_lower" == *"hetzner"* ]]; then echo "德国"
+    else echo "数据中心"
     fi
 }
 

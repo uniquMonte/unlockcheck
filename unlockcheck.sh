@@ -832,7 +832,7 @@ check_scholar() {
 
     # 检查是否包含机器人流量警告（使用更宽松的匹配）
     if echo "$content" | grep -qi "automated\|unusual traffic\|can't process your request\|We're sorry"; then
-        format_result "Google Scholar" "partial" "$COUNTRY_CODE" "受限访问 (机器人检测)"
+        format_result "Google Scholar" "partial" "$COUNTRY_CODE" "受限访问 (机器人)"
     elif [ "$status_code" = "200" ]; then
         format_result "Google Scholar" "success" "$COUNTRY_CODE" "完全可用"
     elif [ "$status_code" = "403" ]; then

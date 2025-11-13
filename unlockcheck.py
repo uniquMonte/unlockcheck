@@ -890,11 +890,11 @@ class UnlockChecker:
 
             # Check if redirected to sorry page (CAPTCHA/verification)
             if "sorry" in response.url.lower():
-                return "partial", self.ip_info.get('country_code', 'Unknown'), "Limited Access (Bot Detection)"
+                return "partial", self.ip_info.get('country_code', 'Unknown'), "Limited Access (Robot)"
 
             # Check for unusual traffic detection or CAPTCHA
             if "unusual traffic" in content_lower or "captcha" in content_lower:
-                return "partial", self.ip_info.get('country_code', 'Unknown'), "Limited Access (Bot Detection)"
+                return "partial", self.ip_info.get('country_code', 'Unknown'), "Limited Access (Robot)"
 
             # 403 usually means IP blocked
             if response.status_code == 403:

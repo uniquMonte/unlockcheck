@@ -413,23 +413,23 @@ print_table() {
     fi
 
     # 打印表头
-    echo -e "${CYAN}┌────────────────────┬──────────┬──────────┬──────────────────────────────┐${NC}"
-    printf "${CYAN}│${NC} %-18s ${CYAN}│${NC} %-8s ${CYAN}│${NC} %-8s ${CYAN}│${NC} %-28s ${CYAN}│${NC}\n" "服务名称" "状态" "类型" "说明"
-    echo -e "${CYAN}├────────────────────┼──────────┼──────────┼──────────────────────────────┤${NC}"
+    echo -e "${CYAN}┌────────────────────────────────────────────────────────────────────────────┐${NC}"
+    printf "${CYAN}│${NC} %-18s  %-8s  %-8s  %-28s ${CYAN}│${NC}\n" "服务名称" "状态" "类型" "说明"
+    echo -e "${CYAN}├────────────────────────────────────────────────────────────────────────────┤${NC}"
 
     # 打印每一行数据
     for row in "${TABLE_DATA[@]}"; do
         IFS='|' read -r service status_icon status_color type_display type_color info_display <<< "$row"
 
         # 使用 printf 对齐，并应用颜色
-        printf "${CYAN}│${NC} %-18s ${CYAN}│${NC} ${status_color}%-8s${NC} ${CYAN}│${NC} ${type_color}%-8s${NC} ${CYAN}│${NC} %-28s ${CYAN}│${NC}\n" \
+        printf "${CYAN}│${NC} %-18s  ${status_color}%-8s${NC}  ${type_color}%-8s${NC}  %-28s ${CYAN}│${NC}\n" \
             "$service" \
             "$status_icon" \
             "$type_display" \
             "$info_display"
     done
 
-    echo -e "${CYAN}└────────────────────┴──────────┴──────────┴──────────────────────────────┘${NC}"
+    echo -e "${CYAN}└────────────────────────────────────────────────────────────────────────────┘${NC}"
 
     # 清空数组
     TABLE_DATA=()

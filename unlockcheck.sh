@@ -819,6 +819,17 @@ check_reddit() {
 # 检测 Google Gemini - Smart dual detection
 check_gemini() {
     local unlock_type=$(check_dns_unlock "generativelanguage.googleapis.com")
+
+    # Gemini unsupported regions (based on official documentation)
+    # https://ai.google.dev/gemini-api/docs/available-regions
+    local unsupported_regions="CN HK MO CU IR KP RU BY SY VE"
+
+    # Step 0: Check geolocation first (most reliable for Gemini)
+    if echo "$unsupported_regions" | grep -qw "$COUNTRY_CODE"; then
+        format_result "Gemini" "failed" "N/A" "该地区不支持"
+        return
+    fi
+
     local api_result=""
     local web_result=""
     local static_result=""

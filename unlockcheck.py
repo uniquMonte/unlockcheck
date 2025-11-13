@@ -30,7 +30,7 @@ COLUMN_WIDTH_SERVICE = 16      # 服务名称列宽度（显示字符数）
 COLUMN_WIDTH_STATUS = 20       # 解锁状态列宽度（显示字符数）
 COLUMN_WIDTH_UNLOCK_TYPE = 8   # 解锁类型列宽度（显示字符数）
 COLUMN_WIDTH_REGION = 3        # 区域列宽度（显示字符数）
-SEPARATOR_WIDTH = 58           # 分隔线长度（字符数）
+SEPARATOR_WIDTH = 59           # 分隔线长度（字符数）
 # ========================================================================
 
 

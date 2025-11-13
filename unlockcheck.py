@@ -451,7 +451,7 @@ class UnlockChecker:
 
             if not error1 and not error2 and result1.status_code == 200 and result2.status_code == 200:
                 # Both can be accessed - full unlock
-                return "success", region, "Normal Access"
+                return "success", region, "Full Access"
             elif not error1 and result1.status_code == 200:
                 # Only originals can be accessed
                 return "partial", region, "Originals Only"
@@ -496,7 +496,7 @@ class UnlockChecker:
             # Check if it's actually Disney+ (200 with Disney+ content)
             if response.status_code == 200:
                 if "disney" in content_lower or "disneyplus" in content_lower:
-                    return "success", self.ip_info.get('country_code', 'Unknown'), "Normal Access"
+                    return "success", self.ip_info.get('country_code', 'Unknown'), "Full Access"
                 else:
                     return "failed", "N/A", "Service Unavailable"
 
@@ -538,7 +538,7 @@ class UnlockChecker:
             # Check if Premium is available (200 with Premium content)
             if response.status_code == 200:
                 if "premium" in content_lower and ("youtube" in content_lower or "subscribe" in content_lower):
-                    return "success", self.ip_info.get('country_code', 'Unknown'), "Normal Access"
+                    return "success", self.ip_info.get('country_code', 'Unknown'), "Full Access"
                 else:
                     return "failed", "N/A", "Service Unavailable"
 
@@ -593,7 +593,7 @@ class UnlockChecker:
             )
 
             if api_response.status_code == 401 or api_response.status_code == 400:
-                api_result = ("success", "Normal Access")
+                api_result = ("success", "Full Access")
             elif api_response.status_code == 403:
                 try:
                     error_data = api_response.json()
@@ -649,9 +649,9 @@ class UnlockChecker:
         # Priority 2: API success indicates availability (even if web has Cloudflare)
         if api_result and api_result[0] == "success":
             if has_cloudflare:
-                return "success", self.ip_info.get('country_code', 'Unknown'), f"Normal Access{Fore.YELLOW}(CF Check){Fore.GREEN}"
+                return "success", self.ip_info.get('country_code', 'Unknown'), f"Full Access{Fore.YELLOW}(CF Check){Fore.GREEN}"
             else:
-                return "success", self.ip_info.get('country_code', 'Unknown'), "Normal Access"
+                return "success", self.ip_info.get('country_code', 'Unknown'), "Full Access"
 
         # Priority 3: Cloudflare blocking (only if API cannot confirm availability)
         # This suggests browser might still work
@@ -711,7 +711,7 @@ class UnlockChecker:
             )
 
             if api_response.status_code == 401 or api_response.status_code == 400:
-                api_result = ("success", "Normal Access")
+                api_result = ("success", "Full Access")
             elif api_response.status_code == 403:
                 try:
                     error_data = api_response.json()
@@ -762,9 +762,9 @@ class UnlockChecker:
         # Priority 2: API success indicates availability (even if web has Cloudflare)
         if api_result and api_result[0] == "success":
             if has_cloudflare:
-                return "success", self.ip_info.get('country_code', 'Unknown'), f"Normal Access{Fore.YELLOW}(CF Check){Fore.GREEN}"
+                return "success", self.ip_info.get('country_code', 'Unknown'), f"Full Access{Fore.YELLOW}(CF Check){Fore.GREEN}"
             else:
-                return "success", self.ip_info.get('country_code', 'Unknown'), "Normal Access"
+                return "success", self.ip_info.get('country_code', 'Unknown'), "Full Access"
 
         # Priority 3: Cloudflare blocking (only if API cannot confirm availability)
         # This suggests browser might still work
@@ -810,7 +810,7 @@ class UnlockChecker:
             if response.status_code == 200:
                 if "tiktok" in content_lower:
                     region = self.ip_info.get('country_code', 'Unknown')
-                    return "success", region, "Normal Access"
+                    return "success", region, "Full Access"
                 else:
                     return "failed", "N/A", "Service Unavailable"
 
@@ -857,7 +857,7 @@ class UnlockChecker:
             # Check if Imgur is accessible (200 with Imgur content)
             if response.status_code == 200:
                 if "imgur" in content_lower:
-                    return "success", self.ip_info.get('country_code', 'Unknown'), "Normal Access"
+                    return "success", self.ip_info.get('country_code', 'Unknown'), "Full Access"
                 else:
                     return "failed", "N/A", "Service Unavailable"
 
@@ -869,7 +869,7 @@ class UnlockChecker:
                     allow_redirects=True
                 )
                 if alt_response.status_code == 200:
-                    return "success", self.ip_info.get('country_code', 'Unknown'), "Normal Access"
+                    return "success", self.ip_info.get('country_code', 'Unknown'), "Full Access"
             except:
                 pass
 
@@ -922,7 +922,7 @@ class UnlockChecker:
                     # Check for location-based content restrictions
                     if "over18" in response.url or "location_blocking" in content_lower:
                         return "partial", self.ip_info.get('country_code', 'Unknown'), "Partially Restricted"
-                    return "success", self.ip_info.get('country_code', 'Unknown'), "Normal Access"
+                    return "success", self.ip_info.get('country_code', 'Unknown'), "Full Access"
                 else:
                     return "failed", "N/A", "Service Unavailable"
 
@@ -980,7 +980,7 @@ class UnlockChecker:
             )
 
             if api_response.status_code == 401 or api_response.status_code == 400:
-                api_result = ("success", "Normal Access")
+                api_result = ("success", "Full Access")
             elif api_response.status_code == 403:
                 try:
                     error_data = api_response.json()
@@ -992,7 +992,7 @@ class UnlockChecker:
                         # PERMISSION_DENIED with API Key = service available
                         if error_status == 'PERMISSION_DENIED':
                             if 'api key' in error_msg or 'unregistered callers' in error_msg or 'established identity' in error_msg:
-                                api_result = ("success", "Normal Access")
+                                api_result = ("success", "Full Access")
                             else:
                                 api_result = ("failed", "Access Denied")
                         # Check for region restriction
@@ -1032,7 +1032,7 @@ class UnlockChecker:
             elif web_response.status_code == 200:
                 # Check if it has actual Gemini app interface (not error page)
                 if any(keyword in content_lower for keyword in ["sign in", "get started", "continue with google", "chat with gemini"]):
-                    web_result = ("success", "Normal Access")
+                    web_result = ("success", "Full Access")
         except:
             pass
 
@@ -1051,7 +1051,7 @@ class UnlockChecker:
                 if static_response.status_code == 403:
                     static_result = ("failed", "Region Restricted")
                 elif static_response.status_code == 200:
-                    static_result = ("success", "Normal Access")
+                    static_result = ("success", "Full Access")
             except:
                 pass
 
@@ -1072,7 +1072,7 @@ class UnlockChecker:
                 if studio_response.status_code == 403:
                     studio_result = ("failed", "Region Restricted")
                 elif studio_response.status_code in [200, 302]:
-                    studio_result = ("success", "Normal Access")
+                    studio_result = ("success", "Full Access")
             except:
                 pass
 
@@ -1089,13 +1089,13 @@ class UnlockChecker:
 
         # Priority 2: Any success indicates availability
         if api_result and api_result[0] == "success":
-            return "success", self.ip_info.get('country_code', 'Unknown'), "Normal Access"
+            return "success", self.ip_info.get('country_code', 'Unknown'), "Full Access"
         if web_result and web_result[0] == "success":
-            return "success", self.ip_info.get('country_code', 'Unknown'), "Normal Access"
+            return "success", self.ip_info.get('country_code', 'Unknown'), "Full Access"
         if static_result and static_result[0] == "success":
-            return "success", self.ip_info.get('country_code', 'Unknown'), "Normal Access"
+            return "success", self.ip_info.get('country_code', 'Unknown'), "Full Access"
         if studio_result and studio_result[0] == "success":
-            return "success", self.ip_info.get('country_code', 'Unknown'), "Normal Access"
+            return "success", self.ip_info.get('country_code', 'Unknown'), "Full Access"
 
         # Priority 3: Access denied
         if api_result and api_result[0] == "failed":
@@ -1135,7 +1135,7 @@ class UnlockChecker:
             # Check if Spotify is accessible (200 with Spotify content)
             if response.status_code == 200:
                 if "spotify" in content_lower:
-                    return "success", self.ip_info.get('country_code', 'Unknown'), "Normal Access"
+                    return "success", self.ip_info.get('country_code', 'Unknown'), "Full Access"
                 else:
                     return "failed", "N/A", "Service Unavailable"
 
@@ -1187,7 +1187,7 @@ class UnlockChecker:
             # Check if Google Scholar is accessible (200 with Scholar content)
             if response.status_code == 200:
                 if "scholar" in content_lower and "google" in content_lower:
-                    return "success", self.ip_info.get('country_code', 'Unknown'), "Normal Access"
+                    return "success", self.ip_info.get('country_code', 'Unknown'), "Full Access"
                 else:
                     return "failed", "N/A", "Service Unavailable"
 

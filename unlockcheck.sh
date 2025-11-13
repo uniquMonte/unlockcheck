@@ -633,7 +633,7 @@ check_netflix() {
 
     if [ -z "$error1" ] && [ -z "$error2" ]; then
         # 都可以访问，完全解锁
-        format_result "Netflix" "success" "$region" "正常访问"
+        format_result "Netflix" "success" "$region" "完全解锁"
     elif [ -z "$error1" ] && [ -n "$error2" ]; then
         # 只有自制剧可以访问
         format_result "Netflix" "partial" "$region" "仅自制剧"
@@ -653,7 +653,7 @@ check_disney() {
         "https://www.disneyplus.com/" 2>/dev/null)
 
     if [ "$status_code" = "200" ]; then
-        format_result "Disney+" "success" "$COUNTRY_CODE" "正常访问"
+        format_result "Disney+" "success" "$COUNTRY_CODE" "完全解锁"
     elif [ "$status_code" = "403" ]; then
         format_result "Disney+" "failed" "N/A" "不支持"
     else
@@ -670,7 +670,7 @@ check_youtube() {
         "https://www.youtube.com/premium" 2>/dev/null)
 
     if [ "$status_code" = "200" ]; then
-        format_result "YouTube Premium" "success" "$COUNTRY_CODE" "正常访问"
+        format_result "YouTube Premium" "success" "$COUNTRY_CODE" "完全解锁"
     else
         format_result "YouTube Premium" "error" "N/A" "检测失败"
     fi
@@ -740,9 +740,9 @@ check_chatgpt() {
     elif [ "$api_result" = "success" ]; then
         # API成功表示服务可用,即使Web端有Cloudflare验证
         if [ "$has_cloudflare" = "true" ]; then
-            format_result "ChatGPT" "success" "$COUNTRY_CODE" "正常访问${YELLOW}(需CF验证)${GREEN}"
+            format_result "ChatGPT" "success" "$COUNTRY_CODE" "完全解锁${YELLOW}(需CF验证)${GREEN}"
         else
-            format_result "ChatGPT" "success" "$COUNTRY_CODE" "正常访问"
+            format_result "ChatGPT" "success" "$COUNTRY_CODE" "完全解锁"
         fi
     elif [ "$has_cloudflare" = "true" ]; then
         # 只有当API无法确认时,Cloudflare才可能是问题
@@ -823,9 +823,9 @@ check_claude() {
     elif [ "$api_result" = "success" ]; then
         # API成功表示服务可用,即使Web端有Cloudflare验证
         if [ "$has_cloudflare" = "true" ]; then
-            format_result "Claude" "success" "$COUNTRY_CODE" "正常访问${YELLOW}(需CF验证)${GREEN}"
+            format_result "Claude" "success" "$COUNTRY_CODE" "完全解锁${YELLOW}(需CF验证)${GREEN}"
         else
-            format_result "Claude" "success" "$COUNTRY_CODE" "正常访问"
+            format_result "Claude" "success" "$COUNTRY_CODE" "完全解锁"
         fi
     elif [ "$has_cloudflare" = "true" ]; then
         # 只有当API无法确认时,Cloudflare才可能是问题
@@ -848,7 +848,7 @@ check_tiktok() {
         "https://www.tiktok.com/" 2>/dev/null)
 
     if [ "$status_code" = "200" ]; then
-        format_result "TikTok" "success" "$COUNTRY_CODE" "正常访问"
+        format_result "TikTok" "success" "$COUNTRY_CODE" "完全解锁"
     elif [ "$status_code" = "403" ] || [ "$status_code" = "451" ]; then
         format_result "TikTok" "failed" "N/A" "区域受限"
     else
@@ -879,15 +879,15 @@ check_imgur() {
     fi
 
     if [ "$status_code" = "200" ]; then
-        format_result "Imgur" "success" "$region" "正常访问"
+        format_result "Imgur" "success" "$region" "完全解锁"
     elif [ "$status_code" = "403" ] || [ "$status_code" = "451" ]; then
         format_result "Imgur" "failed" "N/A" "区域受限"
     elif [ "$status_code" = "301" ] || [ "$status_code" = "302" ]; then
         # 重定向通常表示可访问
-        format_result "Imgur" "success" "$region" "正常访问"
+        format_result "Imgur" "success" "$region" "完全解锁"
     elif [ "$status_code" = "429" ]; then
         # 速率限制，通常表示服务可访问
-        format_result "Imgur" "success" "$region" "正常访问 (速率限制)"
+        format_result "Imgur" "success" "$region" "完全解锁 (速率限制)"
     elif [ -z "$status_code" ] || [ "$status_code" = "000" ]; then
         format_result "Imgur" "error" "N/A" "连接超时"
     else
@@ -915,7 +915,7 @@ check_reddit() {
         format_result "Reddit" "partial" "$COUNTRY_CODE" "受限访问 (需登录)"
     elif [ "$status_code" = "200" ]; then
         # 200 且内容没有拦截关键词，才是真正可访问
-        format_result "Reddit" "success" "$COUNTRY_CODE" "正常访问"
+        format_result "Reddit" "success" "$COUNTRY_CODE" "完全解锁"
     else
         format_result "Reddit" "error" "N/A" "检测失败(${status_code})"
     fi
@@ -1023,7 +1023,7 @@ check_gemini() {
     if [ "$api_result" = "region_restricted" ] || [ "$web_result" = "region_restricted" ] || [ "$static_result" = "region_restricted" ] || [ "$studio_result" = "region_restricted" ]; then
         format_result "Gemini" "failed" "N/A" "该地区不支持"
     elif [ "$api_result" = "success" ] || [ "$web_result" = "success" ] || [ "$static_result" = "success" ] || [ "$studio_result" = "success" ]; then
-        format_result "Gemini" "success" "$COUNTRY_CODE" "正常访问"
+        format_result "Gemini" "success" "$COUNTRY_CODE" "完全解锁"
     elif [ "$api_result" = "access_denied" ]; then
         format_result "Gemini" "failed" "N/A" "访问被拒"
     else
@@ -1041,7 +1041,7 @@ check_spotify() {
         "https://open.spotify.com/" 2>/dev/null)
 
     if [ "$status_code" = "200" ]; then
-        format_result "Spotify" "success" "$COUNTRY_CODE" "正常访问"
+        format_result "Spotify" "success" "$COUNTRY_CODE" "完全解锁"
     elif [ "$status_code" = "403" ]; then
         format_result "Spotify" "failed" "N/A" "区域受限"
     else
@@ -1066,7 +1066,7 @@ check_scholar() {
     if echo "$content" | grep -qi "automated\|unusual traffic\|can't process your request\|We're sorry"; then
         format_result "Google Scholar" "partial" "$COUNTRY_CODE" "受限访问 (机器人)"
     elif [ "$status_code" = "200" ]; then
-        format_result "Google Scholar" "success" "$COUNTRY_CODE" "正常访问"
+        format_result "Google Scholar" "success" "$COUNTRY_CODE" "完全解锁"
     elif [ "$status_code" = "403" ]; then
         format_result "Google Scholar" "failed" "N/A" "区域受限"
     elif [ "$status_code" = "429" ]; then

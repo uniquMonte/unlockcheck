@@ -1237,8 +1237,8 @@ check_spotify() {
             format_result "Spotify" "success" "$COUNTRY_CODE" "完全解锁"
         fi
     elif [ "$status_code" = "320" ] || [ "$status_code" = "120" ]; then
-        # 地区未推出
-        format_result "Spotify" "failed" "N/A" "未推出"
+        # IP 被屏蔽（参考 IPQuality 项目）
+        format_result "Spotify" "failed" "N/A" "屏蔽"
     else
         # 其他情况
         format_result "Spotify" "error" "N/A" "检测失败"

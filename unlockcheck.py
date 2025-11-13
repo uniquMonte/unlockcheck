@@ -1295,8 +1295,8 @@ class UnlockChecker:
                 else:
                     return "success", self.ip_info.get('country_code', 'Unknown'), "Full Access"
             elif status_code in [320, 120]:
-                # Service not launched in this region
-                return "failed", "N/A", "Not Launched"
+                # IP blocked (reference: IPQuality project)
+                return "failed", "N/A", "Blocked"
             else:
                 # Other cases
                 return "error", "N/A", "Detection Failed"

@@ -413,9 +413,17 @@ class UnlockChecker:
                 allow_redirects=True
             )
 
-            # Both requests failed
+            # Check for region blocking (403/451 status codes)
+            if (result1.status_code in [403, 451]) or (result2.status_code in [403, 451]):
+                return "failed", "N/A", "Not Supported"
+
+            # Both requests failed with server errors
             if result1.status_code >= 500 and result2.status_code >= 500:
-                return "error", "N/A", "Detection Failed"
+                return "error", "N/A", "Server Error"
+
+            # Check if both requests have no content
+            if not result1.text and not result2.text:
+                return "error", "N/A", "Network Error"
 
             # Extract region code from response
             # Look for "currentCountry" in the page HTML/JSON

@@ -580,19 +580,33 @@ check_netflix() {
     # 使用特定的Netflix标题页面进行检测（自制剧，全球可用）
     # 81280792 - The Queen's Gambit (自制剧)
     # 70143836 - Friends (授权内容，部分地区可用)
-    local result1=$(curl -s --max-time $TIMEOUT \
+
+    # 使用 -w 获取HTTP状态码
+    local response1=$(curl -s --max-time $TIMEOUT \
         -A "$USER_AGENT" \
-        -X GET \
+        -w "\n%{http_code}" \
         "https://www.netflix.com/title/81280792" 2>/dev/null)
 
-    local result2=$(curl -s --max-time $TIMEOUT \
+    local response2=$(curl -s --max-time $TIMEOUT \
         -A "$USER_AGENT" \
-        -X GET \
+        -w "\n%{http_code}" \
         "https://www.netflix.com/title/70143836" 2>/dev/null)
 
-    # 检查响应是否为空
-    if [ -z "$result1" ] && [ -z "$result2" ]; then
-        format_result "Netflix" "error" "N/A" "检测失败"
+    # 提取HTTP状态码和内容
+    local status1=$(echo "$response1" | tail -n 1)
+    local result1=$(echo "$response1" | head -n -1)
+    local status2=$(echo "$response2" | tail -n 1)
+    local result2=$(echo "$response2" | head -n -1)
+
+    # 检查是否完全无法连接
+    if [ -z "$status1" ] && [ -z "$status2" ]; then
+        format_result "Netflix" "error" "N/A" "网络错误"
+        return
+    fi
+
+    # 检查是否被地区屏蔽（403/451）
+    if [ "$status1" = "403" ] || [ "$status1" = "451" ] || [ "$status2" = "403" ] || [ "$status2" = "451" ]; then
+        format_result "Netflix" "failed" "N/A" "不支持"
         return
     fi
 

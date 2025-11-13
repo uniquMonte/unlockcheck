@@ -63,9 +63,17 @@ check_dependencies() {
 check_dns_unlock() {
     local domain="$1"
 
+    # 注意：很多服务使用CDN（如Cloudflare），不同DNS返回不同IP是正常的负载均衡
+    # 真正的DNS解锁需要更复杂的检测逻辑（检查IP归属、AS号等）
+    # 目前暂时禁用DNS解锁检测，避免误报
+
+    echo "native"
+    return
+
+    # 以下代码保留，但暂不使用
     # 检查是否有dig命令，如果没有则跳过DNS检测
     if ! command -v dig &> /dev/null; then
-        echo "native"  # 默认返回原生
+        echo "native"
         return
     fi
 
@@ -636,8 +644,8 @@ check_scholar() {
     local status_code=$(echo "$response" | tail -n 1)
     local content=$(echo "$response" | head -n -1)
 
-    # 检查是否包含机器人流量警告
-    if echo "$content" | grep -qi "automated queries\|unusual traffic\|sorry.*can't process\|sorry.*computer or network"; then
+    # 检查是否包含机器人流量警告（使用更宽松的匹配）
+    if echo "$content" | grep -qi "automated\|unusual traffic\|can't process your request\|We're sorry"; then
         format_result "Google Scholar" "partial" "$COUNTRY_CODE" "可访问官网，但无法搜索" "$unlock_type"
     elif [ "$status_code" = "200" ]; then
         format_result "Google Scholar" "success" "$COUNTRY_CODE" "完全可用" "$unlock_type"

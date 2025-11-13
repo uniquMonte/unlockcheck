@@ -541,14 +541,27 @@ check_claude() {
     local status_code=$(echo "$response" | tail -n 1)
     local content=$(echo "$response" | head -n -1)
 
-    # 检查是否包含区域限制或IP拦截的关键词
-    if echo "$content" | grep -qi "not available\|unsupported.*region\|not supported in your country\|access denied"; then
+    # 检查 Claude 实际返回的区域限制消息
+    # "only available in certain regions" 是 Claude 的实际错误消息
+    if echo "$content" | grep -qi "only available in certain regions"; then
+        format_result "Claude" "failed" "N/A" "该地区不支持"
+    # 检查中文错误消息（應用程式不可用/僅在特定地區提供服務）
+    elif echo "$content" | grep -q "應用程式不可用\|僅在特定地區提供服務"; then
+        format_result "Claude" "failed" "N/A" "该地区不支持"
+    # 检查其他区域限制关键词
+    elif echo "$content" | grep -qi "not available\|unavailable in your region"; then
         format_result "Claude" "failed" "N/A" "区域受限"
     elif [ "$status_code" = "403" ]; then
         # 403 通常是IP被拦截
         format_result "Claude" "failed" "N/A" "区域受限"
     elif [ "$status_code" = "200" ]; then
-        format_result "Claude" "success" "$COUNTRY_CODE" "可访问" "$unlock_type"
+        # 验证是否真的是 Claude 应用（检查页面是否包含关键元素）
+        if echo "$content" | grep -qi "claude" && echo "$content" | grep -qi "anthropic\|chat"; then
+            format_result "Claude" "success" "$COUNTRY_CODE" "可访问" "$unlock_type"
+        else
+            # 200 但不像 Claude 应用 - 可能是错误页面
+            format_result "Claude" "failed" "N/A" "服务不可用"
+        fi
     else
         format_result "Claude" "error" "N/A" "检测失败"
     fi
@@ -640,16 +653,32 @@ check_reddit() {
 # 检测 Google Gemini
 check_gemini() {
     local unlock_type=$(check_dns_unlock "gemini.google.com")
-    local status_code=$(curl -s -o /dev/null -w "%{http_code}" \
-        --max-time $TIMEOUT \
+    local response=$(curl -s --max-time $TIMEOUT \
         -A "$USER_AGENT" \
         -L \
+        -w "\n%{http_code}" \
         "https://gemini.google.com/" 2>/dev/null)
 
-    if [ "$status_code" = "200" ]; then
-        format_result "Gemini" "success" "$COUNTRY_CODE" "可访问" "$unlock_type"
+    local status_code=$(echo "$response" | tail -n 1)
+    local content=$(echo "$response" | head -n -1)
+
+    # 检查 Gemini 实际返回的区域限制消息
+    # "Gemini is currently not supported in your country" 是实际错误消息
+    if echo "$content" | grep -qi "not supported in your country\|isn't supported in your country"; then
+        format_result "Gemini" "failed" "N/A" "该地区不支持"
+    # 检查其他 Gemini 相关的不可用消息
+    elif echo "$content" | grep -qi "gemini" && echo "$content" | grep -qi "not available\|unavailable"; then
+        format_result "Gemini" "failed" "N/A" "该地区不支持"
     elif [ "$status_code" = "403" ]; then
         format_result "Gemini" "failed" "N/A" "区域受限"
+    elif [ "$status_code" = "200" ]; then
+        # 验证是否真的是 Gemini 应用（检查页面是否包含关键元素）
+        if echo "$content" | grep -qi "gemini" && echo "$content" | grep -qi "google\|conversation"; then
+            format_result "Gemini" "success" "$COUNTRY_CODE" "可访问" "$unlock_type"
+        else
+            # 200 但不像 Gemini 应用 - 可能是错误页面
+            format_result "Gemini" "failed" "N/A" "服务不可用"
+        fi
     else
         format_result "Gemini" "error" "N/A" "检测失败"
     fi

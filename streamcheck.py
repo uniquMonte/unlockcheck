@@ -475,15 +475,34 @@ class StreamChecker:
                 allow_redirects=True
             )
 
-            # Check if region restricted
+            # Check for region restriction messages (actual error messages from Claude)
+            content_lower = response.text.lower()
+
+            # Claude shows specific error messages when region is not supported
+            if "only available in certain regions" in content_lower:
+                return "failed", "N/A", "Not Available in This Region"
+
+            # Check for Chinese error message (應用程式不可用/僅在特定地區提供服務)
+            if "應用程式不可用" in response.text or "僅在特定地區提供服務" in response.text:
+                return "failed", "N/A", "Not Available in This Region"
+
+            # Check for other region restriction keywords
+            if "not available" in content_lower or "unavailable in your region" in content_lower:
+                return "failed", "N/A", "Not Available"
+
+            # Check if region restricted by HTTP status
             if response.status_code == 403:
                 return "failed", "N/A", "Region Restricted"
 
-            if "not available" in response.text.lower():
-                return "failed", "N/A", "Not Available"
-
+            # Check if Claude is accessible (look for actual Claude app indicators)
             if response.status_code == 200:
-                return "success", self.ip_info.get('country_code', 'Unknown'), "Accessible"
+                # Additional verification: check if it's the actual Claude app
+                # Claude app should contain certain identifiers
+                if "claude" in content_lower and ("anthropic" in content_lower or "chat" in content_lower):
+                    return "success", self.ip_info.get('country_code', 'Unknown'), "Accessible"
+                else:
+                    # 200 but doesn't look like Claude app - might be an error page
+                    return "failed", "N/A", "Service Unavailable"
 
             return "error", "N/A", "Inaccessible"
 
@@ -632,20 +651,36 @@ class StreamChecker:
                 allow_redirects=True
             )
 
-            # Check if region restricted
+            # Check for region restriction messages (actual error messages from Gemini)
+            content_lower = response.text.lower()
+
+            # Gemini shows specific error messages when region is not supported
+            # "Gemini is currently not supported in your country"
+            if "not supported in your country" in content_lower or "isn't supported in your country" in content_lower:
+                return "failed", "N/A", "Not Supported in This Region"
+
+            # Check for other region restriction keywords
+            if "gemini" in content_lower and ("not available" in content_lower or "unavailable" in content_lower):
+                # Make sure it's about Gemini being unavailable
+                return "failed", "N/A", "Not Available"
+
+            # Check if region restricted by HTTP status
             if response.status_code == 403:
                 return "failed", "N/A", "Region Restricted"
 
-            # Check for region unavailable prompts
-            if "not available" in response.text.lower() or "unavailable" in response.text.lower():
-                # May show "not available in your country/region"
+            # Check if redirected to error page
+            if "error" in response.url.lower() or "/sorry/" in response.url:
                 return "failed", "N/A", "Not Available"
 
+            # Check if Gemini is accessible
             if response.status_code == 200:
-                # Check if redirected to error page
-                if "error" in response.url.lower() or "/sorry/" in response.url:
-                    return "failed", "N/A", "Not Available"
-                return "success", self.ip_info.get('country_code', 'Unknown'), "Accessible"
+                # Additional verification: check if it's the actual Gemini app
+                # Gemini app should contain certain identifiers
+                if "gemini" in content_lower and ("google" in content_lower or "conversation" in content_lower):
+                    return "success", self.ip_info.get('country_code', 'Unknown'), "Accessible"
+                else:
+                    # 200 but doesn't look like Gemini app - might be an error page
+                    return "failed", "N/A", "Service Unavailable"
 
             return "error", "N/A", "Inaccessible"
 

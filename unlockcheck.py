@@ -504,11 +504,34 @@ class UnlockChecker:
 
     def check_chatgpt(self) -> Tuple[str, str, str]:
         """
-        Check ChatGPT/OpenAI accessibility using both API and web endpoints
-        Smart detection with priority: region restriction > Cloudflare > API availability
+        Check ChatGPT/OpenAI accessibility
+        Uses geolocation-based detection: checks if IP country is in unsupported regions
+        Reference: https://platform.openai.com/docs/supported-countries
         Returns: (status, region, detail)
         """
         self.log("Checking ChatGPT/OpenAI...", "debug")
+
+        # ChatGPT/OpenAI unsupported regions (based on official documentation)
+        # https://platform.openai.com/docs/supported-countries
+        UNSUPPORTED_REGIONS = [
+            'CN',  # China
+            'HK',  # Hong Kong
+            'RU',  # Russia
+            'IR',  # Iran
+            'KP',  # North Korea
+            'SY',  # Syria
+            'CU',  # Cuba
+            'BY',  # Belarus
+            'VE',  # Venezuela
+            # Add more based on official docs
+        ]
+
+        # Step 0: Check geolocation first (most reliable)
+        country_code = self.ip_info.get('country_code', '').upper()
+
+        if country_code in UNSUPPORTED_REGIONS:
+            self.log(f"ChatGPT not supported in {country_code} (geolocation check)", "debug")
+            return "failed", "N/A", "Region Restricted"
 
         api_result = None
         has_cloudflare = False
@@ -592,11 +615,33 @@ class UnlockChecker:
 
     def check_claude(self) -> Tuple[str, str, str]:
         """
-        Check Claude AI accessibility using both API and web endpoints
-        Smart detection with priority: region restriction > Cloudflare > API availability
+        Check Claude AI accessibility
+        Uses geolocation-based detection: checks if IP country is in unsupported regions
+        Reference: https://www.anthropic.com/supported-countries
         Returns: (status, region, detail)
         """
         self.log("Checking Claude AI...", "debug")
+
+        # Claude unsupported regions (based on official documentation)
+        # https://www.anthropic.com/supported-countries
+        UNSUPPORTED_REGIONS = [
+            'CN',  # China
+            'HK',  # Hong Kong (limited)
+            'RU',  # Russia
+            'IR',  # Iran
+            'KP',  # North Korea
+            'SY',  # Syria
+            'CU',  # Cuba
+            'BY',  # Belarus
+            # Add more based on official docs
+        ]
+
+        # Step 0: Check geolocation first (most reliable)
+        country_code = self.ip_info.get('country_code', '').upper()
+
+        if country_code in UNSUPPORTED_REGIONS:
+            self.log(f"Claude not supported in {country_code} (geolocation check)", "debug")
+            return "failed", "N/A", "Region Restricted"
 
         api_result = None
         web_result = None
@@ -835,12 +880,35 @@ class UnlockChecker:
 
     def check_gemini(self) -> Tuple[str, str, str]:
         """
-        Check Google Gemini AI accessibility using multi-point detection
-        Tests: API endpoint, main site, static resources, AI Studio
-        Smart detection with priority: region restriction > Cloudflare > API availability
+        Check Google Gemini AI accessibility
+        Uses geolocation-based detection: checks if IP country is in unsupported regions
+        Reference: https://ai.google.dev/gemini-api/docs/available-regions
         Returns: (status, region, detail)
         """
         self.log("Checking Google Gemini...", "debug")
+
+        # Gemini unsupported regions (based on official documentation)
+        # https://ai.google.dev/gemini-api/docs/available-regions
+        UNSUPPORTED_REGIONS = [
+            'CN',  # China
+            'HK',  # Hong Kong
+            'MO',  # Macau
+            'CU',  # Cuba
+            'IR',  # Iran
+            'KP',  # North Korea
+            'RU',  # Russia
+            'BY',  # Belarus
+            'SY',  # Syria
+            'VE',  # Venezuela
+            # Add more based on official docs
+        ]
+
+        # Step 0: Check geolocation first (most reliable for Gemini)
+        country_code = self.ip_info.get('country_code', '').upper()
+
+        if country_code in UNSUPPORTED_REGIONS:
+            self.log(f"Gemini not supported in {country_code} (geolocation check)", "debug")
+            return "failed", "N/A", "Region Restricted"
 
         api_result = None
         web_result = None

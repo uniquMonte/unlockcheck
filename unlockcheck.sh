@@ -610,6 +610,17 @@ check_youtube() {
 # 检测 ChatGPT - Smart dual detection
 check_chatgpt() {
     local unlock_type=$(check_dns_unlock "api.openai.com")
+
+    # ChatGPT/OpenAI unsupported regions (based on official documentation)
+    # https://platform.openai.com/docs/supported-countries
+    local unsupported_regions="CN HK RU IR KP SY CU BY VE"
+
+    # Step 0: Check geolocation first (most reliable)
+    if echo "$unsupported_regions" | grep -qw "$COUNTRY_CODE"; then
+        format_result "ChatGPT" "failed" "N/A" "该地区不支持"
+        return
+    fi
+
     local api_result=""
     local has_cloudflare=false
 
@@ -671,6 +682,17 @@ check_chatgpt() {
 # 检测 Claude - Smart dual detection
 check_claude() {
     local unlock_type=$(check_dns_unlock "api.anthropic.com")
+
+    # Claude unsupported regions (based on official documentation)
+    # https://www.anthropic.com/supported-countries
+    local unsupported_regions="CN HK RU IR KP SY CU BY"
+
+    # Step 0: Check geolocation first (most reliable)
+    if echo "$unsupported_regions" | grep -qw "$COUNTRY_CODE"; then
+        format_result "Claude" "failed" "N/A" "该地区不支持"
+        return
+    fi
+
     local api_result=""
     local web_result=""
     local has_cloudflare=false
@@ -819,6 +841,17 @@ check_reddit() {
 # 检测 Google Gemini - Smart dual detection
 check_gemini() {
     local unlock_type=$(check_dns_unlock "generativelanguage.googleapis.com")
+
+    # Gemini unsupported regions (based on official documentation)
+    # https://ai.google.dev/gemini-api/docs/available-regions
+    local unsupported_regions="CN HK MO CU IR KP RU BY SY VE"
+
+    # Step 0: Check geolocation first (most reliable for Gemini)
+    if echo "$unsupported_regions" | grep -qw "$COUNTRY_CODE"; then
+        format_result "Gemini" "failed" "N/A" "该地区不支持"
+        return
+    fi
+
     local api_result=""
     local web_result=""
     local static_result=""

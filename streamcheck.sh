@@ -516,11 +516,13 @@ check_chatgpt() {
     local status_code=$(echo "$response" | tail -n 1)
     local content=$(echo "$response" | head -n -1)
 
-    # 检查是否包含区域限制的关键词
-    if echo "$content" | grep -qi "not available\|unsupported.*region\|not supported in your country\|VPN or proxy"; then
+    # 检查是否包含区域限制或IP拦截的关键词
+    if echo "$content" | grep -qi "not available\|unsupported.*region\|not supported in your country\|VPN or proxy\|access denied"; then
         format_result "ChatGPT" "failed" "N/A" "区域受限"
-    elif [ "$status_code" = "200" ] || [ "$status_code" = "403" ]; then
-        # 403可能是Cloudflare验证，不代表区域受限
+    elif [ "$status_code" = "403" ]; then
+        # 403 通常是IP被拦截
+        format_result "ChatGPT" "failed" "N/A" "区域受限"
+    elif [ "$status_code" = "200" ]; then
         format_result "ChatGPT" "success" "$COUNTRY_CODE" "可访问" "$unlock_type"
     else
         format_result "ChatGPT" "error" "N/A" "检测失败"
@@ -539,11 +541,13 @@ check_claude() {
     local status_code=$(echo "$response" | tail -n 1)
     local content=$(echo "$response" | head -n -1)
 
-    # 检查是否包含区域限制的关键词
-    if echo "$content" | grep -qi "not available\|unsupported.*region\|not supported in your country"; then
+    # 检查是否包含区域限制或IP拦截的关键词
+    if echo "$content" | grep -qi "not available\|unsupported.*region\|not supported in your country\|access denied"; then
         format_result "Claude" "failed" "N/A" "区域受限"
-    elif [ "$status_code" = "200" ] || [ "$status_code" = "403" ]; then
-        # 403可能是Cloudflare验证，不代表区域受限
+    elif [ "$status_code" = "403" ]; then
+        # 403 通常是IP被拦截
+        format_result "Claude" "failed" "N/A" "区域受限"
+    elif [ "$status_code" = "200" ]; then
         format_result "Claude" "success" "$COUNTRY_CODE" "可访问" "$unlock_type"
     else
         format_result "Claude" "error" "N/A" "检测失败"

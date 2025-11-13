@@ -1,7 +1,11 @@
 #!/bin/bash
 #
 # StreamCheck 一键安装运行脚本
-# 使用方法: bash <(curl -Ls https://raw.githubusercontent.com/uniquMonte/streamcheck/main/install.sh)
+# 使用方法:
+#   bash <(curl -Ls https://raw.githubusercontent.com/uniquMonte/streamcheck/main/install.sh)
+#
+# 使用特定分支:
+#   BRANCH=main bash <(curl -Ls https://raw.githubusercontent.com/.../install.sh)
 #
 
 set -e
@@ -13,10 +17,14 @@ YELLOW='\033[1;33m'
 CYAN='\033[0;36m'
 NC='\033[0m'
 
-# 脚本URL
-SCRIPT_URL="https://raw.githubusercontent.com/uniquMonte/streamcheck/main/streamcheck.sh"
+# 配置：可通过环境变量覆盖
+GITHUB_REPO="${GITHUB_REPO:-uniquMonte/streamcheck}"
+BRANCH="${BRANCH:-main}"
 SCRIPT_NAME="streamcheck.sh"
 TEMP_DIR="/tmp/streamcheck_$$"
+
+# 构建脚本URL
+SCRIPT_URL="https://raw.githubusercontent.com/${GITHUB_REPO}/${BRANCH}/${SCRIPT_NAME}"
 
 # 打印消息
 print_info() {
@@ -64,16 +72,39 @@ check_dependencies() {
 # 下载脚本
 download_script() {
     print_info "正在下载 StreamCheck 脚本..."
+    print_info "仓库: ${GITHUB_REPO}"
+    print_info "分支: ${BRANCH}"
 
     # 创建临时目录
     mkdir -p "$TEMP_DIR"
 
     # 下载脚本
-    if curl -sL "$SCRIPT_URL" -o "$TEMP_DIR/$SCRIPT_NAME"; then
-        print_success "脚本下载成功"
+    print_info "下载地址: ${SCRIPT_URL}"
+    if curl -fsSL "$SCRIPT_URL" -o "$TEMP_DIR/$SCRIPT_NAME" 2>/dev/null; then
+        # 检查下载的文件是否有效
+        if [ -s "$TEMP_DIR/$SCRIPT_NAME" ] && head -n 1 "$TEMP_DIR/$SCRIPT_NAME" | grep -q "^#!/bin/bash"; then
+            print_success "脚本下载成功"
+        else
+            print_error "下载的文件无效（可能是404页面）"
+            echo ""
+            echo "可能的原因："
+            echo "  1. 分支 '${BRANCH}' 不存在"
+            echo "  2. 文件路径不正确"
+            echo ""
+            echo "尝试使用开发分支："
+            echo "  BRANCH=claude/streaming-unlock-detector-011CV57GxrMmMPUDAAu5JKt6 bash <(curl -Ls ...)"
+            rm -f "$TEMP_DIR/$SCRIPT_NAME"
+            exit 1
+        fi
     else
         print_error "脚本下载失败"
-        echo "请检查网络连接或手动访问: $SCRIPT_URL"
+        echo ""
+        echo "请检查："
+        echo "  1. 网络连接是否正常"
+        echo "  2. URL是否正确: $SCRIPT_URL"
+        echo ""
+        echo "或尝试手动下载："
+        echo "  curl -O $SCRIPT_URL"
         exit 1
     fi
 

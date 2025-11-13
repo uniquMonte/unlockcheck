@@ -9,7 +9,14 @@
 无需克隆仓库，直接运行以下命令即可开始检测：
 
 ```bash
+# 从main分支运行（稳定版）
 bash <(curl -Ls https://raw.githubusercontent.com/uniquMonte/streamcheck/main/install.sh)
+```
+
+**开发版本（v1.2 最新功能）：**
+```bash
+# 临时使用：从开发分支运行
+BRANCH=claude/streaming-unlock-detector-011CV57GxrMmMPUDAAu5JKt6 bash <(curl -Ls https://raw.githubusercontent.com/uniquMonte/streamcheck/claude/streaming-unlock-detector-011CV57GxrMmMPUDAAu5JKt6/install.sh)
 ```
 
 这将自动下载并运行最新版本的检测脚本。

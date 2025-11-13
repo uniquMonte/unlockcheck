@@ -723,8 +723,8 @@ check_disney() {
     # 转换为小写以便检查
     local content_lower=$(echo "$content" | tr '[:upper:]' '[:lower:]')
 
-    # 检查地区限制信息
-    if echo "$content_lower" | grep -q "is not available in your region\|is not available in your country\|service.*not.*available"; then
+    # 检查地区限制信息（只检查明确的地区限制消息）
+    if echo "$content_lower" | grep -q "is not available in your region\|is not available in your country\|not available in this location\|content is not available"; then
         format_result "Disney+" "failed" "N/A" "屏蔽"
         return
     fi

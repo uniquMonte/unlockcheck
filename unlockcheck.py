@@ -27,9 +27,9 @@ USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTM
 # 表格布局常量 - 请勿修改！这些值是精心调整过的，确保所有行完美对齐
 # ========================================================================
 COLUMN_WIDTH_SERVICE = 16      # 服务名称列宽度（显示字符数）
-COLUMN_WIDTH_STATUS = 21       # 解锁状态列宽度（显示字符数）
+COLUMN_WIDTH_STATUS = 20       # 解锁状态列宽度（显示字符数）
 COLUMN_WIDTH_UNLOCK_TYPE = 8   # 解锁类型列宽度（显示字符数）
-COLUMN_WIDTH_REGION = 4        # 区域列宽度（显示字符数）
+COLUMN_WIDTH_REGION = 3        # 区域列宽度（显示字符数）
 # ========================================================================
 
 

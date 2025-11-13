@@ -953,8 +953,9 @@ class StreamChecker:
             icon = f"{Fore.MAGENTA}[?]{Style.RESET_ALL}"
             status_color = Fore.MAGENTA
 
-        # Column 2: Service name (fixed width: 16 chars + colon)
-        service_formatted = f"{service_name:<16}:"
+        # Column 2: Service name (fixed display width: 16 display chars)
+        service_padded = self.pad_to_width(service_name, 16)
+        service_formatted = f"{service_padded}:"
 
         # Column 3: Status detail (pad to fixed display width: 20 display chars)
         detail_padded = self.pad_to_width(detail, 20)
@@ -1015,9 +1016,9 @@ class StreamChecker:
             results.append((service_name, status, region, detail))
             time.sleep(0.5)  # Avoid requests too fast
 
-        # Print table header with fixed widths
+        # Print table header with fixed widths (all using display width)
         print(f"\n{Fore.CYAN}{'─'*60}{Style.RESET_ALL}")
-        header_service = f"{'服务名称':<16}"
+        header_service = self.pad_to_width("服务名称", 16)
         header_status = self.pad_to_width("解锁状态", 20)
         header_type = self.pad_to_width("解锁类型", 8)
         header_region = self.pad_to_width("区域", 4)

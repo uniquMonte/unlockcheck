@@ -500,8 +500,9 @@ format_result() {
             ;;
     esac
 
-    # Column 2: Service name (fixed width: 16 chars + colon)
-    local service_formatted=$(printf "%-16s:" "$service_name")
+    # Column 2: Service name (fixed display width: 16 display chars)
+    local service_padded=$(pad_to_width "$service_name" 16)
+    local service_formatted="${service_padded}:"
 
     # Column 3: Status detail (pad to fixed display width: 20 display chars)
     local detail_formatted=$(pad_to_width "$detail" 20)
@@ -835,7 +836,12 @@ check_scholar() {
 run_all_checks() {
     echo -e "${YELLOW}📺 流媒体解锁检测结果${NC}"
     echo -e "${CYAN}────────────────────────────────────────────────────────────${NC}"
-    echo -e "    服务名称        : 解锁状态            : 解锁类型: 区域"
+    # Generate table header with fixed display widths (all using pad_to_width)
+    local header_service=$(pad_to_width "服务名称" 16)
+    local header_status=$(pad_to_width "解锁状态" 20)
+    local header_type=$(pad_to_width "解锁类型" 8)
+    local header_region=$(pad_to_width "区域" 4)
+    echo -e "    ${header_service}: ${header_status} : ${header_type}: ${header_region}"
     echo -e "${CYAN}────────────────────────────────────────────────────────────${NC}"
 
     # 视频流媒体

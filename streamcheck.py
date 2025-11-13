@@ -324,21 +324,34 @@ class StreamChecker:
             if response.status_code == 200:
                 return "success", self.ip_info.get('country_code', 'Unknown'), "Full Access"
             elif response.status_code == 403:
-                return "failed", "N/A", "Not Available"
+                return "failed", "N/A", "IP Blocked"
             elif response.status_code == 404:
                 # Might be originals only
                 return "partial", self.ip_info.get('country_code', 'Unknown'), "Originals Only"
 
-            # Method 2: Check Netflix API
+            # Method 2: Check Netflix homepage for error messages
             response = self.session.get(
                 "https://www.netflix.com/",
                 timeout=TIMEOUT
             )
 
-            if "Not Available" in response.text or "not available" in response.text.lower():
-                return "failed", "N/A", "Not Available"
+            content_lower = response.text.lower()
 
-            return "success", self.ip_info.get('country_code', 'Unknown'), "Full Access"
+            # Check for region restriction messages
+            if "not available in your country" in content_lower or "not available in your location" in content_lower:
+                return "failed", "N/A", "Not Available in This Region"
+
+            if "not available" in content_lower:
+                return "failed", "N/A", "Not Available in This Region"
+
+            # Check if it's actually Netflix (200 with Netflix content)
+            if response.status_code == 200:
+                if "netflix" in content_lower:
+                    return "success", self.ip_info.get('country_code', 'Unknown'), "Full Access"
+                else:
+                    return "failed", "N/A", "Service Unavailable"
+
+            return "error", "N/A", "Detection Failed"
 
         except requests.exceptions.Timeout:
             return "error", "N/A", "Timeout"
@@ -361,32 +374,27 @@ class StreamChecker:
                 allow_redirects=True
             )
 
-            # Check if redirected to unsupported region page
-            if "not available" in response.text.lower() or response.status_code == 403:
-                return "failed", "N/A", "Not Available"
+            content_lower = response.text.lower()
 
-            # Try to get region information
-            try:
-                headers = {
-                    'User-Agent': USER_AGENT,
-                    'Accept': 'application/json'
-                }
-                geo_response = self.session.get(
-                    "https://disney.api.edge.bamgrid.com/graph/v1/device/graphql",
-                    headers=headers,
-                    timeout=TIMEOUT
-                )
+            # Check for region restriction messages
+            if "not available in your region" in content_lower or "not available in your country" in content_lower:
+                return "failed", "N/A", "Not Available in This Region"
 
-                if geo_response.status_code == 200:
-                    return "success", self.ip_info.get('country_code', 'Unknown'), "Full Access"
-            except:
-                pass
+            if "unavailable" in content_lower or "not available" in content_lower:
+                return "failed", "N/A", "Not Available in This Region"
 
-            # Judge based on response status
+            # 403 usually means IP blocked
+            if response.status_code == 403:
+                return "failed", "N/A", "Not Available in This Region"
+
+            # Check if it's actually Disney+ (200 with Disney+ content)
             if response.status_code == 200:
-                return "success", self.ip_info.get('country_code', 'Unknown'), "Available"
+                if "disney" in content_lower or "disneyplus" in content_lower:
+                    return "success", self.ip_info.get('country_code', 'Unknown'), "Full Access"
+                else:
+                    return "failed", "N/A", "Service Unavailable"
 
-            return "partial", self.ip_info.get('country_code', 'Unknown'), "Possibly Available"
+            return "error", "N/A", "Detection Failed"
 
         except requests.exceptions.Timeout:
             return "error", "N/A", "Timeout"
@@ -402,20 +410,33 @@ class StreamChecker:
         self.log("Checking YouTube Premium...", "debug")
 
         try:
-            # Check YouTube region restrictions
+            # Check YouTube Premium page
             response = self.session.get(
                 "https://www.youtube.com/premium",
                 timeout=TIMEOUT
             )
 
+            content_lower = response.text.lower()
+
+            # Check for region restriction messages
+            if "not available in your country" in content_lower or "not available in your region" in content_lower:
+                return "failed", "N/A", "Not Available in This Region"
+
+            if "unavailable" in content_lower and "premium" in content_lower:
+                return "failed", "N/A", "Not Available in This Region"
+
+            # 403 usually means blocked
+            if response.status_code == 403:
+                return "failed", "N/A", "Not Available in This Region"
+
+            # Check if Premium is available (200 with Premium content)
             if response.status_code == 200:
-                # Check page content to determine Premium support
-                if "premium" in response.text.lower():
+                if "premium" in content_lower and ("youtube" in content_lower or "subscribe" in content_lower):
                     return "success", self.ip_info.get('country_code', 'Unknown'), "Available"
                 else:
-                    return "failed", "N/A", "Not Available"
+                    return "failed", "N/A", "Service Unavailable"
 
-            return "error", "N/A", "Inaccessible"
+            return "error", "N/A", "Detection Failed"
 
         except requests.exceptions.Timeout:
             return "error", "N/A", "Timeout"
@@ -438,19 +459,33 @@ class StreamChecker:
                 allow_redirects=True
             )
 
-            # Check if region restricted
-            if response.status_code == 403:
-                return "failed", "N/A", "Region Restricted"
+            # Check for region restriction messages (actual error messages from OpenAI)
+            content_lower = response.text.lower()
 
-            if "not available" in response.text.lower():
-                return "failed", "N/A", "Not Available"
+            # OpenAI/ChatGPT shows specific error messages when region is not supported
+            if "not available in your country" in content_lower or "unavailable in your country" in content_lower:
+                return "failed", "N/A", "Not Available in This Region"
+
+            # Check for "unsupported" messages
+            if "unsupported" in content_lower or "not supported" in content_lower:
+                return "failed", "N/A", "Not Available in This Region"
+
+            # Check for general "not available" messages
+            if "not available" in content_lower:
+                return "failed", "N/A", "Not Available in This Region"
+
+            # Check if region restricted by HTTP status (403 usually means blocked)
+            if response.status_code == 403:
+                return "failed", "N/A", "Not Available in This Region"
 
             # Check if accessible
             if response.status_code == 200:
-                # Some countries/regions are completely inaccessible
-                if "unsupported" in response.text.lower():
-                    return "failed", "N/A", "Not Available"
-                return "success", self.ip_info.get('country_code', 'Unknown'), "Accessible"
+                # Additional verification: check if it's the actual ChatGPT app
+                if "openai" in content_lower and ("chat" in content_lower or "gpt" in content_lower):
+                    return "success", self.ip_info.get('country_code', 'Unknown'), "Accessible"
+                else:
+                    # 200 but doesn't look like ChatGPT app - might be an error page
+                    return "failed", "N/A", "Service Unavailable"
 
             return "error", "N/A", "Inaccessible"
 
@@ -527,19 +562,28 @@ class StreamChecker:
                 allow_redirects=True
             )
 
-            # TikTok is banned in certain regions
+            content_lower = response.text.lower()
+
+            # Check for region restriction messages
+            if "not available in your region" in content_lower or "not available in your country" in content_lower:
+                return "failed", "N/A", "Not Available in This Region"
+
+            if "blocked" in content_lower or "banned" in content_lower:
+                return "failed", "N/A", "Not Available in This Region"
+
+            # 403/451 usually means region blocked
             if response.status_code == 403 or response.status_code == 451:
-                return "failed", "N/A", "Region Restricted"
+                return "failed", "N/A", "Not Available in This Region"
 
-            if "blocked" in response.text.lower() or "banned" in response.text.lower():
-                return "failed", "N/A", "Blocked"
-
+            # Check if it's actually TikTok (200 with TikTok content)
             if response.status_code == 200:
-                # Try to get region information
-                region = self.ip_info.get('country_code', 'Unknown')
-                return "success", region, "Accessible"
+                if "tiktok" in content_lower:
+                    region = self.ip_info.get('country_code', 'Unknown')
+                    return "success", region, "Accessible"
+                else:
+                    return "failed", "N/A", "Service Unavailable"
 
-            return "error", "N/A", "Inaccessible"
+            return "error", "N/A", "Detection Failed"
 
         except requests.exceptions.Timeout:
             return "error", "N/A", "Timeout"
@@ -555,27 +599,36 @@ class StreamChecker:
         self.log("Checking Imgur...", "debug")
 
         try:
-            # Check Imgur homepage with retry logic
+            # Check Imgur homepage
             response = self.session.get(
                 "https://imgur.com/",
                 timeout=TIMEOUT,
                 allow_redirects=True
             )
 
-            # Check if region restricted
+            content_lower = response.text.lower()
+
+            # Check for region restriction messages
+            if "not available in your region" in content_lower or "not available in your country" in content_lower:
+                return "failed", "N/A", "Not Available in This Region"
+
+            if "not available" in content_lower or "blocked" in content_lower:
+                return "failed", "N/A", "Not Available in This Region"
+
+            # 403/451 usually means region blocked
             if response.status_code == 403 or response.status_code == 451:
-                return "failed", "N/A", "Region Restricted"
-
-            if "not available" in response.text.lower() or "blocked" in response.text.lower():
-                return "failed", "N/A", "Not Available"
-
-            # 200 or redirect both count as success
-            if response.status_code == 200 or (300 <= response.status_code < 400):
-                return "success", self.ip_info.get('country_code', 'Unknown'), "Accessible"
+                return "failed", "N/A", "Not Available in This Region"
 
             # 429 means rate limit, indicates service is accessible
             if response.status_code == 429:
                 return "success", self.ip_info.get('country_code', 'Unknown'), "Accessible (Rate Limited)"
+
+            # Check if Imgur is accessible (200 with Imgur content)
+            if response.status_code == 200:
+                if "imgur" in content_lower:
+                    return "success", self.ip_info.get('country_code', 'Unknown'), "Accessible"
+                else:
+                    return "failed", "N/A", "Service Unavailable"
 
             # If main domain fails, try image domain
             try:
@@ -589,7 +642,7 @@ class StreamChecker:
             except:
                 pass
 
-            return "error", "N/A", f"Inaccessible ({response.status_code})"
+            return "error", "N/A", f"Detection Failed ({response.status_code})"
 
         except requests.exceptions.Timeout:
             return "error", "N/A", "Connection Timeout"
@@ -614,21 +667,35 @@ class StreamChecker:
                 allow_redirects=True
             )
 
-            # Check if region restricted
+            content_lower = response.text.lower()
+
+            # Check for region restriction messages
+            if "not available in your region" in content_lower or "not available in your country" in content_lower:
+                return "failed", "N/A", "Not Available in This Region"
+
+            # Check for blocked/banned messages
+            if "blocked by network security" in content_lower or "blocked by mistake" in content_lower:
+                return "partial", self.ip_info.get('country_code', 'Unknown'), "IP Restricted, Login Required"
+
+            if "blocked" in content_lower or "banned" in content_lower:
+                return "failed", "N/A", "Not Available in This Region"
+
+            # 403/451 usually means region blocked or IP restricted
             if response.status_code == 403 or response.status_code == 451:
-                return "failed", "N/A", "Region Restricted"
+                # Could be IP restriction that allows access after login
+                return "partial", self.ip_info.get('country_code', 'Unknown'), "IP Restricted, Login Required"
 
-            # Reddit is banned in some countries
-            if "blocked" in response.text.lower() or "banned" in response.text.lower():
-                return "failed", "N/A", "Blocked"
-
+            # Check if Reddit is accessible (200 with Reddit content)
             if response.status_code == 200:
-                # Reddit may have NSFW content restrictions
-                if "over18" in response.url or "location_blocking" in response.text.lower():
-                    return "partial", self.ip_info.get('country_code', 'Unknown'), "Partially Restricted"
-                return "success", self.ip_info.get('country_code', 'Unknown'), "Accessible"
+                if "reddit" in content_lower:
+                    # Check for location-based content restrictions
+                    if "over18" in response.url or "location_blocking" in content_lower:
+                        return "partial", self.ip_info.get('country_code', 'Unknown'), "Partially Restricted"
+                    return "success", self.ip_info.get('country_code', 'Unknown'), "Accessible"
+                else:
+                    return "failed", "N/A", "Service Unavailable"
 
-            return "error", "N/A", "Inaccessible"
+            return "error", "N/A", "Detection Failed"
 
         except requests.exceptions.Timeout:
             return "error", "N/A", "Timeout"
@@ -705,19 +772,27 @@ class StreamChecker:
                 allow_redirects=True
             )
 
-            # Check if region restricted
+            content_lower = response.text.lower()
+
+            # Check for region restriction messages
+            if "not available in your region" in content_lower or "not available in your country" in content_lower:
+                return "failed", "N/A", "Not Available in This Region"
+
+            if "not available" in content_lower and "spotify" in content_lower:
+                return "failed", "N/A", "Not Available in This Region"
+
+            # 403 usually means region blocked
             if response.status_code == 403:
-                return "failed", "N/A", "Region Restricted"
+                return "failed", "N/A", "Not Available in This Region"
 
+            # Check if Spotify is accessible (200 with Spotify content)
             if response.status_code == 200:
-                # Check for region restriction prompts
-                if "not available" in response.text.lower():
-                    return "failed", "N/A", "Not Available"
+                if "spotify" in content_lower:
+                    return "success", self.ip_info.get('country_code', 'Unknown'), "Accessible"
+                else:
+                    return "failed", "N/A", "Service Unavailable"
 
-                # Spotify is available in most regions
-                return "success", self.ip_info.get('country_code', 'Unknown'), "Accessible"
-
-            return "error", "N/A", "Inaccessible"
+            return "error", "N/A", "Detection Failed"
 
         except requests.exceptions.Timeout:
             return "error", "N/A", "Timeout"
@@ -740,24 +815,36 @@ class StreamChecker:
                 allow_redirects=True
             )
 
-            # Check if region restricted or verification required
-            if response.status_code == 403:
-                return "failed", "N/A", "Region Restricted"
+            content_lower = response.text.lower()
 
-            # Google Scholar may return CAPTCHA or verification page
-            if "sorry" in response.url.lower() or response.status_code == 429:
+            # Check for region restriction messages
+            if "not available in your region" in content_lower or "not available in your country" in content_lower:
+                return "failed", "N/A", "Not Available in This Region"
+
+            # Check if redirected to sorry page (CAPTCHA/verification)
+            if "sorry" in response.url.lower():
                 return "failed", "N/A", "Verification Required/IP Restricted"
 
-            # Check for unusual traffic detection
-            if "unusual traffic" in response.text.lower() or "captcha" in response.text.lower():
+            # Check for unusual traffic detection or CAPTCHA
+            if "unusual traffic" in content_lower or "captcha" in content_lower:
                 return "failed", "N/A", "Unusual Traffic Detected"
 
-            if response.status_code == 200:
-                # Check if accessible normally
-                if "scholar" in response.text.lower() or "google" in response.text.lower():
-                    return "success", self.ip_info.get('country_code', 'Unknown'), "Accessible"
+            # 403 usually means IP blocked
+            if response.status_code == 403:
+                return "failed", "N/A", "Not Available in This Region"
 
-            return "error", "N/A", "Inaccessible"
+            # 429 means rate limited
+            if response.status_code == 429:
+                return "failed", "N/A", "Rate Limited/IP Restricted"
+
+            # Check if Google Scholar is accessible (200 with Scholar content)
+            if response.status_code == 200:
+                if "scholar" in content_lower and "google" in content_lower:
+                    return "success", self.ip_info.get('country_code', 'Unknown'), "Accessible"
+                else:
+                    return "failed", "N/A", "Service Unavailable"
+
+            return "error", "N/A", "Detection Failed"
 
         except requests.exceptions.Timeout:
             return "error", "N/A", "Timeout"

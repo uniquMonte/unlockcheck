@@ -964,17 +964,30 @@ check_tiktok() {
         return
     fi
 
-    # 检查是否被屏蔽
-    if [ "$status_code" = "403" ] || [ "$status_code" = "451" ]; then
+    # 转换为小写
+    local content_lower=$(echo "$content" | tr '[:upper:]' '[:lower:]')
+
+    # 检查是否是反爬虫机制（Access Denied）
+    if echo "$content_lower" | grep -q "access denied"; then
+        # 检查 IP 所在国家/地区是否支持 TikTok
+        # TikTok 在大部分国家可用，主要禁止地区：中国大陆、印度
+        if [ "$COUNTRY_CODE" = "CN" ] || [ "$COUNTRY_CODE" = "IN" ]; then
+            format_result "TikTok" "failed" "N/A" "区域受限"
+        else
+            # 其他地区遇到 Access Denied，是脚本限制而非地区限制
+            format_result "TikTok" "partial" "$COUNTRY_CODE" "脚本受限(浏览器可用)"
+        fi
+        return
+    fi
+
+    # 检查明确的地区限制信息
+    if echo "$content_lower" | grep -q "not available in your region\|not available in your country"; then
         format_result "TikTok" "failed" "N/A" "区域受限"
         return
     fi
 
-    # 转换为小写
-    local content_lower=$(echo "$content" | tr '[:upper:]' '[:lower:]')
-
-    # 检查地区限制信息
-    if echo "$content_lower" | grep -q "not available in your region\|not available in your country\|blocked\|banned"; then
+    # 检查 451 状态码（法律原因不可用）
+    if [ "$status_code" = "451" ]; then
         format_result "TikTok" "failed" "N/A" "区域受限"
         return
     fi

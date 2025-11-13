@@ -890,15 +890,24 @@ class UnlockChecker:
             if not response.text:
                 return "error", "N/A", "Network Error"
 
-            # Check for blocking (403/451)
-            if response.status_code in [403, 451]:
+            # Check for anti-bot mechanism (Access Denied)
+            if "access denied" in content_lower:
+                # Check if country is known to block TikTok
+                country_code = self.ip_info.get('country_code', 'Unknown')
+                # TikTok is blocked in: China (CN), India (IN)
+                if country_code in ['CN', 'IN']:
+                    return "failed", "N/A", "Region Restricted"
+                else:
+                    # Other regions with Access Denied = script limitation, not region block
+                    return "partial", country_code, "Script Blocked(Browser OK)"
+
+            # Check for explicit region restriction messages
+            if "not available in your region" in content_lower or \
+               "not available in your country" in content_lower:
                 return "failed", "N/A", "Region Restricted"
 
-            # Check for region restriction messages
-            if "not available in your region" in content_lower or \
-               "not available in your country" in content_lower or \
-               "blocked" in content_lower or \
-               "banned" in content_lower:
+            # Check 451 status code (legal restriction)
+            if response.status_code == 451:
                 return "failed", "N/A", "Region Restricted"
 
             # Check if TikTok is available (more lenient check)

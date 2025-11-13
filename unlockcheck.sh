@@ -1210,15 +1210,10 @@ check_spotify() {
 
     # 检查是否遇到 Access denied（反爬虫）
     if echo "$response" | grep -qi "access denied"; then
-        # Spotify 主要不可用地区列表
-        local unsupported_regions="CN"
-
-        if echo "$unsupported_regions" | grep -qw "$COUNTRY_CODE"; then
-            format_result "Spotify" "failed" "N/A" "未推出"
-        else
-            # 其他地区遇到 Access Denied，推测可用
-            format_result "Spotify" "partial" "$COUNTRY_CODE" "推测可用(人工验证)"
-        fi
+        # Spotify 主要不可用地区列表（中国）
+        # 由于遇到反爬虫，无法准确检测，对所有地区都显示推测可用
+        local detected_country="${COUNTRY_CODE:-Unknown}"
+        format_result "Spotify" "partial" "$detected_country" "推测可用(人工验证)"
         return
     fi
 

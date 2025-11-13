@@ -1270,13 +1270,11 @@ class UnlockChecker:
 
             # Check for Access denied (anti-bot)
             if "access denied" in response.text.lower():
-                # Spotify is not available in: China
+                # Spotify is not available in some regions (e.g., China)
+                # However, due to anti-bot, cannot accurately detect
+                # Show "Likely Available" for all regions
                 country_code = self.ip_info.get('country_code', 'Unknown')
-                if country_code in ['CN']:
-                    return "failed", "N/A", "Not Launched"
-                else:
-                    # Other regions with Access Denied = likely available
-                    return "partial", country_code, "Likely Available(Manual Check)"
+                return "partial", country_code, "Likely Available(Manual Check)"
 
             # Parse JSON response
             try:

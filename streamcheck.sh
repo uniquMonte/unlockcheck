@@ -626,11 +626,12 @@ check_spotify() {
 # 检测 Google Scholar
 check_scholar() {
     local unlock_type=$(check_dns_unlock "scholar.google.com")
+    # 实际执行搜索请求来测试是否被限制
     local response=$(curl -s --max-time $TIMEOUT \
         -A "$USER_AGENT" \
         -L \
         -w "\n%{http_code}" \
-        "https://scholar.google.com/" 2>/dev/null)
+        "https://scholar.google.com/scholar?q=test" 2>/dev/null)
 
     local status_code=$(echo "$response" | tail -n 1)
     local content=$(echo "$response" | head -n -1)

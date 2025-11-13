@@ -346,55 +346,93 @@ print_enhanced_ip_info() {
     echo ""
 }
 
-# 格式化输出结果
+# 存储检测结果的数组
+declare -a TABLE_DATA=()
+
+# 格式化输出结果（收集数据）
 format_result() {
     local service_name="$1"
     local status="$2"
     local region="$3"
     local detail="$4"
-    local unlock_type="$5"  # 新增：解锁类型 (native/dns)
+    local unlock_type="$5"  # 解锁类型 (native/dns)
 
-    # 格式化服务名称（固定宽度）
-    local service_formatted=$(printf "%-15s" "$service_name")
-
-    # 选择图标和颜色
-    local icon color
+    # 选择状态图标和颜色
+    local status_icon status_color
     case "$status" in
         "success")
-            icon="${GREEN}[✓]${NC}"
-            color="$GREEN"
+            status_icon="✓"
+            status_color="$GREEN"
             ;;
         "failed")
-            icon="${RED}[✗]${NC}"
-            color="$RED"
+            status_icon="✗"
+            status_color="$RED"
             ;;
         "partial")
-            icon="${YELLOW}[◐]${NC}"
-            color="$YELLOW"
+            status_icon="◐"
+            status_color="$YELLOW"
             ;;
         *)
-            icon="${MAGENTA}[?]${NC}"
-            color="$MAGENTA"
+            status_icon="?"
+            status_color="$MAGENTA"
             ;;
     esac
 
-    # 构建详细信息
-    local info="$detail"
-
-    # 添加解锁类型标识
+    # 构建解锁类型显示
+    local type_display type_color
     if [ "$status" = "success" ] && [ -n "$unlock_type" ]; then
         if [ "$unlock_type" = "dns" ]; then
-            info="$info ${MAGENTA}[DNS解锁]${NC}"
+            type_display="DNS解锁"
+            type_color="$MAGENTA"
         elif [ "$unlock_type" = "native" ]; then
-            info="$info ${GREEN}[原生]${NC}"
+            type_display="原生"
+            type_color="$GREEN"
+        else
+            type_display="-"
+            type_color="$NC"
         fi
+    else
+        type_display="-"
+        type_color="$NC"
     fi
 
+    # 构建区域/说明信息
+    local info_display="$detail"
     if [ "$region" != "N/A" ] && [ "$region" != "Unknown" ] && [ -n "$region" ]; then
-        info="$info ${CYAN}(区域: $region)${NC}"
+        info_display="$info_display (区域: $region)"
     fi
 
-    echo -e "$icon $service_formatted: ${color}${info}${NC}"
+    # 将数据添加到数组（使用特殊分隔符）
+    TABLE_DATA+=("${service_name}|${status_icon}|${status_color}|${type_display}|${type_color}|${info_display}")
+}
+
+# 打印表格
+print_table() {
+    if [ ${#TABLE_DATA[@]} -eq 0 ]; then
+        return
+    fi
+
+    # 打印表头
+    echo -e "${CYAN}┌────────────────────┬──────────┬──────────┬──────────────────────────────┐${NC}"
+    printf "${CYAN}│${NC} %-18s ${CYAN}│${NC} %-8s ${CYAN}│${NC} %-8s ${CYAN}│${NC} %-28s ${CYAN}│${NC}\n" "服务名称" "状态" "类型" "说明"
+    echo -e "${CYAN}├────────────────────┼──────────┼──────────┼──────────────────────────────┤${NC}"
+
+    # 打印每一行数据
+    for row in "${TABLE_DATA[@]}"; do
+        IFS='|' read -r service status_icon status_color type_display type_color info_display <<< "$row"
+
+        # 使用 printf 对齐，并应用颜色
+        printf "${CYAN}│${NC} %-18s ${CYAN}│${NC} ${status_color}%-8s${NC} ${CYAN}│${NC} ${type_color}%-8s${NC} ${CYAN}│${NC} %-28s ${CYAN}│${NC}\n" \
+            "$service" \
+            "$status_icon" \
+            "$type_display" \
+            "$info_display"
+    done
+
+    echo -e "${CYAN}└────────────────────┴──────────┴──────────┴──────────────────────────────┘${NC}"
+
+    # 清空数组
+    TABLE_DATA=()
 }
 
 # 检测 Netflix
@@ -658,7 +696,7 @@ check_scholar() {
 # 运行所有检测
 run_all_checks() {
     echo -e "${YELLOW}📺 流媒体解锁检测结果${NC}"
-    echo -e "${CYAN}────────────────────────────────────────────────────────────${NC}"
+    echo -e "${CYAN}════════════════════════════════════════════════════════════${NC}"
 
     # 视频流媒体
     echo -e "\n${BLUE}🎬 视频流媒体${NC}"
@@ -670,11 +708,13 @@ run_all_checks() {
     [ -z "$FAST_MODE" ] && sleep 0.5
     check_tiktok
     [ -z "$FAST_MODE" ] && sleep 0.5
+    print_table
 
     # 音乐流媒体
     echo -e "\n${BLUE}🎵 音乐流媒体${NC}"
     check_spotify
     [ -z "$FAST_MODE" ] && sleep 0.5
+    print_table
 
     # AI 服务
     echo -e "\n${BLUE}🤖 AI 服务${NC}"
@@ -684,19 +724,22 @@ run_all_checks() {
     [ -z "$FAST_MODE" ] && sleep 0.5
     check_gemini
     [ -z "$FAST_MODE" ] && sleep 0.5
+    print_table
 
     # 社区论坛
     echo -e "\n${BLUE}💬 社区论坛${NC}"
     check_reddit
     [ -z "$FAST_MODE" ] && sleep 0.5
+    print_table
 
     # 其他服务
     echo -e "\n${BLUE}📚 其他服务${NC}"
     check_scholar
     [ -z "$FAST_MODE" ] && sleep 0.5
     check_imgur
+    print_table
 
-    echo -e "\n${CYAN}────────────────────────────────────────────────────────────${NC}"
+    echo -e "\n${CYAN}════════════════════════════════════════════════════════════${NC}"
     echo -e "检测完成!\n"
 }
 

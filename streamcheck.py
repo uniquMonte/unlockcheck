@@ -968,7 +968,7 @@ class StreamChecker:
         if status == "success":
             # Currently always show native unlock
             # TODO: Implement proper DNS unlock detection by calling check_dns_unlock() for each service
-            unlock_type_label = f"{Fore.GREEN}[原生]{Style.RESET_ALL}"
+            unlock_type_label = f"{Fore.GREEN}原生{Style.RESET_ALL}"
 
         # Pad unlock type to fixed width (8 display chars)
         unlock_type_padded = self.pad_to_width(unlock_type_label if unlock_type_label else "", 8)
@@ -1021,13 +1021,13 @@ class StreamChecker:
         max_detail_width = max(self.get_display_width(detail) for _, _, _, detail in results)
 
         # Print table header
-        print(f"\n{Fore.CYAN}{'─'*80}{Style.RESET_ALL}")
+        print(f"\n{Fore.CYAN}{'─'*60}{Style.RESET_ALL}")
         header_service = f"{'服务名称':<{max_service_width}}"
         header_status = self.pad_to_width("解锁状态", max_detail_width)
         header_type = self.pad_to_width("解锁类型", 8)
         header_region = self.pad_to_width("区域", 4)  # Shortened and padded to 4
         print(f"    {header_service}: {header_status} : {header_type}: {header_region}")
-        print(f"{Fore.CYAN}{'─'*80}{Style.RESET_ALL}")
+        print(f"{Fore.CYAN}{'─'*60}{Style.RESET_ALL}")
 
         # Print all results with aligned columns
         for service_name, status, region, detail in results:

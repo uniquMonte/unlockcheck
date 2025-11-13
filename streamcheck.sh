@@ -512,7 +512,7 @@ format_result() {
     local unlock_type_label=""
     if [ "$status" = "success" ]; then
         # Currently always show native unlock since DNS detection is disabled
-        unlock_type_label="${GREEN}[原生]${NC}"
+        unlock_type_label="${GREEN}原生${NC}"
     fi
 
     # Pad unlock type to fixed width (8 display chars)
@@ -834,9 +834,9 @@ check_scholar() {
 # 运行所有检测
 run_all_checks() {
     echo -e "${YELLOW}📺 流媒体解锁检测结果${NC}"
-    echo -e "${CYAN}────────────────────────────────────────────────────────────────────────────────${NC}"
+    echo -e "${CYAN}────────────────────────────────────────────────────────────${NC}"
     echo -e "    服务名称        : 解锁状态     : 解锁类型: 区域"
-    echo -e "${CYAN}────────────────────────────────────────────────────────────────────────────────${NC}"
+    echo -e "${CYAN}────────────────────────────────────────────────────────────${NC}"
 
     # 视频流媒体
     echo -e "\n${BLUE}🎬 视频流媒体${NC}"

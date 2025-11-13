@@ -415,7 +415,7 @@ class UnlockChecker:
 
             # Check for region blocking (403/451 status codes)
             if (result1.status_code in [403, 451]) or (result2.status_code in [403, 451]):
-                return "failed", "N/A", "Not Supported"
+                return "failed", "N/A", "Blocked"
 
             # Both requests failed with server errors
             if result1.status_code >= 500 and result2.status_code >= 500:
@@ -457,7 +457,7 @@ class UnlockChecker:
                 return "partial", region, "Originals Only"
             else:
                 # Neither can be accessed
-                return "failed", "N/A", "Not Supported"
+                return "failed", "N/A", "Blocked"
 
         except requests.exceptions.Timeout:
             return "error", "N/A", "Timeout"
@@ -570,20 +570,20 @@ class UnlockChecker:
 
             # Check for blocking
             if response.status_code == 403:
-                return "failed", "N/A", "Not Supported"
+                return "failed", "N/A", "Blocked"
 
             # Check for region restriction messages
             if "not available in your region" in content_lower or \
                "not available in your country" in content_lower or \
                "unavailable" in content_lower:
-                return "failed", "N/A", "Not Supported"
+                return "failed", "N/A", "Blocked"
 
             # Check if successful access
             if response.status_code == 200:
                 if "disney" in content_lower or "disneyplus" in content_lower:
                     return "success", self.ip_info.get('country_code', 'Unknown'), "Full Access"
                 else:
-                    return "failed", "N/A", "Not Supported"
+                    return "failed", "N/A", "Blocked"
 
             return "error", "N/A", "Detection Failed"
 
@@ -601,10 +601,11 @@ class UnlockChecker:
         self.log("Checking YouTube Premium...", "debug")
 
         try:
-            # Check YouTube Premium page
+            # Check YouTube Premium page with redirect following
             response = self.session.get(
                 "https://www.youtube.com/premium",
-                timeout=TIMEOUT
+                timeout=TIMEOUT,
+                allow_redirects=True
             )
 
             content_lower = response.text.lower()
@@ -615,16 +616,19 @@ class UnlockChecker:
 
             # Check for blocking (403)
             if response.status_code == 403:
-                return "failed", "N/A", "Not Supported"
+                return "failed", "N/A", "Blocked"
 
-            # Check for region restriction messages
+            # Check for explicit region restriction messages
             if "not available in your country" in content_lower or \
-               "not available in your region" in content_lower:
-                return "failed", "N/A", "Not Supported"
+               "not available in your region" in content_lower or \
+               "unavailable in your" in content_lower:
+                return "failed", "N/A", "Blocked"
 
-            # Check if Premium is available (200 with Premium content)
-            if response.status_code == 200:
-                if "premium" in content_lower:
+            # Check if Premium is available (more lenient check)
+            if response.status_code in [200, 301, 302]:
+                # If status is OK and no explicit error, check for YouTube content
+                if "youtube" in content_lower or "premium" in content_lower or \
+                   "subscribe" in content_lower or len(response.text) > 1000:
                     return "success", self.ip_info.get('country_code', 'Unknown'), "Full Access"
                 else:
                     return "error", "N/A", "Detection Failed"

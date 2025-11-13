@@ -606,7 +606,7 @@ check_netflix() {
 
     # 检查是否被地区屏蔽（403/451）
     if [ "$status1" = "403" ] || [ "$status1" = "451" ] || [ "$status2" = "403" ] || [ "$status2" = "451" ]; then
-        format_result "Netflix" "failed" "N/A" "不支持"
+        format_result "Netflix" "failed" "N/A" "屏蔽"
         return
     fi
 
@@ -629,7 +629,7 @@ check_netflix() {
     # 判断逻辑：
     # 1. 如果自制剧和授权内容都能访问 -> 完全解锁
     # 2. 如果只有自制剧能访问 -> 仅自制剧
-    # 3. 如果都无法访问 -> IP被封禁或不支持
+    # 3. 如果都无法访问 -> IP被封禁或屏蔽
 
     if [ -z "$error1" ] && [ -z "$error2" ]; then
         # 都可以访问，完全解锁
@@ -639,7 +639,7 @@ check_netflix() {
         format_result "Netflix" "partial" "$region" "仅自制剧"
     else
         # 都无法访问或出错
-        format_result "Netflix" "failed" "N/A" "不支持"
+        format_result "Netflix" "failed" "N/A" "屏蔽"
     fi
 }
 
@@ -716,7 +716,7 @@ check_disney() {
 
     # 检查是否被屏蔽
     if [ "$status_code" = "403" ]; then
-        format_result "Disney+" "failed" "N/A" "不支持"
+        format_result "Disney+" "failed" "N/A" "屏蔽"
         return
     fi
 
@@ -725,7 +725,7 @@ check_disney() {
 
     # 检查地区限制信息
     if echo "$content_lower" | grep -q "not available in your region\|not available in your country\|unavailable"; then
-        format_result "Disney+" "failed" "N/A" "不支持"
+        format_result "Disney+" "failed" "N/A" "屏蔽"
         return
     fi
 
@@ -734,7 +734,7 @@ check_disney() {
         if echo "$content_lower" | grep -q "disney\|disneyplus"; then
             format_result "Disney+" "success" "$COUNTRY_CODE" "完全解锁"
         else
-            format_result "Disney+" "failed" "N/A" "不支持"
+            format_result "Disney+" "failed" "N/A" "屏蔽"
         fi
     else
         format_result "Disney+" "error" "N/A" "检测失败"
@@ -746,6 +746,7 @@ check_youtube() {
     local response=$(curl -s --max-time $TIMEOUT \
         -w "\n%{http_code}" \
         -A "$USER_AGENT" \
+        -L \
         "https://www.youtube.com/premium" 2>/dev/null)
 
     local status_code=$(echo "$response" | tail -n 1)
@@ -758,22 +759,24 @@ check_youtube() {
 
     # 检查是否被屏蔽
     if [ "$status_code" = "403" ]; then
-        format_result "YouTube Premium" "failed" "N/A" "不支持"
+        format_result "YouTube Premium" "failed" "N/A" "屏蔽"
         return
     fi
 
     # 转换为小写
     local content_lower=$(echo "$content" | tr '[:upper:]' '[:lower:]')
 
-    # 检查地区限制
-    if echo "$content_lower" | grep -q "not available in your country\|not available in your region"; then
-        format_result "YouTube Premium" "failed" "N/A" "不支持"
+    # 检查地区限制（明确的不可用信息）
+    if echo "$content_lower" | grep -q "not available in your country\|not available in your region\|unavailable in your"; then
+        format_result "YouTube Premium" "failed" "N/A" "屏蔽"
         return
     fi
 
     # 检查是否成功访问
-    if [ "$status_code" = "200" ]; then
-        if echo "$content_lower" | grep -q "premium"; then
+    if [ "$status_code" = "200" ] || [ "$status_code" = "302" ] || [ "$status_code" = "301" ]; then
+        # 如果状态码正常且没有明确的错误信息，则认为可用
+        # 检查是否包含 YouTube 相关内容（更宽松的检查）
+        if echo "$content_lower" | grep -q "youtube\|premium\|subscribe" || [ ${#content} -gt 1000 ]; then
             format_result "YouTube Premium" "success" "$COUNTRY_CODE" "完全解锁"
         else
             format_result "YouTube Premium" "error" "N/A" "检测失败"
@@ -793,7 +796,7 @@ check_chatgpt() {
 
     # Step 0: Check geolocation first (most reliable)
     if echo "$unsupported_regions" | grep -qw "$COUNTRY_CODE"; then
-        format_result "ChatGPT" "failed" "N/A" "该地区不支持"
+        format_result "ChatGPT" "failed" "N/A" "该地区屏蔽"
         return
     fi
 
@@ -843,7 +846,7 @@ check_chatgpt() {
 
     # Step 3: Intelligent decision (Priority: region restriction > API success > Cloudflare)
     if [ "$api_result" = "region_restricted" ]; then
-        format_result "ChatGPT" "failed" "N/A" "该地区不支持"
+        format_result "ChatGPT" "failed" "N/A" "该地区屏蔽"
     elif [ "$api_result" = "success" ]; then
         # API成功表示服务可用,即使Web端有Cloudflare验证
         if [ "$has_cloudflare" = "true" ]; then
@@ -872,7 +875,7 @@ check_claude() {
 
     # Step 0: Check geolocation first (most reliable)
     if echo "$unsupported_regions" | grep -qw "$COUNTRY_CODE"; then
-        format_result "Claude" "failed" "N/A" "该地区不支持"
+        format_result "Claude" "failed" "N/A" "该地区屏蔽"
         return
     fi
 
@@ -926,7 +929,7 @@ check_claude() {
 
     # Step 3: Intelligent decision (Priority: region restriction > API success > Cloudflare)
     if [ "$api_result" = "region_restricted" ] || [ "$web_result" = "region_restricted" ]; then
-        format_result "Claude" "failed" "N/A" "该地区不支持"
+        format_result "Claude" "failed" "N/A" "该地区屏蔽"
     elif [ "$api_result" = "success" ]; then
         # API成功表示服务可用,即使Web端有Cloudflare验证
         if [ "$has_cloudflare" = "true" ]; then
@@ -1038,7 +1041,7 @@ check_gemini() {
 
     # Step 0: Check geolocation first (most reliable for Gemini)
     if echo "$unsupported_regions" | grep -qw "$COUNTRY_CODE"; then
-        format_result "Gemini" "failed" "N/A" "该地区不支持"
+        format_result "Gemini" "failed" "N/A" "该地区屏蔽"
         return
     fi
 
@@ -1128,7 +1131,7 @@ check_gemini() {
 
     # Step 5: Intelligent decision (Priority: region restriction > success > access denied)
     if [ "$api_result" = "region_restricted" ] || [ "$web_result" = "region_restricted" ] || [ "$static_result" = "region_restricted" ] || [ "$studio_result" = "region_restricted" ]; then
-        format_result "Gemini" "failed" "N/A" "该地区不支持"
+        format_result "Gemini" "failed" "N/A" "该地区屏蔽"
     elif [ "$api_result" = "success" ] || [ "$web_result" = "success" ] || [ "$static_result" = "success" ] || [ "$studio_result" = "success" ]; then
         format_result "Gemini" "success" "$COUNTRY_CODE" "完全解锁"
     elif [ "$api_result" = "access_denied" ]; then

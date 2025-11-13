@@ -665,13 +665,20 @@ check_chatgpt() {
         fi
     fi
 
-    # Step 3: Intelligent decision (Priority: region restriction > Cloudflare > API success)
+    # Step 3: Intelligent decision (Priority: region restriction > API success > Cloudflare)
     if [ "$api_result" = "region_restricted" ]; then
         format_result "ChatGPT" "failed" "N/A" "该地区不支持"
-    elif [ "$has_cloudflare" = "true" ]; then
-        format_result "ChatGPT" "error" "N/A" "无法检测 (Cloudflare)"
     elif [ "$api_result" = "success" ]; then
-        format_result "ChatGPT" "success" "$COUNTRY_CODE" "正常访问"
+        # API成功表示服务可用,即使Web端有Cloudflare验证
+        if [ "$has_cloudflare" = "true" ]; then
+            format_result "ChatGPT" "success" "$COUNTRY_CODE" "正常访问 (Web需验证)"
+        else
+            format_result "ChatGPT" "success" "$COUNTRY_CODE" "正常访问"
+        fi
+    elif [ "$has_cloudflare" = "true" ]; then
+        # 只有当API无法确认时,Cloudflare才可能是问题
+        # 提示用户:脚本遇到Cloudflare,但浏览器可能可以访问
+        format_result "ChatGPT" "partial" "$COUNTRY_CODE" "可能可访问 (需浏览器)"
     elif [ "$api_result" = "access_denied" ]; then
         format_result "ChatGPT" "failed" "N/A" "访问被拒"
     else
@@ -741,13 +748,20 @@ check_claude() {
         web_result="region_restricted"
     fi
 
-    # Step 3: Intelligent decision (Priority: region restriction > Cloudflare > API success)
+    # Step 3: Intelligent decision (Priority: region restriction > API success > Cloudflare)
     if [ "$api_result" = "region_restricted" ] || [ "$web_result" = "region_restricted" ]; then
         format_result "Claude" "failed" "N/A" "该地区不支持"
-    elif [ "$has_cloudflare" = "true" ]; then
-        format_result "Claude" "error" "N/A" "无法检测 (Cloudflare)"
     elif [ "$api_result" = "success" ]; then
-        format_result "Claude" "success" "$COUNTRY_CODE" "正常访问"
+        # API成功表示服务可用,即使Web端有Cloudflare验证
+        if [ "$has_cloudflare" = "true" ]; then
+            format_result "Claude" "success" "$COUNTRY_CODE" "正常访问 (Web需验证)"
+        else
+            format_result "Claude" "success" "$COUNTRY_CODE" "正常访问"
+        fi
+    elif [ "$has_cloudflare" = "true" ]; then
+        # 只有当API无法确认时,Cloudflare才可能是问题
+        # 提示用户:脚本遇到Cloudflare,但浏览器可能可以访问
+        format_result "Claude" "partial" "$COUNTRY_CODE" "可能可访问 (需浏览器)"
     elif [ "$api_result" = "access_denied" ]; then
         format_result "Claude" "failed" "N/A" "访问被拒"
     else

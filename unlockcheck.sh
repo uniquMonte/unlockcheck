@@ -505,8 +505,8 @@ format_result() {
     local service_padded=$(pad_to_width "$service_name" 16)
     local service_formatted="${service_padded}:"
 
-    # Column 3: Status detail (pad to fixed display width: 20 display chars)
-    local detail_formatted=$(pad_to_width "$detail" 20)
+    # Column 3: Status detail (pad to fixed display width: 28 display chars)
+    local detail_formatted=$(pad_to_width "$detail" 28)
 
     # Column 4: Unlock type label (fixed display width: 8 display chars)
     # Note: DNS unlock detection is currently disabled to avoid false positives from CDN services
@@ -853,7 +853,7 @@ run_all_checks() {
     echo -e "${CYAN}────────────────────────────────────────────────────────────${NC}"
     # Generate table header with fixed display widths (all using pad_to_width)
     local header_service=$(pad_to_width "服务名称" 16)
-    local header_status=$(pad_to_width "解锁状态" 20)
+    local header_status=$(pad_to_width "解锁状态" 28)
     local header_type=$(pad_to_width "解锁类型" 8)
     local header_region=$(pad_to_width "区域" 4)
     echo -e "    ${header_service}: ${header_status} : ${header_type}: ${header_region}"

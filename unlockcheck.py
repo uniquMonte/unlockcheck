@@ -380,7 +380,7 @@ class UnlockChecker:
             )
 
             if response.status_code == 200:
-                return "success", self.ip_info.get('country_code', 'Unknown'), "Accessible"
+                return "success", self.ip_info.get('country_code', 'Unknown'), "Normal Access"
             elif response.status_code == 403:
                 return "failed", "N/A", "IP Blocked"
             elif response.status_code == 404:
@@ -405,7 +405,7 @@ class UnlockChecker:
             # Check if it's actually Netflix (200 with Netflix content)
             if response.status_code == 200:
                 if "netflix" in content_lower:
-                    return "success", self.ip_info.get('country_code', 'Unknown'), "Accessible"
+                    return "success", self.ip_info.get('country_code', 'Unknown'), "Normal Access"
                 else:
                     return "failed", "N/A", "Service Unavailable"
 
@@ -448,7 +448,7 @@ class UnlockChecker:
             # Check if it's actually Disney+ (200 with Disney+ content)
             if response.status_code == 200:
                 if "disney" in content_lower or "disneyplus" in content_lower:
-                    return "success", self.ip_info.get('country_code', 'Unknown'), "Accessible"
+                    return "success", self.ip_info.get('country_code', 'Unknown'), "Normal Access"
                 else:
                     return "failed", "N/A", "Service Unavailable"
 
@@ -490,7 +490,7 @@ class UnlockChecker:
             # Check if Premium is available (200 with Premium content)
             if response.status_code == 200:
                 if "premium" in content_lower and ("youtube" in content_lower or "subscribe" in content_lower):
-                    return "success", self.ip_info.get('country_code', 'Unknown'), "Accessible"
+                    return "success", self.ip_info.get('country_code', 'Unknown'), "Normal Access"
                 else:
                     return "failed", "N/A", "Service Unavailable"
 
@@ -537,7 +537,7 @@ class UnlockChecker:
             if response.status_code == 200:
                 # Additional verification: check if it's the actual ChatGPT app
                 if "openai" in content_lower and ("chat" in content_lower or "gpt" in content_lower):
-                    return "success", self.ip_info.get('country_code', 'Unknown'), "Accessible"
+                    return "success", self.ip_info.get('country_code', 'Unknown'), "Normal Access"
                 else:
                     # 200 but doesn't look like ChatGPT app - might be an error page
                     return "failed", "N/A", "Service Unavailable"
@@ -589,7 +589,7 @@ class UnlockChecker:
                 # Additional verification: check if it's the actual Claude app
                 # Claude app should contain certain identifiers
                 if "claude" in content_lower and ("anthropic" in content_lower or "chat" in content_lower):
-                    return "success", self.ip_info.get('country_code', 'Unknown'), "Accessible"
+                    return "success", self.ip_info.get('country_code', 'Unknown'), "Normal Access"
                 else:
                     # 200 but doesn't look like Claude app - might be an error page
                     return "failed", "N/A", "Service Unavailable"
@@ -634,7 +634,7 @@ class UnlockChecker:
             if response.status_code == 200:
                 if "tiktok" in content_lower:
                     region = self.ip_info.get('country_code', 'Unknown')
-                    return "success", region, "Accessible"
+                    return "success", region, "Normal Access"
                 else:
                     return "failed", "N/A", "Service Unavailable"
 
@@ -681,7 +681,7 @@ class UnlockChecker:
             # Check if Imgur is accessible (200 with Imgur content)
             if response.status_code == 200:
                 if "imgur" in content_lower:
-                    return "success", self.ip_info.get('country_code', 'Unknown'), "Accessible"
+                    return "success", self.ip_info.get('country_code', 'Unknown'), "Normal Access"
                 else:
                     return "failed", "N/A", "Service Unavailable"
 
@@ -693,7 +693,7 @@ class UnlockChecker:
                     allow_redirects=True
                 )
                 if alt_response.status_code == 200:
-                    return "success", self.ip_info.get('country_code', 'Unknown'), "Accessible"
+                    return "success", self.ip_info.get('country_code', 'Unknown'), "Normal Access"
             except:
                 pass
 
@@ -730,7 +730,7 @@ class UnlockChecker:
 
             # Check for blocked/banned messages
             if "blocked by network security" in content_lower or "blocked by mistake" in content_lower:
-                return "partial", self.ip_info.get('country_code', 'Unknown'), "Website Accessible, Login Required"
+                return "partial", self.ip_info.get('country_code', 'Unknown'), "Limited Access (Login Required)"
 
             if "blocked" in content_lower or "banned" in content_lower:
                 return "failed", "N/A", "Not Available in This Region"
@@ -738,7 +738,7 @@ class UnlockChecker:
             # 403/451 usually means region blocked or IP restricted
             if response.status_code == 403 or response.status_code == 451:
                 # Could be IP restriction that allows access after login
-                return "partial", self.ip_info.get('country_code', 'Unknown'), "Website Accessible, Login Required"
+                return "partial", self.ip_info.get('country_code', 'Unknown'), "Limited Access (Login Required)"
 
             # Check if Reddit is accessible (200 with Reddit content)
             if response.status_code == 200:
@@ -746,7 +746,7 @@ class UnlockChecker:
                     # Check for location-based content restrictions
                     if "over18" in response.url or "location_blocking" in content_lower:
                         return "partial", self.ip_info.get('country_code', 'Unknown'), "Partially Restricted"
-                    return "success", self.ip_info.get('country_code', 'Unknown'), "Accessible"
+                    return "success", self.ip_info.get('country_code', 'Unknown'), "Normal Access"
                 else:
                     return "failed", "N/A", "Service Unavailable"
 
@@ -811,7 +811,7 @@ class UnlockChecker:
 
                 # If page has Gemini+Google but no actual app interface, it's likely an error page
                 if has_app_interface:
-                    return "success", self.ip_info.get('country_code', 'Unknown'), "Accessible"
+                    return "success", self.ip_info.get('country_code', 'Unknown'), "Normal Access"
                 else:
                     # 200 but doesn't have app interface - likely a region block error page
                     return "failed", "N/A", "Not Supported in This Region"
@@ -855,7 +855,7 @@ class UnlockChecker:
             # Check if Spotify is accessible (200 with Spotify content)
             if response.status_code == 200:
                 if "spotify" in content_lower:
-                    return "success", self.ip_info.get('country_code', 'Unknown'), "Accessible"
+                    return "success", self.ip_info.get('country_code', 'Unknown'), "Normal Access"
                 else:
                     return "failed", "N/A", "Service Unavailable"
 
@@ -890,11 +890,11 @@ class UnlockChecker:
 
             # Check if redirected to sorry page (CAPTCHA/verification)
             if "sorry" in response.url.lower():
-                return "partial", self.ip_info.get('country_code', 'Unknown'), "Website Accessible, Cannot Search"
+                return "partial", self.ip_info.get('country_code', 'Unknown'), "Limited Access (Bot Detection)"
 
             # Check for unusual traffic detection or CAPTCHA
             if "unusual traffic" in content_lower or "captcha" in content_lower:
-                return "partial", self.ip_info.get('country_code', 'Unknown'), "Website Accessible, Cannot Search"
+                return "partial", self.ip_info.get('country_code', 'Unknown'), "Limited Access (Bot Detection)"
 
             # 403 usually means IP blocked
             if response.status_code == 403:
@@ -907,7 +907,7 @@ class UnlockChecker:
             # Check if Google Scholar is accessible (200 with Scholar content)
             if response.status_code == 200:
                 if "scholar" in content_lower and "google" in content_lower:
-                    return "success", self.ip_info.get('country_code', 'Unknown'), "Accessible"
+                    return "success", self.ip_info.get('country_code', 'Unknown'), "Normal Access"
                 else:
                     return "failed", "N/A", "Service Unavailable"
 

@@ -565,7 +565,7 @@ check_netflix() {
         format_result "Netflix" "failed" "N/A" "IP被封禁"
     elif [ "$status_code" = "200" ] || [ "$status_code" = "301" ] || [ "$status_code" = "302" ]; then
         # 200/301/302都表示可以访问
-        format_result "Netflix" "success" "$region" "可访问"
+        format_result "Netflix" "success" "$region" "正常访问"
     elif [ "$status_code" = "403" ]; then
         # 403通常是IP被封禁
         format_result "Netflix" "failed" "N/A" "IP被封禁"
@@ -584,7 +584,7 @@ check_disney() {
         "https://www.disneyplus.com/" 2>/dev/null)
 
     if [ "$status_code" = "200" ]; then
-        format_result "Disney+" "success" "$COUNTRY_CODE" "可访问"
+        format_result "Disney+" "success" "$COUNTRY_CODE" "正常访问"
     elif [ "$status_code" = "403" ]; then
         format_result "Disney+" "failed" "N/A" "不支持"
     else
@@ -601,7 +601,7 @@ check_youtube() {
         "https://www.youtube.com/premium" 2>/dev/null)
 
     if [ "$status_code" = "200" ]; then
-        format_result "YouTube Premium" "success" "$COUNTRY_CODE" "可访问"
+        format_result "YouTube Premium" "success" "$COUNTRY_CODE" "正常访问"
     else
         format_result "YouTube Premium" "error" "N/A" "检测失败"
     fi
@@ -631,7 +631,7 @@ check_chatgpt() {
     elif [ "$status_code" = "200" ]; then
         # 验证是否真的是 ChatGPT 应用
         if echo "$content" | grep -qi "openai" && echo "$content" | grep -qi "chat\|gpt"; then
-            format_result "ChatGPT" "success" "$COUNTRY_CODE" "可访问"
+            format_result "ChatGPT" "success" "$COUNTRY_CODE" "正常访问"
         else
             format_result "ChatGPT" "failed" "N/A" "服务不可用"
         fi
@@ -668,7 +668,7 @@ check_claude() {
     elif [ "$status_code" = "200" ]; then
         # 验证是否真的是 Claude 应用（检查页面是否包含关键元素）
         if echo "$content" | grep -qi "claude" && echo "$content" | grep -qi "anthropic\|chat"; then
-            format_result "Claude" "success" "$COUNTRY_CODE" "可访问"
+            format_result "Claude" "success" "$COUNTRY_CODE" "正常访问"
         else
             # 200 但不像 Claude 应用 - 可能是错误页面
             format_result "Claude" "failed" "N/A" "服务不可用"
@@ -688,7 +688,7 @@ check_tiktok() {
         "https://www.tiktok.com/" 2>/dev/null)
 
     if [ "$status_code" = "200" ]; then
-        format_result "TikTok" "success" "$COUNTRY_CODE" "可访问"
+        format_result "TikTok" "success" "$COUNTRY_CODE" "正常访问"
     elif [ "$status_code" = "403" ] || [ "$status_code" = "451" ]; then
         format_result "TikTok" "failed" "N/A" "区域受限"
     else
@@ -719,15 +719,15 @@ check_imgur() {
     fi
 
     if [ "$status_code" = "200" ]; then
-        format_result "Imgur" "success" "$region" "可访问"
+        format_result "Imgur" "success" "$region" "正常访问"
     elif [ "$status_code" = "403" ] || [ "$status_code" = "451" ]; then
         format_result "Imgur" "failed" "N/A" "区域受限"
     elif [ "$status_code" = "301" ] || [ "$status_code" = "302" ]; then
         # 重定向通常表示可访问
-        format_result "Imgur" "success" "$region" "可访问"
+        format_result "Imgur" "success" "$region" "正常访问"
     elif [ "$status_code" = "429" ]; then
         # 速率限制，通常表示服务可访问
-        format_result "Imgur" "success" "$region" "可访问(速率限制)"
+        format_result "Imgur" "success" "$region" "正常访问 (速率限制)"
     elif [ -z "$status_code" ] || [ "$status_code" = "000" ]; then
         format_result "Imgur" "error" "N/A" "连接超时"
     else
@@ -749,13 +749,13 @@ check_reddit() {
 
     # 检查是否被安全系统拦截（优先检查内容）
     if echo "$content" | grep -qi "blocked by network security\|blocked by mistake\|access denied"; then
-        format_result "Reddit" "partial" "$COUNTRY_CODE" "可访问官网，需登录"
+        format_result "Reddit" "partial" "$COUNTRY_CODE" "受限访问 (需登录)"
     elif [ "$status_code" = "403" ] || [ "$status_code" = "451" ]; then
         # 403/451 也可能是安全拦截
-        format_result "Reddit" "partial" "$COUNTRY_CODE" "可访问官网，需登录"
+        format_result "Reddit" "partial" "$COUNTRY_CODE" "受限访问 (需登录)"
     elif [ "$status_code" = "200" ]; then
         # 200 且内容没有拦截关键词，才是真正可访问
-        format_result "Reddit" "success" "$COUNTRY_CODE" "可访问"
+        format_result "Reddit" "success" "$COUNTRY_CODE" "正常访问"
     else
         format_result "Reddit" "error" "N/A" "检测失败(${status_code})"
     fi
@@ -789,7 +789,7 @@ check_gemini() {
         # 检查实际的应用界面元素，而不仅仅是关键词
         if echo "$content" | grep -qi "sign in\|get started\|continue with google\|bard\|chat with gemini"; then
             # 包含应用界面元素，说明可以访问
-            format_result "Gemini" "success" "$COUNTRY_CODE" "可访问"
+            format_result "Gemini" "success" "$COUNTRY_CODE" "正常访问"
         else
             # 200 但没有应用界面 - 可能是区域限制的错误页面
             format_result "Gemini" "failed" "N/A" "该地区不支持"
@@ -809,7 +809,7 @@ check_spotify() {
         "https://open.spotify.com/" 2>/dev/null)
 
     if [ "$status_code" = "200" ]; then
-        format_result "Spotify" "success" "$COUNTRY_CODE" "可访问"
+        format_result "Spotify" "success" "$COUNTRY_CODE" "正常访问"
     elif [ "$status_code" = "403" ]; then
         format_result "Spotify" "failed" "N/A" "区域受限"
     else
@@ -832,7 +832,7 @@ check_scholar() {
 
     # 检查是否包含机器人流量警告（使用更宽松的匹配）
     if echo "$content" | grep -qi "automated\|unusual traffic\|can't process your request\|We're sorry"; then
-        format_result "Google Scholar" "partial" "$COUNTRY_CODE" "可访问官网，无法搜索"
+        format_result "Google Scholar" "partial" "$COUNTRY_CODE" "受限访问 (机器人检测)"
     elif [ "$status_code" = "200" ]; then
         format_result "Google Scholar" "success" "$COUNTRY_CODE" "完全可用"
     elif [ "$status_code" = "403" ]; then

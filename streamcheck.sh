@@ -240,6 +240,11 @@ detect_ip_type() {
     else
         IP_TYPE="未知"
     fi
+
+    # 如果IP_USAGE_LOCATION为空，使用COUNTRY_CODE作为备用
+    if [ -z "$IP_USAGE_LOCATION" ] && [ -n "$COUNTRY_CODE" ]; then
+        IP_USAGE_LOCATION=$(convert_country_code "$COUNTRY_CODE")
+    fi
 }
 
 # 转换国家代码为国家名

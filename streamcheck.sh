@@ -285,6 +285,47 @@ convert_country_code() {
         "IN") echo "印度" ;;
         "BR") echo "巴西" ;;
         "RU") echo "俄罗斯" ;;
+        "ES") echo "西班牙" ;;
+        "IT") echo "意大利" ;;
+        "SE") echo "瑞典" ;;
+        "NO") echo "挪威" ;;
+        "DK") echo "丹麦" ;;
+        "FI") echo "芬兰" ;;
+        "PL") echo "波兰" ;;
+        "CH") echo "瑞士" ;;
+        "AT") echo "奥地利" ;;
+        "BE") echo "比利时" ;;
+        "IE") echo "爱尔兰" ;;
+        "PT") echo "葡萄牙" ;;
+        "GR") echo "希腊" ;;
+        "CZ") echo "捷克" ;;
+        "RO") echo "罗马尼亚" ;;
+        "HU") echo "匈牙利" ;;
+        "BG") echo "保加利亚" ;;
+        "TR") echo "土耳其" ;;
+        "IL") echo "以色列" ;;
+        "AE") echo "阿联酋" ;;
+        "SA") echo "沙特阿拉伯" ;;
+        "EG") echo "埃及" ;;
+        "ZA") echo "南非" ;;
+        "MX") echo "墨西哥" ;;
+        "AR") echo "阿根廷" ;;
+        "CL") echo "智利" ;;
+        "CO") echo "哥伦比亚" ;;
+        "PE") echo "秘鲁" ;;
+        "VN") echo "越南" ;;
+        "TH") echo "泰国" ;;
+        "ID") echo "印度尼西亚" ;;
+        "MY") echo "马来西亚" ;;
+        "PH") echo "菲律宾" ;;
+        "NZ") echo "新西兰" ;;
+        "UA") echo "乌克兰" ;;
+        "LT") echo "立陶宛" ;;
+        "LV") echo "拉脱维亚" ;;
+        "EE") echo "爱沙尼亚" ;;
+        "SK") echo "斯洛伐克" ;;
+        "SI") echo "斯洛文尼亚" ;;
+        "HR") echo "克罗地亚" ;;
         *) echo "$code" ;;
     esac
 }
@@ -799,6 +840,8 @@ check_scholar() {
 # 运行所有检测
 run_all_checks() {
     echo -e "${YELLOW}📺 流媒体解锁检测结果${NC}"
+    echo -e "${CYAN}────────────────────────────────────────────────────────────${NC}"
+    echo -e "    服务名称          解锁状态        解锁类型  解锁区域"
     echo -e "${CYAN}────────────────────────────────────────────────────────────${NC}"
 
     # 视频流媒体

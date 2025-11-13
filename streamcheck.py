@@ -230,7 +230,17 @@ class StreamChecker:
             'US': 'United States', 'CA': 'Canada', 'GB': 'United Kingdom', 'DE': 'Germany',
             'FR': 'France', 'JP': 'Japan', 'CN': 'China', 'HK': 'Hong Kong',
             'SG': 'Singapore', 'AU': 'Australia', 'NL': 'Netherlands', 'KR': 'South Korea',
-            'TW': 'Taiwan', 'IN': 'India', 'BR': 'Brazil', 'RU': 'Russia'
+            'TW': 'Taiwan', 'IN': 'India', 'BR': 'Brazil', 'RU': 'Russia',
+            'ES': 'Spain', 'IT': 'Italy', 'SE': 'Sweden', 'NO': 'Norway', 'DK': 'Denmark',
+            'FI': 'Finland', 'PL': 'Poland', 'CH': 'Switzerland', 'AT': 'Austria',
+            'BE': 'Belgium', 'IE': 'Ireland', 'PT': 'Portugal', 'GR': 'Greece',
+            'CZ': 'Czech Republic', 'RO': 'Romania', 'HU': 'Hungary', 'BG': 'Bulgaria',
+            'TR': 'Turkey', 'IL': 'Israel', 'AE': 'UAE', 'SA': 'Saudi Arabia',
+            'EG': 'Egypt', 'ZA': 'South Africa', 'MX': 'Mexico', 'AR': 'Argentina',
+            'CL': 'Chile', 'CO': 'Colombia', 'PE': 'Peru', 'VN': 'Vietnam',
+            'TH': 'Thailand', 'ID': 'Indonesia', 'MY': 'Malaysia', 'PH': 'Philippines',
+            'NZ': 'New Zealand', 'UA': 'Ukraine', 'LT': 'Lithuania', 'LV': 'Latvia',
+            'EE': 'Estonia', 'SK': 'Slovakia', 'SI': 'Slovenia', 'HR': 'Croatia'
         }
         return country_map.get(code.upper(), code)
 
@@ -986,6 +996,15 @@ class StreamChecker:
         # Calculate maximum widths for alignment
         max_service_width = max(len(service_name) for service_name, _, _, _ in results)
         max_detail_width = max(self.get_display_width(detail) for _, _, _, detail in results)
+
+        # Print table header
+        print(f"\n{Fore.CYAN}{'─'*60}{Style.RESET_ALL}")
+        header_service = f"{'服务名称':<{max_service_width}}"
+        header_status = self.pad_to_width("解锁状态", max_detail_width)
+        header_type = "解锁类型"
+        header_region = "解锁区域"
+        print(f"    {header_service}  {header_status}   {header_type}  {header_region}")
+        print(f"{Fore.CYAN}{'─'*60}{Style.RESET_ALL}")
 
         # Print all results with aligned columns
         for service_name, status, region, detail in results:

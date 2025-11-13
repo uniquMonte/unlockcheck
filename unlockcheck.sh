@@ -15,6 +15,7 @@ readonly COLUMN_WIDTH_SERVICE=16      # 服务名称列宽度（显示字符数�
 readonly COLUMN_WIDTH_STATUS=20       # 解锁状态列宽度（显示字符数）
 readonly COLUMN_WIDTH_UNLOCK_TYPE=8   # 解锁类型列宽度（显示字符数）
 readonly COLUMN_WIDTH_REGION=3        # 区域列宽度（显示字符数）
+readonly SEPARATOR_WIDTH=58           # 分隔线长度（字符数）
 # ========================================================================
 
 # 颜色定义
@@ -25,6 +26,15 @@ BLUE='\033[0;34m'
 CYAN='\033[0;36m'
 MAGENTA='\033[0;35m'
 NC='\033[0m' # No Color
+
+# 生成分隔线的辅助函数
+print_separator() {
+    local separator=""
+    for ((i=0; i<SEPARATOR_WIDTH; i++)); do
+        separator="${separator}─"
+    done
+    echo -e "${CYAN}${separator}${NC}"
+}
 
 # 全局变量
 IP_INFO=""
@@ -198,7 +208,7 @@ get_ip_info() {
         # 即使没有完整信息，也尝试检测IP类型
         detect_ip_type
         echo -e "\n${YELLOW}🌍 当前 IP 信息${NC}"
-        echo -e "${CYAN}────────────────────────────────────────────────────────────${NC}"
+        print_separator
         echo -e "IP 地址: ${GREEN}${CURRENT_IP}${NC}"
         echo -e "IP 类型: ${YELLOW}${IP_TYPE}${NC}"
         echo ""
@@ -396,7 +406,7 @@ guess_isp_country() {
 # 打印增强的IP信息
 print_enhanced_ip_info() {
     echo -e "\n${YELLOW}🌍 当前 IP 信息${NC}"
-    echo -e "${CYAN}──────────────────────────────────────────────────────────────${NC}"
+    print_separator
     echo -e "IP 地址: ${GREEN}${CURRENT_IP}${NC}"
 
     # 显示IP类型（带颜色和加粗）
@@ -1025,7 +1035,7 @@ check_scholar() {
 # 运行所有检测
 run_all_checks() {
     echo -e "${YELLOW}📺 服务解锁检测结果${NC}"
-    echo -e "${CYAN}──────────────────────────────────────────────────────────────${NC}"
+    print_separator
     # Generate table header with fixed display widths (使用固定列宽常量)
     # 警告：请勿修改列宽参数，这些值与 format_result 函数保持一致
     local header_service=$(pad_to_width "服务名称" $COLUMN_WIDTH_SERVICE)
@@ -1033,7 +1043,7 @@ run_all_checks() {
     local header_type=$(pad_to_width "解锁类型" $COLUMN_WIDTH_UNLOCK_TYPE)
     local header_region=$(pad_to_width "区域" $COLUMN_WIDTH_REGION)
     echo -e "    ${header_service}: ${header_status} : ${header_type}: ${header_region}"
-    echo -e "${CYAN}──────────────────────────────────────────────────────────────${NC}"
+    print_separator
 
     # 视频流媒体
     echo -e "\n${BLUE}🎬 视频流媒体${NC}"
@@ -1071,7 +1081,8 @@ run_all_checks() {
     [ -z "$FAST_MODE" ] && sleep 0.5
     check_imgur
 
-    echo -e "\n${CYAN}──────────────────────────────────────────────────────────────${NC}"
+    echo -e "\n"
+    print_separator
     echo -e "检测完成!\n"
 }
 

@@ -30,7 +30,13 @@ COLUMN_WIDTH_SERVICE = 16      # 服务名称列宽度（显示字符数）
 COLUMN_WIDTH_STATUS = 20       # 解锁状态列宽度（显示字符数）
 COLUMN_WIDTH_UNLOCK_TYPE = 8   # 解锁类型列宽度（显示字符数）
 COLUMN_WIDTH_REGION = 3        # 区域列宽度（显示字符数）
+SEPARATOR_WIDTH = 58           # 分隔线长度（字符数）
 # ========================================================================
+
+
+def print_separator():
+    """Print a separator line with configurable width"""
+    print(f"{Fore.CYAN}{'─' * SEPARATOR_WIDTH}{Style.RESET_ALL}")
 
 
 class UnlockChecker:
@@ -314,7 +320,7 @@ class UnlockChecker:
             return
 
         print(f"\n{Fore.YELLOW}🌍 Current IP Information{Style.RESET_ALL}")
-        print(f"{Fore.CYAN}{'─'*62}{Style.RESET_ALL}")
+        print_separator()
 
         # IP address
         print(f"IP Address: {Fore.GREEN}{self.ip_info.get('ip', 'N/A')}{Style.RESET_ALL}")
@@ -1254,7 +1260,7 @@ class UnlockChecker:
 
         # Display detection start
         print(f"{Fore.YELLOW}📺 Service Unlock Detection Results{Style.RESET_ALL}")
-        print(f"{Fore.CYAN}{'─'*62}{Style.RESET_ALL}")
+        print_separator()
 
         # Check each service
         checks = [
@@ -1280,13 +1286,14 @@ class UnlockChecker:
 
         # Print table header with fixed widths (使用固定列宽常量)
         # 警告：请勿修改列宽参数，这些值与 format_result 函数保持一致
-        print(f"\n{Fore.CYAN}{'─'*62}{Style.RESET_ALL}")
+        print()
+        print_separator()
         header_service = self.pad_to_width("服务名称", COLUMN_WIDTH_SERVICE)
         header_status = self.pad_to_width("解锁状态", COLUMN_WIDTH_STATUS)
         header_type = self.pad_to_width("解锁类型", COLUMN_WIDTH_UNLOCK_TYPE)
         header_region = self.pad_to_width("区域", COLUMN_WIDTH_REGION)
         print(f"    {header_service}: {header_status} : {header_type}: {header_region}")
-        print(f"{Fore.CYAN}{'─'*62}{Style.RESET_ALL}")
+        print_separator()
 
         # Print all results with aligned columns
         for service_name, status, region, detail in results:
@@ -1296,7 +1303,8 @@ class UnlockChecker:
         success_count = sum(1 for _, status, _, _ in results if status == "success")
         total_count = len(results)
 
-        print(f"\n{Fore.CYAN}{'─'*62}{Style.RESET_ALL}")
+        print()
+        print_separator()
         print(f"Detection Complete! {Fore.GREEN}{success_count}/{total_count}{Style.RESET_ALL} services available\n")
 
 

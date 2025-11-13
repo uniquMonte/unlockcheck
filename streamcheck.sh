@@ -4,7 +4,7 @@
 # 一键检测当前网络环境对各大流媒体平台的解锁情况
 #
 
-VERSION="1.0"
+VERSION="1.1"
 TIMEOUT=10
 USER_AGENT="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
@@ -258,27 +258,107 @@ check_tiktok() {
     fi
 }
 
+# 检测 Imgur
+check_imgur() {
+    local status_code=$(curl -s -o /dev/null -w "%{http_code}" \
+        --max-time $TIMEOUT \
+        -A "$USER_AGENT" \
+        -L \
+        "https://imgur.com/" 2>/dev/null)
+
+    if [ "$status_code" = "200" ]; then
+        format_result "Imgur" "success" "$COUNTRY_CODE" "可访问"
+    elif [ "$status_code" = "403" ] || [ "$status_code" = "451" ]; then
+        format_result "Imgur" "failed" "N/A" "区域受限"
+    else
+        format_result "Imgur" "error" "N/A" "检测失败"
+    fi
+}
+
+# 检测 Reddit
+check_reddit() {
+    local status_code=$(curl -s -o /dev/null -w "%{http_code}" \
+        --max-time $TIMEOUT \
+        -A "$USER_AGENT" \
+        -L \
+        "https://www.reddit.com/" 2>/dev/null)
+
+    if [ "$status_code" = "200" ]; then
+        format_result "Reddit" "success" "$COUNTRY_CODE" "可访问"
+    elif [ "$status_code" = "403" ] || [ "$status_code" = "451" ]; then
+        format_result "Reddit" "failed" "N/A" "区域受限"
+    else
+        format_result "Reddit" "error" "N/A" "检测失败"
+    fi
+}
+
+# 检测 Google Gemini
+check_gemini() {
+    local status_code=$(curl -s -o /dev/null -w "%{http_code}" \
+        --max-time $TIMEOUT \
+        -A "$USER_AGENT" \
+        -L \
+        "https://gemini.google.com/" 2>/dev/null)
+
+    if [ "$status_code" = "200" ]; then
+        format_result "Gemini" "success" "$COUNTRY_CODE" "可访问"
+    elif [ "$status_code" = "403" ]; then
+        format_result "Gemini" "failed" "N/A" "区域受限"
+    else
+        format_result "Gemini" "error" "N/A" "检测失败"
+    fi
+}
+
+# 检测 Spotify
+check_spotify() {
+    local status_code=$(curl -s -o /dev/null -w "%{http_code}" \
+        --max-time $TIMEOUT \
+        -A "$USER_AGENT" \
+        -L \
+        "https://open.spotify.com/" 2>/dev/null)
+
+    if [ "$status_code" = "200" ]; then
+        format_result "Spotify" "success" "$COUNTRY_CODE" "可访问"
+    elif [ "$status_code" = "403" ]; then
+        format_result "Spotify" "failed" "N/A" "区域受限"
+    else
+        format_result "Spotify" "error" "N/A" "检测失败"
+    fi
+}
+
 # 运行所有检测
 run_all_checks() {
     echo -e "${YELLOW}📺 流媒体检测结果${NC}"
     echo -e "${CYAN}────────────────────────────────────────────────────────────${NC}"
 
     check_netflix
-    sleep 0.5
+    [ -z "$FAST_MODE" ] && sleep 0.5
 
     check_disney
-    sleep 0.5
+    [ -z "$FAST_MODE" ] && sleep 0.5
 
     check_youtube
-    sleep 0.5
+    [ -z "$FAST_MODE" ] && sleep 0.5
 
     check_chatgpt
-    sleep 0.5
+    [ -z "$FAST_MODE" ] && sleep 0.5
 
     check_claude
-    sleep 0.5
+    [ -z "$FAST_MODE" ] && sleep 0.5
+
+    check_gemini
+    [ -z "$FAST_MODE" ] && sleep 0.5
 
     check_tiktok
+    [ -z "$FAST_MODE" ] && sleep 0.5
+
+    check_imgur
+    [ -z "$FAST_MODE" ] && sleep 0.5
+
+    check_reddit
+    [ -z "$FAST_MODE" ] && sleep 0.5
+
+    check_spotify
 
     echo -e "\n${CYAN}────────────────────────────────────────────────────────────${NC}"
     echo -e "检测完成!\n"

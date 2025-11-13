@@ -2,6 +2,18 @@
 
 一键检测当前网络环境对各大流媒体平台的解锁情况。
 
+## 快速开始
+
+### 🚀 一键运行（推荐）
+
+无需克隆仓库，直接运行以下命令即可开始检测：
+
+```bash
+bash <(curl -Ls https://raw.githubusercontent.com/uniquMonte/streamcheck/main/install.sh)
+```
+
+这将自动下载并运行最新版本的检测脚本。
+
 ## 功能特性
 
 - ✅ Netflix 解锁检测（支持自制剧检测）
@@ -9,10 +21,15 @@
 - ✅ YouTube Premium 解锁检测
 - ✅ ChatGPT/OpenAI 访问检测
 - ✅ Claude AI 访问检测
+- ✅ Google Gemini 访问检测
 - ✅ TikTok 区域检测
+- ✅ Imgur 访问检测
+- ✅ Reddit 访问检测
+- ✅ Spotify 访问检测
 - ✅ 支持 IPv4 和 IPv6
 - ✅ 彩色终端输出
 - ✅ 详细的地理位置信息
+- ✅ 一键安装运行
 
 ## 安装
 
@@ -81,13 +98,17 @@ python streamcheck.py --verbose
 | YouTube Premium | Premium 功能可用性 | ✅ |
 | ChatGPT | OpenAI 服务可访问性 | ✅ |
 | Claude | Anthropic 服务可访问性 | ✅ |
+| Google Gemini | Google AI 服务可访问性 | ✅ |
 | TikTok | 区域限制检测 | ✅ |
+| Imgur | 图片托管服务可访问性 | ✅ |
+| Reddit | 社区平台可访问性 | ✅ |
+| Spotify | 音乐流媒体服务可访问性 | ✅ |
 
 ## 输出示例
 
 ```
 ╔════════════════════════════════════════════════════════════╗
-║         StreamCheck - 流媒体解锁检测工具 v1.0             ║
+║         StreamCheck - 流媒体解锁检测工具 v1.1             ║
 ╚════════════════════════════════════════════════════════════╝
 
 🌍 当前 IP 信息
@@ -103,9 +124,13 @@ ISP: Example ISP
 [✓] YouTube Premium : 支持
 [✓] ChatGPT         : 可访问
 [✓] Claude          : 可访问
+[✓] Gemini          : 可访问 (区域: US)
 [✓] TikTok          : 可访问 (区域: US)
+[✓] Imgur           : 可访问 (区域: US)
+[✓] Reddit          : 可访问 (区域: US)
+[✓] Spotify         : 可访问 (区域: US)
 
-检测完成！
+检测完成! 10/10 项服务可用
 ```
 
 ## 工作原理
@@ -117,7 +142,11 @@ ISP: Example ISP
 3. **YouTube Premium**: 检查 YouTube 的区域可用性
 4. **ChatGPT/OpenAI**: 检测 OpenAI API 的可访问性
 5. **Claude**: 检测 Anthropic 服务的可访问性
-6. **TikTok**: 检测 TikTok 的区域限制
+6. **Google Gemini**: 检测 Google AI 服务的可访问性
+7. **TikTok**: 检测 TikTok 的区域限制
+8. **Imgur**: 检测图片托管服务的可访问性
+9. **Reddit**: 检测社区平台的可访问性
+10. **Spotify**: 检测音乐流媒体服务的可访问性
 
 ## 依赖要求
 
@@ -146,6 +175,15 @@ ISP: Example ISP
 MIT License
 
 ## 更新日志
+
+### v1.1 (2025-11-13)
+- 新增 Google Gemini AI 检测
+- 新增 Imgur 图片托管服务检测
+- 新增 Reddit 社区平台检测
+- 新增 Spotify 音乐流媒体检测
+- 添加一键安装运行脚本 (install.sh)
+- 支持 10 个主流平台检测
+- 优化 Bash 脚本的快速模式
 
 ### v1.0 (2025-11-13)
 - 初始版本发布

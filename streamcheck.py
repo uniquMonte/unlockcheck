@@ -17,7 +17,7 @@ from colorama import init, Fore, Style
 init(autoreset=True)
 
 # 配置
-VERSION = "1.0"
+VERSION = "1.1"
 TIMEOUT = 10
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
@@ -332,6 +332,149 @@ class StreamChecker:
             self.log(f"TikTok 检测异常: {e}", "debug")
             return "error", "N/A", "检测失败"
 
+    def check_imgur(self) -> Tuple[str, str, str]:
+        """
+        检测 Imgur 可访问性
+        返回: (状态, 区域, 详细信息)
+        """
+        self.log("检测 Imgur...", "debug")
+
+        try:
+            # 检测 Imgur 主页
+            response = self.session.get(
+                "https://imgur.com/",
+                timeout=TIMEOUT,
+                allow_redirects=True
+            )
+
+            # 检查是否被区域限制
+            if response.status_code == 403 or response.status_code == 451:
+                return "failed", "N/A", "区域受限"
+
+            if "not available" in response.text.lower() or "blocked" in response.text.lower():
+                return "failed", "N/A", "不可用"
+
+            if response.status_code == 200:
+                return "success", self.ip_info.get('country_code', 'Unknown'), "可访问"
+
+            return "error", "N/A", "无法访问"
+
+        except requests.exceptions.Timeout:
+            return "error", "N/A", "超时"
+        except Exception as e:
+            self.log(f"Imgur 检测异常: {e}", "debug")
+            return "error", "N/A", "检测失败"
+
+    def check_reddit(self) -> Tuple[str, str, str]:
+        """
+        检测 Reddit 可访问性
+        返回: (状态, 区域, 详细信息)
+        """
+        self.log("检测 Reddit...", "debug")
+
+        try:
+            # 检测 Reddit 主页
+            response = self.session.get(
+                "https://www.reddit.com/",
+                timeout=TIMEOUT,
+                allow_redirects=True
+            )
+
+            # 检查是否被区域限制
+            if response.status_code == 403 or response.status_code == 451:
+                return "failed", "N/A", "区域受限"
+
+            # Reddit 在某些国家被封禁
+            if "blocked" in response.text.lower() or "banned" in response.text.lower():
+                return "failed", "N/A", "被封禁"
+
+            if response.status_code == 200:
+                # Reddit 可能有 NSFW 内容限制
+                if "over18" in response.url or "location_blocking" in response.text.lower():
+                    return "partial", self.ip_info.get('country_code', 'Unknown'), "部分限制"
+                return "success", self.ip_info.get('country_code', 'Unknown'), "可访问"
+
+            return "error", "N/A", "无法访问"
+
+        except requests.exceptions.Timeout:
+            return "error", "N/A", "超时"
+        except Exception as e:
+            self.log(f"Reddit 检测异常: {e}", "debug")
+            return "error", "N/A", "检测失败"
+
+    def check_gemini(self) -> Tuple[str, str, str]:
+        """
+        检测 Google Gemini AI 可访问性
+        返回: (状态, 区域, 详细信息)
+        """
+        self.log("检测 Google Gemini...", "debug")
+
+        try:
+            # 检测 Gemini 主页
+            response = self.session.get(
+                "https://gemini.google.com/",
+                timeout=TIMEOUT,
+                allow_redirects=True
+            )
+
+            # 检查是否被区域限制
+            if response.status_code == 403:
+                return "failed", "N/A", "区域受限"
+
+            # 检查是否有地区不可用的提示
+            if "not available" in response.text.lower() or "unavailable" in response.text.lower():
+                # 可能显示"在您的国家/地区不可用"
+                return "failed", "N/A", "不支持"
+
+            if response.status_code == 200:
+                # 检查是否被重定向到错误页面
+                if "error" in response.url.lower() or "/sorry/" in response.url:
+                    return "failed", "N/A", "不支持"
+                return "success", self.ip_info.get('country_code', 'Unknown'), "可访问"
+
+            return "error", "N/A", "无法访问"
+
+        except requests.exceptions.Timeout:
+            return "error", "N/A", "超时"
+        except Exception as e:
+            self.log(f"Gemini 检测异常: {e}", "debug")
+            return "error", "N/A", "检测失败"
+
+    def check_spotify(self) -> Tuple[str, str, str]:
+        """
+        检测 Spotify 可用性
+        返回: (状态, 区域, 详细信息)
+        """
+        self.log("检测 Spotify...", "debug")
+
+        try:
+            # 检测 Spotify Web Player
+            response = self.session.get(
+                "https://open.spotify.com/",
+                timeout=TIMEOUT,
+                allow_redirects=True
+            )
+
+            # 检查是否被区域限制
+            if response.status_code == 403:
+                return "failed", "N/A", "区域受限"
+
+            if response.status_code == 200:
+                # 检查是否有区域限制提示
+                if "not available" in response.text.lower():
+                    return "failed", "N/A", "不支持"
+
+                # Spotify 在大多数地区都可用
+                return "success", self.ip_info.get('country_code', 'Unknown'), "可访问"
+
+            return "error", "N/A", "无法访问"
+
+        except requests.exceptions.Timeout:
+            return "error", "N/A", "超时"
+        except Exception as e:
+            self.log(f"Spotify 检测异常: {e}", "debug")
+            return "error", "N/A", "检测失败"
+
     def format_result(self, service_name: str, status: str, region: str, detail: str):
         """格式化输出单个检测结果"""
         # 状态图标和颜色
@@ -377,7 +520,11 @@ class StreamChecker:
             ("YouTube Premium", self.check_youtube_premium),
             ("ChatGPT", self.check_chatgpt),
             ("Claude", self.check_claude),
+            ("Gemini", self.check_gemini),
             ("TikTok", self.check_tiktok),
+            ("Imgur", self.check_imgur),
+            ("Reddit", self.check_reddit),
+            ("Spotify", self.check_spotify),
         ]
 
         results = []
@@ -413,7 +560,7 @@ def main():
     parser.add_argument(
         '--service', '-s',
         type=str,
-        choices=['netflix', 'disney', 'youtube', 'chatgpt', 'claude', 'tiktok'],
+        choices=['netflix', 'disney', 'youtube', 'chatgpt', 'claude', 'gemini', 'tiktok', 'imgur', 'reddit', 'spotify'],
         help='仅检测指定服务'
     )
 
@@ -438,7 +585,11 @@ def main():
                 'youtube': ('YouTube Premium', checker.check_youtube_premium),
                 'chatgpt': ('ChatGPT', checker.check_chatgpt),
                 'claude': ('Claude', checker.check_claude),
+                'gemini': ('Gemini', checker.check_gemini),
                 'tiktok': ('TikTok', checker.check_tiktok),
+                'imgur': ('Imgur', checker.check_imgur),
+                'reddit': ('Reddit', checker.check_reddit),
+                'spotify': ('Spotify', checker.check_spotify),
             }
 
             service_name, check_func = service_map[args.service]

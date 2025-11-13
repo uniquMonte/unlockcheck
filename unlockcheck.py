@@ -82,11 +82,11 @@ class UnlockChecker:
     def print_header(self):
         """Print program header"""
         current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        print(f"\n{Fore.CYAN}{'='*60}")
+        print(f"\n{Fore.CYAN}{'='*66}")
         print(f"{' '*8}UnlockCheck - Service Unlock Detection Tool")
         print(f"{' '*10}https://github.com/uniquMonte/unlockcheck")
         print(f"{' '*16}检测时间: {current_time}")
-        print(f"{'='*60}{Style.RESET_ALL}")
+        print(f"{'='*66}{Style.RESET_ALL}")
 
     def get_ip_info(self) -> Dict:
         """Get current IP information (enhanced: includes native IP detection, registration location, etc.)"""
@@ -305,7 +305,7 @@ class UnlockChecker:
             return
 
         print(f"\n{Fore.YELLOW}🌍 Current IP Information{Style.RESET_ALL}")
-        print(f"{Fore.CYAN}{'─'*60}{Style.RESET_ALL}")
+        print(f"{Fore.CYAN}{'─'*66}{Style.RESET_ALL}")
 
         # IP address
         print(f"IP Address: {Fore.GREEN}{self.ip_info.get('ip', 'N/A')}{Style.RESET_ALL}")
@@ -1018,7 +1018,7 @@ class UnlockChecker:
 
         # Display detection start
         print(f"{Fore.YELLOW}📺 Service Unlock Detection Results{Style.RESET_ALL}")
-        print(f"{Fore.CYAN}{'─'*60}{Style.RESET_ALL}")
+        print(f"{Fore.CYAN}{'─'*66}{Style.RESET_ALL}")
 
         # Check each service
         checks = [
@@ -1043,13 +1043,13 @@ class UnlockChecker:
             time.sleep(0.5)  # Avoid requests too fast
 
         # Print table header with fixed widths (all using display width)
-        print(f"\n{Fore.CYAN}{'─'*60}{Style.RESET_ALL}")
+        print(f"\n{Fore.CYAN}{'─'*66}{Style.RESET_ALL}")
         header_service = self.pad_to_width("服务名称", 16)
         header_status = self.pad_to_width("解锁状态", 22)
         header_type = self.pad_to_width("解锁类型", 8)
         header_region = self.pad_to_width("区域", 4)
         print(f"    {header_service}: {header_status} : {header_type}: {header_region}")
-        print(f"{Fore.CYAN}{'─'*60}{Style.RESET_ALL}")
+        print(f"{Fore.CYAN}{'─'*66}{Style.RESET_ALL}")
 
         # Print all results with aligned columns
         for service_name, status, region, detail in results:
@@ -1059,7 +1059,7 @@ class UnlockChecker:
         success_count = sum(1 for _, status, _, _ in results if status == "success")
         total_count = len(results)
 
-        print(f"\n{Fore.CYAN}{'─'*60}{Style.RESET_ALL}")
+        print(f"\n{Fore.CYAN}{'─'*66}{Style.RESET_ALL}")
         print(f"Detection Complete! {Fore.GREEN}{success_count}/{total_count}{Style.RESET_ALL} services available\n")
 
 

@@ -584,7 +584,7 @@ check_disney() {
         "https://www.disneyplus.com/" 2>/dev/null)
 
     if [ "$status_code" = "200" ]; then
-        format_result "Disney+" "success" "$COUNTRY_CODE" "完整解锁"
+        format_result "Disney+" "success" "$COUNTRY_CODE" "可访问"
     elif [ "$status_code" = "403" ]; then
         format_result "Disney+" "failed" "N/A" "不支持"
     else
@@ -601,7 +601,7 @@ check_youtube() {
         "https://www.youtube.com/premium" 2>/dev/null)
 
     if [ "$status_code" = "200" ]; then
-        format_result "YouTube Premium" "success" "$COUNTRY_CODE" "支持"
+        format_result "YouTube Premium" "success" "$COUNTRY_CODE" "可访问"
     else
         format_result "YouTube Premium" "error" "N/A" "检测失败"
     fi

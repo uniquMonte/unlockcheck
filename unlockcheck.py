@@ -380,7 +380,7 @@ class UnlockChecker:
             )
 
             if response.status_code == 200:
-                return "success", self.ip_info.get('country_code', 'Unknown'), "Full Access"
+                return "success", self.ip_info.get('country_code', 'Unknown'), "Accessible"
             elif response.status_code == 403:
                 return "failed", "N/A", "IP Blocked"
             elif response.status_code == 404:
@@ -405,7 +405,7 @@ class UnlockChecker:
             # Check if it's actually Netflix (200 with Netflix content)
             if response.status_code == 200:
                 if "netflix" in content_lower:
-                    return "success", self.ip_info.get('country_code', 'Unknown'), "Full Access"
+                    return "success", self.ip_info.get('country_code', 'Unknown'), "Accessible"
                 else:
                     return "failed", "N/A", "Service Unavailable"
 
@@ -448,7 +448,7 @@ class UnlockChecker:
             # Check if it's actually Disney+ (200 with Disney+ content)
             if response.status_code == 200:
                 if "disney" in content_lower or "disneyplus" in content_lower:
-                    return "success", self.ip_info.get('country_code', 'Unknown'), "Full Access"
+                    return "success", self.ip_info.get('country_code', 'Unknown'), "Accessible"
                 else:
                     return "failed", "N/A", "Service Unavailable"
 
@@ -490,7 +490,7 @@ class UnlockChecker:
             # Check if Premium is available (200 with Premium content)
             if response.status_code == 200:
                 if "premium" in content_lower and ("youtube" in content_lower or "subscribe" in content_lower):
-                    return "success", self.ip_info.get('country_code', 'Unknown'), "Available"
+                    return "success", self.ip_info.get('country_code', 'Unknown'), "Accessible"
                 else:
                     return "failed", "N/A", "Service Unavailable"
 

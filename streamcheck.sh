@@ -580,13 +580,19 @@ check_imgur() {
 # 检测 Reddit
 check_reddit() {
     local unlock_type=$(check_dns_unlock "reddit.com")
-    local status_code=$(curl -s -o /dev/null -w "%{http_code}" \
-        --max-time $TIMEOUT \
+    local response=$(curl -s --max-time $TIMEOUT \
         -A "$USER_AGENT" \
         -L \
+        -w "\n%{http_code}" \
         "https://www.reddit.com/" 2>/dev/null)
 
-    if [ "$status_code" = "200" ]; then
+    local status_code=$(echo "$response" | tail -n 1)
+    local content=$(echo "$response" | head -n -1)
+
+    # 检查是否被安全系统拦截
+    if echo "$content" | grep -qi "blocked by network security\|blocked by mistake"; then
+        format_result "Reddit" "partial" "$COUNTRY_CODE" "IP被限制，需登录访问" "$unlock_type"
+    elif [ "$status_code" = "200" ]; then
         format_result "Reddit" "success" "$COUNTRY_CODE" "可访问" "$unlock_type"
     elif [ "$status_code" = "403" ] || [ "$status_code" = "451" ]; then
         format_result "Reddit" "failed" "N/A" "区域受限"

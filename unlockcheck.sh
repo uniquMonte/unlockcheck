@@ -664,7 +664,7 @@ check_disney() {
             -H "authorization: Bearer ZGlzbmV5JmJyb3dzZXImMS4wLjA.Cu56AgSfBTDag5NiRA81oLHkDZfu5L3CKadnefEAY84" \
             -H "content-type: application/json; charset=UTF-8" \
             -A "$USER_AGENT" \
-            --data "{\"grant_type\":\"urn:ietf:params:oauth:grant-type:token-exchange\",\"latitude\":0,\"longitude\":0,\"platform\":\"browser\",\"subject_token\":\"$assertion\",\"subject_token_type\":\"urn:bamtech:params:oauth:token-type:device\"}" \
+            --data '{"grant_type":"urn:ietf:params:oauth:grant-type:token-exchange","latitude":0,"longitude":0,"platform":"browser","subject_token":"'"$assertion"'","subject_token_type":"urn:bamtech:params:oauth:token-type:device"}' \
             "https://disney.api.edge.bamgrid.com/token" 2>/dev/null)
 
         local access_token=$(echo "$token_response" | grep -oP '"access_token"\s*:\s*"\K[^"]+' | head -n1)
@@ -724,7 +724,7 @@ check_disney() {
     local content_lower=$(echo "$content" | tr '[:upper:]' '[:lower:]')
 
     # 检查地区限制信息
-    if echo "$content_lower" | grep -q "not available in your region\|not available in your country\|unavailable"; then
+    if echo "$content_lower" | grep -q "is not available in your region\|is not available in your country\|service.*not.*available"; then
         format_result "Disney+" "failed" "N/A" "屏蔽"
         return
     fi

@@ -1,0 +1,464 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+StreamCheck - 流媒体解锁检测工具
+一键检测当前网络环境对各大流媒体平台的解锁情况
+"""
+
+import requests
+import json
+import sys
+import argparse
+import time
+from typing import Dict, Tuple, Optional
+from colorama import init, Fore, Style
+
+# 初始化 colorama
+init(autoreset=True)
+
+# 配置
+VERSION = "1.0"
+TIMEOUT = 10
+USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+
+
+class StreamChecker:
+    """流媒体检测器主类"""
+
+    def __init__(self, verbose=False, ipv6=False):
+        self.verbose = verbose
+        self.ipv6 = ipv6
+        self.session = requests.Session()
+        self.session.headers.update({
+            'User-Agent': USER_AGENT,
+            'Accept-Language': 'en-US,en;q=0.9',
+        })
+        self.ip_info = {}
+
+    def log(self, message, level="info"):
+        """日志输出"""
+        if level == "info":
+            print(f"{Fore.CYAN}[INFO]{Style.RESET_ALL} {message}")
+        elif level == "success":
+            print(f"{Fore.GREEN}[✓]{Style.RESET_ALL} {message}")
+        elif level == "error":
+            print(f"{Fore.RED}[✗]{Style.RESET_ALL} {message}")
+        elif level == "warning":
+            print(f"{Fore.YELLOW}[!]{Style.RESET_ALL} {message}")
+        elif level == "debug" and self.verbose:
+            print(f"{Fore.MAGENTA}[DEBUG]{Style.RESET_ALL} {message}")
+
+    def print_header(self):
+        """打印程序头部"""
+        print(f"\n{Fore.CYAN}{'='*60}")
+        print(f"{' '*10}StreamCheck - 流媒体解锁检测工具 v{VERSION}")
+        print(f"{'='*60}{Style.RESET_ALL}\n")
+
+    def get_ip_info(self) -> Dict:
+        """获取当前 IP 信息"""
+        self.log("正在获取 IP 信息...", "info")
+
+        try:
+            # 尝试使用 ipapi.co
+            response = self.session.get(
+                "https://ipapi.co/json/",
+                timeout=TIMEOUT
+            )
+            if response.status_code == 200:
+                data = response.json()
+                self.ip_info = {
+                    'ip': data.get('ip', 'N/A'),
+                    'country': data.get('country_name', 'N/A'),
+                    'region': data.get('region', 'N/A'),
+                    'city': data.get('city', 'N/A'),
+                    'isp': data.get('org', 'N/A'),
+                    'country_code': data.get('country_code', 'N/A')
+                }
+                return self.ip_info
+        except Exception as e:
+            self.log(f"获取 IP 信息失败: {e}", "debug")
+
+        # 备用方案：使用 ipinfo.io
+        try:
+            response = self.session.get(
+                "https://ipinfo.io/json",
+                timeout=TIMEOUT
+            )
+            if response.status_code == 200:
+                data = response.json()
+                self.ip_info = {
+                    'ip': data.get('ip', 'N/A'),
+                    'country': data.get('country', 'N/A'),
+                    'region': data.get('region', 'N/A'),
+                    'city': data.get('city', 'N/A'),
+                    'isp': data.get('org', 'N/A'),
+                    'country_code': data.get('country', 'N/A')
+                }
+                return self.ip_info
+        except Exception as e:
+            self.log(f"获取 IP 信息失败: {e}", "error")
+            return {}
+
+    def print_ip_info(self):
+        """打印 IP 信息"""
+        if not self.ip_info:
+            return
+
+        print(f"\n{Fore.YELLOW}🌍 当前 IP 信息{Style.RESET_ALL}")
+        print(f"{Fore.CYAN}{'─'*60}{Style.RESET_ALL}")
+        print(f"IP 地址: {Fore.GREEN}{self.ip_info.get('ip', 'N/A')}{Style.RESET_ALL}")
+        print(f"位置: {self.ip_info.get('country', 'N/A')} {self.ip_info.get('region', 'N/A')} {self.ip_info.get('city', 'N/A')}")
+        print(f"ISP: {self.ip_info.get('isp', 'N/A')}\n")
+
+    def check_netflix(self) -> Tuple[str, str, str]:
+        """
+        检测 Netflix 解锁情况
+        返回: (状态, 区域, 详细信息)
+        """
+        self.log("检测 Netflix...", "debug")
+
+        try:
+            # 方法1: 检测 Netflix 原创内容
+            response = self.session.get(
+                "https://www.netflix.com/title/80018499",  # 原创剧集
+                timeout=TIMEOUT,
+                allow_redirects=False
+            )
+
+            if response.status_code == 200:
+                return "success", self.ip_info.get('country_code', 'Unknown'), "完整解锁"
+            elif response.status_code == 403:
+                return "failed", "N/A", "不支持"
+            elif response.status_code == 404:
+                # 可能是仅解锁自制剧
+                return "partial", self.ip_info.get('country_code', 'Unknown'), "仅自制剧"
+
+            # 方法2: 检测 Netflix API
+            response = self.session.get(
+                "https://www.netflix.com/",
+                timeout=TIMEOUT
+            )
+
+            if "Not Available" in response.text or "不可用" in response.text:
+                return "failed", "N/A", "不支持"
+
+            return "success", self.ip_info.get('country_code', 'Unknown'), "完整解锁"
+
+        except requests.exceptions.Timeout:
+            return "error", "N/A", "超时"
+        except Exception as e:
+            self.log(f"Netflix 检测异常: {e}", "debug")
+            return "error", "N/A", "检测失败"
+
+    def check_disney(self) -> Tuple[str, str, str]:
+        """
+        检测 Disney+ 解锁情况
+        返回: (状态, 区域, 详细信息)
+        """
+        self.log("检测 Disney+...", "debug")
+
+        try:
+            # 检测 Disney+ 主页
+            response = self.session.get(
+                "https://www.disneyplus.com/",
+                timeout=TIMEOUT,
+                allow_redirects=True
+            )
+
+            # 检查是否被重定向到不支持的区域页面
+            if "not available" in response.text.lower() or response.status_code == 403:
+                return "failed", "N/A", "不支持"
+
+            # 尝试获取区域信息
+            try:
+                headers = {
+                    'User-Agent': USER_AGENT,
+                    'Accept': 'application/json'
+                }
+                geo_response = self.session.get(
+                    "https://disney.api.edge.bamgrid.com/graph/v1/device/graphql",
+                    headers=headers,
+                    timeout=TIMEOUT
+                )
+
+                if geo_response.status_code == 200:
+                    return "success", self.ip_info.get('country_code', 'Unknown'), "完整解锁"
+            except:
+                pass
+
+            # 基于响应状态判断
+            if response.status_code == 200:
+                return "success", self.ip_info.get('country_code', 'Unknown'), "支持"
+
+            return "partial", self.ip_info.get('country_code', 'Unknown'), "可能支持"
+
+        except requests.exceptions.Timeout:
+            return "error", "N/A", "超时"
+        except Exception as e:
+            self.log(f"Disney+ 检测异常: {e}", "debug")
+            return "error", "N/A", "检测失败"
+
+    def check_youtube_premium(self) -> Tuple[str, str, str]:
+        """
+        检测 YouTube Premium 可用性
+        返回: (状态, 区域, 详细信息)
+        """
+        self.log("检测 YouTube Premium...", "debug")
+
+        try:
+            # 检测 YouTube 区域限制
+            response = self.session.get(
+                "https://www.youtube.com/premium",
+                timeout=TIMEOUT
+            )
+
+            if response.status_code == 200:
+                # 检查页面内容判断是否支持 Premium
+                if "premium" in response.text.lower():
+                    return "success", self.ip_info.get('country_code', 'Unknown'), "支持"
+                else:
+                    return "failed", "N/A", "不支持"
+
+            return "error", "N/A", "无法访问"
+
+        except requests.exceptions.Timeout:
+            return "error", "N/A", "超时"
+        except Exception as e:
+            self.log(f"YouTube Premium 检测异常: {e}", "debug")
+            return "error", "N/A", "检测失败"
+
+    def check_chatgpt(self) -> Tuple[str, str, str]:
+        """
+        检测 ChatGPT/OpenAI 可访问性
+        返回: (状态, 区域, 详细信息)
+        """
+        self.log("检测 ChatGPT/OpenAI...", "debug")
+
+        try:
+            # 检测 OpenAI 主页
+            response = self.session.get(
+                "https://chat.openai.com/",
+                timeout=TIMEOUT,
+                allow_redirects=True
+            )
+
+            # 检查是否被区域限制
+            if response.status_code == 403:
+                return "failed", "N/A", "区域受限"
+
+            if "not available" in response.text.lower() or "不可用" in response.text:
+                return "failed", "N/A", "不支持"
+
+            # 检查是否能访问
+            if response.status_code == 200:
+                # 某些国家/地区完全无法访问
+                if "unsupported" in response.text.lower():
+                    return "failed", "N/A", "不支持"
+                return "success", self.ip_info.get('country_code', 'Unknown'), "可访问"
+
+            return "error", "N/A", "无法访问"
+
+        except requests.exceptions.Timeout:
+            return "error", "N/A", "超时"
+        except Exception as e:
+            self.log(f"ChatGPT 检测异常: {e}", "debug")
+            return "error", "N/A", "检测失败"
+
+    def check_claude(self) -> Tuple[str, str, str]:
+        """
+        检测 Claude AI 可访问性
+        返回: (状态, 区域, 详细信息)
+        """
+        self.log("检测 Claude AI...", "debug")
+
+        try:
+            # 检测 Claude 主页
+            response = self.session.get(
+                "https://claude.ai/",
+                timeout=TIMEOUT,
+                allow_redirects=True
+            )
+
+            # 检查是否被区域限制
+            if response.status_code == 403:
+                return "failed", "N/A", "区域受限"
+
+            if "not available" in response.text.lower() or "不可用" in response.text:
+                return "failed", "N/A", "不支持"
+
+            if response.status_code == 200:
+                return "success", self.ip_info.get('country_code', 'Unknown'), "可访问"
+
+            return "error", "N/A", "无法访问"
+
+        except requests.exceptions.Timeout:
+            return "error", "N/A", "超时"
+        except Exception as e:
+            self.log(f"Claude 检测异常: {e}", "debug")
+            return "error", "N/A", "检测失败"
+
+    def check_tiktok(self) -> Tuple[str, str, str]:
+        """
+        检测 TikTok 区域限制
+        返回: (状态, 区域, 详细信息)
+        """
+        self.log("检测 TikTok...", "debug")
+
+        try:
+            # 检测 TikTok 主页
+            response = self.session.get(
+                "https://www.tiktok.com/",
+                timeout=TIMEOUT,
+                allow_redirects=True
+            )
+
+            # TikTok 在某些地区被封禁
+            if response.status_code == 403 or response.status_code == 451:
+                return "failed", "N/A", "区域受限"
+
+            if "blocked" in response.text.lower() or "banned" in response.text.lower():
+                return "failed", "N/A", "被封禁"
+
+            if response.status_code == 200:
+                # 尝试获取区域信息
+                region = self.ip_info.get('country_code', 'Unknown')
+                return "success", region, "可访问"
+
+            return "error", "N/A", "无法访问"
+
+        except requests.exceptions.Timeout:
+            return "error", "N/A", "超时"
+        except Exception as e:
+            self.log(f"TikTok 检测异常: {e}", "debug")
+            return "error", "N/A", "检测失败"
+
+    def format_result(self, service_name: str, status: str, region: str, detail: str):
+        """格式化输出单个检测结果"""
+        # 状态图标和颜色
+        if status == "success":
+            icon = f"{Fore.GREEN}[✓]{Style.RESET_ALL}"
+            color = Fore.GREEN
+        elif status == "failed":
+            icon = f"{Fore.RED}[✗]{Style.RESET_ALL}"
+            color = Fore.RED
+        elif status == "partial":
+            icon = f"{Fore.YELLOW}[◐]{Style.RESET_ALL}"
+            color = Fore.YELLOW
+        else:
+            icon = f"{Fore.MAGENTA}[?]{Style.RESET_ALL}"
+            color = Fore.MAGENTA
+
+        # 格式化服务名称（固定宽度）
+        service_formatted = f"{service_name:<15}"
+
+        # 构建详细信息
+        info = f"{detail}"
+        if region != "N/A" and region != "Unknown":
+            info += f" {Fore.CYAN}(区域: {region}){Style.RESET_ALL}"
+
+        print(f"{icon} {service_formatted}: {color}{info}{Style.RESET_ALL}")
+
+    def run_all_checks(self):
+        """运行所有检测"""
+        self.print_header()
+
+        # 获取并显示 IP 信息
+        self.get_ip_info()
+        self.print_ip_info()
+
+        # 显示检测开始
+        print(f"{Fore.YELLOW}📺 流媒体检测结果{Style.RESET_ALL}")
+        print(f"{Fore.CYAN}{'─'*60}{Style.RESET_ALL}")
+
+        # 检测各个服务
+        checks = [
+            ("Netflix", self.check_netflix),
+            ("Disney+", self.check_disney),
+            ("YouTube Premium", self.check_youtube_premium),
+            ("ChatGPT", self.check_chatgpt),
+            ("Claude", self.check_claude),
+            ("TikTok", self.check_tiktok),
+        ]
+
+        results = []
+        for service_name, check_func in checks:
+            status, region, detail = check_func()
+            results.append((service_name, status, region, detail))
+            self.format_result(service_name, status, region, detail)
+            time.sleep(0.5)  # 避免请求过快
+
+        # 统计结果
+        success_count = sum(1 for _, status, _, _ in results if status == "success")
+        total_count = len(results)
+
+        print(f"\n{Fore.CYAN}{'─'*60}{Style.RESET_ALL}")
+        print(f"检测完成! {Fore.GREEN}{success_count}/{total_count}{Style.RESET_ALL} 项服务可用\n")
+
+
+def main():
+    """主函数"""
+    parser = argparse.ArgumentParser(
+        description='StreamCheck - 流媒体解锁检测工具'
+    )
+    parser.add_argument(
+        '--verbose', '-v',
+        action='store_true',
+        help='详细模式，显示调试信息'
+    )
+    parser.add_argument(
+        '--ipv6',
+        action='store_true',
+        help='使用 IPv6 进行检测'
+    )
+    parser.add_argument(
+        '--service', '-s',
+        type=str,
+        choices=['netflix', 'disney', 'youtube', 'chatgpt', 'claude', 'tiktok'],
+        help='仅检测指定服务'
+    )
+
+    args = parser.parse_args()
+
+    # 创建检测器实例
+    checker = StreamChecker(verbose=args.verbose, ipv6=args.ipv6)
+
+    try:
+        if args.service:
+            # 检测单个服务
+            checker.print_header()
+            checker.get_ip_info()
+            checker.print_ip_info()
+
+            print(f"{Fore.YELLOW}📺 流媒体检测结果{Style.RESET_ALL}")
+            print(f"{Fore.CYAN}{'─'*60}{Style.RESET_ALL}")
+
+            service_map = {
+                'netflix': ('Netflix', checker.check_netflix),
+                'disney': ('Disney+', checker.check_disney),
+                'youtube': ('YouTube Premium', checker.check_youtube_premium),
+                'chatgpt': ('ChatGPT', checker.check_chatgpt),
+                'claude': ('Claude', checker.check_claude),
+                'tiktok': ('TikTok', checker.check_tiktok),
+            }
+
+            service_name, check_func = service_map[args.service]
+            status, region, detail = check_func()
+            checker.format_result(service_name, status, region, detail)
+            print()
+        else:
+            # 检测所有服务
+            checker.run_all_checks()
+
+    except KeyboardInterrupt:
+        print(f"\n\n{Fore.YELLOW}检测已取消{Style.RESET_ALL}")
+        sys.exit(0)
+    except Exception as e:
+        print(f"\n{Fore.RED}发生错误: {e}{Style.RESET_ALL}")
+        if args.verbose:
+            import traceback
+            traceback.print_exc()
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

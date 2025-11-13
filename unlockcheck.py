@@ -617,7 +617,7 @@ class UnlockChecker:
         # Priority 3: Cloudflare blocking (only if API cannot confirm availability)
         # This suggests browser might still work
         if has_cloudflare:
-            return "partial", self.ip_info.get('country_code', 'Unknown'), "Script Blocked (Browser OK)"
+            return "partial", self.ip_info.get('country_code', 'Unknown'), "Script Blocked(Browser OK)"
 
         # Priority 4: Access denied
         if api_result and api_result[0] == "failed":
@@ -730,7 +730,7 @@ class UnlockChecker:
         # Priority 3: Cloudflare blocking (only if API cannot confirm availability)
         # This suggests browser might still work
         if has_cloudflare:
-            return "partial", self.ip_info.get('country_code', 'Unknown'), "Script Blocked (Browser OK)"
+            return "partial", self.ip_info.get('country_code', 'Unknown'), "Script Blocked(Browser OK)"
 
         # Priority 4: Access denied (not region-specific)
         if api_result and api_result[0] == "failed":

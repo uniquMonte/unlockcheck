@@ -973,14 +973,16 @@ class StreamChecker:
         # Pad unlock type to fixed width (8 display chars)
         unlock_type_padded = self.pad_to_width(unlock_type_label if unlock_type_label else "", 8)
 
-        # Column 5: Region info (pad region to fixed width: 4 display chars)
-        region_info = ""
+        # Column 5: Region info (always pad to fixed width: 4 display chars for alignment)
         if region != "N/A" and region != "Unknown":
-            region_padded = self.pad_to_width(region, 4)  # Pad to 4 display width
-            region_info = f": {Fore.CYAN}{region_padded}{Style.RESET_ALL}"
+            region_padded = self.pad_to_width(region, 4)
+            region_colored = f"{Fore.CYAN}{region_padded}{Style.RESET_ALL}"
+        else:
+            # Use empty spaces to maintain column alignment
+            region_colored = self.pad_to_width("", 4)
 
-        # Print aligned columns
-        print(f"{icon} {service_formatted} {detail_colored} : {unlock_type_padded}{region_info}")
+        # Print aligned columns (always include region column separator for consistent alignment)
+        print(f"{icon} {service_formatted} {detail_colored} : {unlock_type_padded}: {region_colored}")
 
     def run_all_checks(self):
         """Run all checks"""

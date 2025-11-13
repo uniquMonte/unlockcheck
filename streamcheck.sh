@@ -519,15 +519,18 @@ format_result() {
     # Pad unlock type to fixed width (8 display chars)
     local unlock_type_padded=$(pad_to_width "$unlock_type_label" 8)
 
-    # Column 5: Region info (pad region to fixed width: 4 display chars)
-    local region_info=""
+    # Column 5: Region info (always pad to fixed width: 4 display chars for alignment)
+    local region_colored
     if [ "$region" != "N/A" ] && [ "$region" != "Unknown" ] && [ -n "$region" ]; then
-        local region_padded=$(pad_to_width "$region" 4)  # Pad to 4 display width
-        region_info=": ${CYAN}${region_padded}${NC}"
+        local region_padded=$(pad_to_width "$region" 4)
+        region_colored="${CYAN}${region_padded}${NC}"
+    else
+        # Use empty spaces to maintain column alignment
+        region_colored=$(pad_to_width "" 4)
     fi
 
-    # Print aligned columns with colon separators
-    echo -e "$icon $service_formatted ${color}${detail_formatted}${NC} : ${unlock_type_padded}${region_info}"
+    # Print aligned columns (always include region column separator for consistent alignment)
+    echo -e "$icon $service_formatted ${color}${detail_formatted}${NC} : ${unlock_type_padded}: ${region_colored}"
 }
 
 # 检测 Netflix

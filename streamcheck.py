@@ -868,6 +868,26 @@ class StreamChecker:
             self.log(f"Google Scholar check exception: {e}", "debug")
             return "error", "N/A", "Detection Failed"
 
+    @staticmethod
+    def get_display_width(text: str) -> int:
+        """Calculate display width of text (CJK chars count as 2, ASCII as 1)"""
+        width = 0
+        for char in text:
+            # CJK characters and other wide characters
+            if ord(char) > 127:
+                width += 2
+            else:
+                width += 1
+        return width
+
+    @staticmethod
+    def pad_to_width(text: str, target_width: int) -> str:
+        """Pad text to target display width"""
+        current_width = StreamChecker.get_display_width(text)
+        if current_width < target_width:
+            return text + ' ' * (target_width - current_width)
+        return text
+
     def format_result(self, service_name: str, status: str, region: str, detail: str):
         """Format output for individual check result with aligned columns"""
         # Column 1: Status icon
@@ -887,9 +907,8 @@ class StreamChecker:
         # Column 2: Service name (fixed width: 18 chars, left-aligned)
         service_formatted = f"{service_name:<18}"
 
-        # Column 3: Status detail (format with padding)
-        # Apply color and pad to fixed width
-        detail_padded = f"{detail:<30}"
+        # Column 3: Status detail (pad to fixed display width considering CJK characters)
+        detail_padded = self.pad_to_width(detail, 30)
         detail_colored = f"{status_color}{detail_padded}{Style.RESET_ALL}"
 
         # Column 4: Unlock type (determine based on IP type)

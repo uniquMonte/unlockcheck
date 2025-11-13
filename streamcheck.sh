@@ -386,6 +386,43 @@ print_enhanced_ip_info() {
 }
 
 # 格式化输出结果
+# Calculate display width of text (CJK chars count as 2, ASCII as 1)
+get_display_width() {
+    local text="$1"
+    local width=0
+    local char
+    local len=${#text}
+
+    for ((i=0; i<len; i++)); do
+        char="${text:i:1}"
+        # Get ASCII value of character
+        printf -v ascii '%d' "'$char"
+
+        # CJK and other wide characters (> 127)
+        if [ "$ascii" -gt 127 ]; then
+            width=$((width + 2))
+        else
+            width=$((width + 1))
+        fi
+    done
+
+    echo "$width"
+}
+
+# Pad text to target display width
+pad_to_width() {
+    local text="$1"
+    local target_width="$2"
+    local current_width=$(get_display_width "$text")
+    local padding=$((target_width - current_width))
+
+    if [ "$padding" -gt 0 ]; then
+        printf "%s%*s" "$text" "$padding" ""
+    else
+        echo "$text"
+    fi
+}
+
 format_result() {
     local service_name="$1"
     local status="$2"
@@ -417,8 +454,8 @@ format_result() {
     # Column 2: Service name (fixed width: 18 chars)
     local service_formatted=$(printf "%-18s" "$service_name")
 
-    # Column 3: Status detail (fixed width: 30 chars)
-    local detail_formatted=$(printf "%-30s" "$detail")
+    # Column 3: Status detail (pad to fixed display width considering CJK characters)
+    local detail_formatted=$(pad_to_width "$detail" 30)
 
     # Column 4: Unlock type label
     local ip_type_label=""

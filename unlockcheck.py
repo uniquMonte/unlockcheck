@@ -780,8 +780,10 @@ class UnlockChecker:
             content_lower = response.text.lower()
 
             # Gemini shows specific error messages when region is not supported
-            # "Gemini is currently not supported in your country"
-            if "not supported in your country" in content_lower or "isn't supported in your country" in content_lower:
+            # Examples: "Gemini isn't currently supported in your country"
+            #          "Gemini is currently not supported in your country"
+            # Check for the key phrase "supported in your country" (covers all variants)
+            if "supported in your country" in content_lower:
                 return "failed", "N/A", "Not Supported in This Region"
 
             # Check for other region restriction keywords

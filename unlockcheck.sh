@@ -775,8 +775,10 @@ check_gemini() {
     local content=$(echo "$response" | head -n -1)
 
     # 检查 Gemini 实际返回的区域限制消息
-    # "Gemini is currently not supported in your country" 是实际错误消息
-    if echo "$content" | grep -qi "not supported in your country\|isn't supported in your country"; then
+    # 示例："Gemini isn't currently supported in your country"
+    # 示例："Gemini is currently not supported in your country"
+    # 检查关键短语"supported in your country"（覆盖所有变体）
+    if echo "$content" | grep -qi "supported in your country"; then
         format_result "Gemini" "failed" "N/A" "该地区不支持"
     # 检查其他 Gemini 相关的不可用消息
     elif echo "$content" | grep -qi "gemini" && echo "$content" | grep -qi "not available\|unavailable"; then

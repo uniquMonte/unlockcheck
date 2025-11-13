@@ -393,10 +393,7 @@ format_result() {
     local detail="$4"
     local unlock_type="$5"  # 解锁类型 (native/dns)
 
-    # 格式化服务名称（固定宽度）
-    local service_formatted=$(printf "%-15s" "$service_name")
-
-    # 选择图标和颜色
+    # Column 1: Status icon
     local icon color
     case "$status" in
         "success")
@@ -417,23 +414,38 @@ format_result() {
             ;;
     esac
 
-    # 构建详细信息
-    local info="$detail"
+    # Column 2: Service name (fixed width: 18 chars)
+    local service_formatted=$(printf "%-18s" "$service_name")
 
-    # 添加解锁类型标识
+    # Column 3: Status detail (fixed width: 30 chars)
+    local detail_formatted=$(printf "%-30s" "$detail")
+
+    # Column 4: Unlock type label
+    local ip_type_label=""
+    local ip_type_spacing="        "  # 8 spaces default
+
     if [ "$status" = "success" ] && [ -n "$unlock_type" ]; then
         if [ "$unlock_type" = "dns" ]; then
-            info="$info ${MAGENTA}[DNS解锁]${NC}"
+            ip_type_label="${MAGENTA}[DNS解锁]${NC}"
+            ip_type_spacing="  "  # 2 spaces after label
         elif [ "$unlock_type" = "native" ]; then
-            info="$info ${GREEN}[原生]${NC}"
+            ip_type_label="${GREEN}[原生]${NC}"
+            ip_type_spacing="  "  # 2 spaces after label
         fi
     fi
 
+    # Column 5: Region info
+    local region_info=""
     if [ "$region" != "N/A" ] && [ "$region" != "Unknown" ] && [ -n "$region" ]; then
-        info="$info ${CYAN}(区域: $region)${NC}"
+        region_info="${CYAN}(区域: $region)${NC}"
     fi
 
-    echo -e "$icon $service_formatted: ${color}${info}${NC}"
+    # Print aligned columns
+    if [ -n "$ip_type_label" ]; then
+        echo -e "$icon $service_formatted ${color}${detail_formatted}${NC} ${ip_type_label}${ip_type_spacing}${region_info}"
+    else
+        echo -e "$icon $service_formatted ${color}${detail_formatted}${NC} ${ip_type_spacing}${region_info}"
+    fi
 }
 
 # 检测 Netflix

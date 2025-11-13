@@ -853,30 +853,62 @@ class StreamChecker:
             return "error", "N/A", "Detection Failed"
 
     def format_result(self, service_name: str, status: str, region: str, detail: str):
-        """Format output for individual check result"""
-        # Status icon and color
+        """Format output for individual check result with aligned columns"""
+        # Column 1: Status icon
         if status == "success":
             icon = f"{Fore.GREEN}[✓]{Style.RESET_ALL}"
-            color = Fore.GREEN
+            status_color = Fore.GREEN
         elif status == "failed":
             icon = f"{Fore.RED}[✗]{Style.RESET_ALL}"
-            color = Fore.RED
+            status_color = Fore.RED
         elif status == "partial":
             icon = f"{Fore.YELLOW}[◐]{Style.RESET_ALL}"
-            color = Fore.YELLOW
+            status_color = Fore.YELLOW
         else:
             icon = f"{Fore.MAGENTA}[?]{Style.RESET_ALL}"
-            color = Fore.MAGENTA
+            status_color = Fore.MAGENTA
 
-        # Format service name (fixed width)
-        service_formatted = f"{service_name:<15}"
+        # Column 2: Service name (fixed width: 18 chars, left-aligned)
+        service_formatted = f"{service_name:<18}"
 
-        # Build detailed information
-        info = f"{detail}"
+        # Column 3: Status detail (format with padding)
+        # Apply color and pad to fixed width
+        detail_padded = f"{detail:<30}"
+        detail_colored = f"{status_color}{detail_padded}{Style.RESET_ALL}"
+
+        # Column 4: Unlock type (determine based on IP type)
+        ip_type_label = ""
+        ip_type_spacing = " " * 8  # Default spacing when no label
+
+        if status == "success":
+            ip_type = self.ip_info.get('ip_type', 'Unknown')
+            if ip_type == 'Residential' or ip_type == 'Mobile Network':
+                ip_type_label = f"{Fore.GREEN}[原生]{Style.RESET_ALL}"
+                ip_type_spacing = " " * 2  # Adjust spacing after colored label
+            elif ip_type == 'Datacenter/Hosting':
+                # For datacenter IPs, check if registration location matches usage location
+                reg_loc = self.ip_info.get('registration_location', '')
+                usage_loc = self.ip_info.get('usage_location', '')
+                if reg_loc and usage_loc and reg_loc == usage_loc:
+                    ip_type_label = f"{Fore.GREEN}[原生]{Style.RESET_ALL}"
+                    ip_type_spacing = " " * 2
+                else:
+                    ip_type_label = f"{Fore.YELLOW}[广播]{Style.RESET_ALL}"
+                    ip_type_spacing = " " * 2
+            else:
+                ip_type_label = f"{Fore.CYAN}[未知]{Style.RESET_ALL}"
+                ip_type_spacing = " " * 2
+
+        # Column 5: Region info
+        region_info = ""
         if region != "N/A" and region != "Unknown":
-            info += f" {Fore.CYAN}(Region: {region}){Style.RESET_ALL}"
+            region_info = f"{Fore.CYAN}(区域: {region}){Style.RESET_ALL}"
 
-        print(f"{icon} {service_formatted}: {color}{info}{Style.RESET_ALL}")
+        # Print aligned columns
+        if ip_type_label:
+            print(f"{icon} {service_formatted} {detail_colored} {ip_type_label}{ip_type_spacing}{region_info}")
+        else:
+            print(f"{icon} {service_formatted} {detail_colored} {ip_type_spacing}{region_info}")
 
     def run_all_checks(self):
         """Run all checks"""

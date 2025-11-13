@@ -619,15 +619,17 @@ check_reddit() {
     local status_code=$(echo "$response" | tail -n 1)
     local content=$(echo "$response" | head -n -1)
 
-    # 检查是否被安全系统拦截
-    if echo "$content" | grep -qi "blocked by network security\|blocked by mistake"; then
+    # 检查是否被安全系统拦截（优先检查内容）
+    if echo "$content" | grep -qi "blocked by network security\|blocked by mistake\|access denied"; then
+        format_result "Reddit" "partial" "$COUNTRY_CODE" "IP被限制，需登录访问" "$unlock_type"
+    elif [ "$status_code" = "403" ] || [ "$status_code" = "451" ]; then
+        # 403/451 也可能是安全拦截
         format_result "Reddit" "partial" "$COUNTRY_CODE" "IP被限制，需登录访问" "$unlock_type"
     elif [ "$status_code" = "200" ]; then
+        # 200 且内容没有拦截关键词，才是真正可访问
         format_result "Reddit" "success" "$COUNTRY_CODE" "可访问" "$unlock_type"
-    elif [ "$status_code" = "403" ] || [ "$status_code" = "451" ]; then
-        format_result "Reddit" "failed" "N/A" "区域受限"
     else
-        format_result "Reddit" "error" "N/A" "检测失败"
+        format_result "Reddit" "error" "N/A" "检测失败(${status_code})"
     fi
 }
 

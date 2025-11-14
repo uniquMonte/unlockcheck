@@ -413,9 +413,17 @@ class UnlockChecker:
                 allow_redirects=True
             )
 
-            # Both requests failed
+            # Check for region blocking (403/451 status codes)
+            if (result1.status_code in [403, 451]) or (result2.status_code in [403, 451]):
+                return "failed", "N/A", "Blocked"
+
+            # Both requests failed with server errors
             if result1.status_code >= 500 and result2.status_code >= 500:
-                return "error", "N/A", "Detection Failed"
+                return "error", "N/A", "Server Error"
+
+            # Check if both requests have no content
+            if not result1.text and not result2.text:
+                return "error", "N/A", "Network Error"
 
             # Extract region code from response
             # Look for "currentCountry" in the page HTML/JSON
@@ -424,9 +432,9 @@ class UnlockChecker:
             region2 = re.search(r'"currentCountry"\s*:\s*"([^"]+)"', result2.text)
 
             region = None
-            if region1:
+            if region1 and region1.group(1) != "null":
                 region = region1.group(1)
-            elif region2:
+            elif region2 and region2.group(1) != "null":
                 region = region2.group(1)
             else:
                 region = self.ip_info.get('country_code', 'Unknown')
@@ -443,13 +451,13 @@ class UnlockChecker:
 
             if not error1 and not error2 and result1.status_code == 200 and result2.status_code == 200:
                 # Both can be accessed - full unlock
-                return "success", region, "Full Unlock"
+                return "success", region, "Full Access"
             elif not error1 and result1.status_code == 200:
                 # Only originals can be accessed
                 return "partial", region, "Originals Only"
             else:
                 # Neither can be accessed
-                return "failed", "N/A", "Not Supported"
+                return "failed", "N/A", "Blocked"
 
         except requests.exceptions.Timeout:
             return "error", "N/A", "Timeout"
@@ -459,13 +467,99 @@ class UnlockChecker:
 
     def check_disney(self) -> Tuple[str, str, str]:
         """
-        Check Disney+ unlock status
+        Check Disney+ unlock status using hybrid method
+        Method 1: API detection (IPQuality approach)
+        Method 2: Fallback to web detection
         Returns: (status, region, detail)
         """
         self.log("Checking Disney+...", "debug")
 
         try:
-            # Check Disney+ homepage
+            # Method 1: Try API detection first
+            device_payload = {
+                "deviceFamily": "browser",
+                "applicationRuntime": "chrome",
+                "deviceProfile": "windows",
+                "attributes": {}
+            }
+
+            device_headers = {
+                "authorization": "Bearer ZGlzbmV5JmJyb3dzZXImMS4wLjA.Cu56AgSfBTDag5NiRA81oLHkDZfu5L3CKadnefEAY84",
+                "content-type": "application/json; charset=UTF-8"
+            }
+
+            try:
+                device_response = self.session.post(
+                    "https://disney.api.edge.bamgrid.com/devices",
+                    json=device_payload,
+                    headers=device_headers,
+                    timeout=TIMEOUT
+                )
+
+                if device_response.status_code == 200:
+                    device_data = device_response.json()
+                    assertion = device_data.get("assertion")
+
+                    if assertion:
+                        # Continue with API method
+                        token_payload = {
+                            "grant_type": "urn:ietf:params:oauth:grant-type:token-exchange",
+                            "latitude": 0,
+                            "longitude": 0,
+                            "platform": "browser",
+                            "subject_token": assertion,
+                            "subject_token_type": "urn:bamtech:params:oauth:token-type:device"
+                        }
+
+                        token_response = self.session.post(
+                            "https://disney.api.edge.bamgrid.com/token",
+                            json=token_payload,
+                            headers=device_headers,
+                            timeout=TIMEOUT
+                        )
+
+                        if token_response.status_code == 200:
+                            token_data = token_response.json()
+                            access_token = token_data.get("access_token")
+
+                            if access_token:
+                                graphql_headers = {
+                                    "authorization": f"Bearer {access_token}",
+                                    "content-type": "application/json; charset=UTF-8"
+                                }
+
+                                graphql_payload = {
+                                    "query": "query{getCurrentLocation{countryCode}inSupportedLocation}"
+                                }
+
+                                graphql_response = self.session.post(
+                                    "https://disney.api.edge.bamgrid.com/graph/v1/device/graphql",
+                                    json=graphql_payload,
+                                    headers=graphql_headers,
+                                    timeout=TIMEOUT
+                                )
+
+                                if graphql_response.status_code == 200:
+                                    graphql_data = graphql_response.json()
+                                    data = graphql_data.get("data", {})
+                                    current_location = data.get("getCurrentLocation", {})
+                                    region = current_location.get("countryCode")
+                                    in_supported = data.get("inSupportedLocation")
+
+                                    if in_supported is True:
+                                        if region and region != "null":
+                                            return "success", region, "Full Access"
+                                        else:
+                                            return "success", self.ip_info.get('country_code', 'Unknown'), "Full Access"
+                                    elif in_supported is False:
+                                        if region and region != "null":
+                                            return "failed", region, "Coming Soon"
+                                        else:
+                                            return "failed", "N/A", "Coming Soon"
+            except:
+                pass  # Fall through to web detection
+
+            # Method 2: Fallback to web detection
             response = self.session.get(
                 "https://www.disneyplus.com/",
                 timeout=TIMEOUT,
@@ -474,23 +568,22 @@ class UnlockChecker:
 
             content_lower = response.text.lower()
 
-            # Check for region restriction messages
-            if "not available in your region" in content_lower or "not available in your country" in content_lower:
-                return "failed", "N/A", "Not Available in This Region"
-
-            if "unavailable" in content_lower or "not available" in content_lower:
-                return "failed", "N/A", "Not Available in This Region"
-
-            # 403 usually means IP blocked
+            # Check for blocking
             if response.status_code == 403:
-                return "failed", "N/A", "Not Available in This Region"
+                return "failed", "N/A", "Blocked"
 
-            # Check if it's actually Disney+ (200 with Disney+ content)
+            # Check for region restriction messages
+            if "not available in your region" in content_lower or \
+               "not available in your country" in content_lower or \
+               "unavailable" in content_lower:
+                return "failed", "N/A", "Blocked"
+
+            # Check if successful access
             if response.status_code == 200:
                 if "disney" in content_lower or "disneyplus" in content_lower:
-                    return "success", self.ip_info.get('country_code', 'Unknown'), "Normal Access"
+                    return "success", self.ip_info.get('country_code', 'Unknown'), "Full Access"
                 else:
-                    return "failed", "N/A", "Service Unavailable"
+                    return "failed", "N/A", "Blocked"
 
             return "error", "N/A", "Detection Failed"
 
@@ -508,31 +601,37 @@ class UnlockChecker:
         self.log("Checking YouTube Premium...", "debug")
 
         try:
-            # Check YouTube Premium page
+            # Check YouTube Premium page with redirect following
             response = self.session.get(
                 "https://www.youtube.com/premium",
-                timeout=TIMEOUT
+                timeout=TIMEOUT,
+                allow_redirects=True
             )
 
             content_lower = response.text.lower()
 
-            # Check for region restriction messages
-            if "not available in your country" in content_lower or "not available in your region" in content_lower:
-                return "failed", "N/A", "Not Available in This Region"
+            # Check if response is empty
+            if not response.text:
+                return "error", "N/A", "Network Error"
 
-            if "unavailable" in content_lower and "premium" in content_lower:
-                return "failed", "N/A", "Not Available in This Region"
-
-            # 403 usually means blocked
+            # Check for blocking (403)
             if response.status_code == 403:
-                return "failed", "N/A", "Not Available in This Region"
+                return "failed", "N/A", "Blocked"
 
-            # Check if Premium is available (200 with Premium content)
-            if response.status_code == 200:
-                if "premium" in content_lower and ("youtube" in content_lower or "subscribe" in content_lower):
-                    return "success", self.ip_info.get('country_code', 'Unknown'), "Normal Access"
+            # Check for explicit region restriction messages
+            if "not available in your country" in content_lower or \
+               "not available in your region" in content_lower or \
+               "unavailable in your" in content_lower:
+                return "failed", "N/A", "Blocked"
+
+            # Check if Premium is available (more lenient check)
+            if response.status_code in [200, 301, 302]:
+                # If status is OK and no explicit error, check for YouTube content
+                if "youtube" in content_lower or "premium" in content_lower or \
+                   "subscribe" in content_lower or len(response.text) > 1000:
+                    return "success", self.ip_info.get('country_code', 'Unknown'), "Full Access"
                 else:
-                    return "failed", "N/A", "Service Unavailable"
+                    return "error", "N/A", "Detection Failed"
 
             return "error", "N/A", "Detection Failed"
 
@@ -585,7 +684,7 @@ class UnlockChecker:
             )
 
             if api_response.status_code == 401 or api_response.status_code == 400:
-                api_result = ("success", "Normal Access")
+                api_result = ("success", "Full Access")
             elif api_response.status_code == 403:
                 try:
                     error_data = api_response.json()
@@ -638,17 +737,16 @@ class UnlockChecker:
         if api_result and api_result[0] == "failed" and "Region Restricted" in api_result[1]:
             return "failed", "N/A", "Region Restricted"
 
-        # Priority 2: API success indicates availability (even if web has Cloudflare)
+        # Priority 2: API success indicates availability
+        # Script-detected CF verification doesn't mean browsers will encounter it
+        # (Cloudflare can distinguish between scripts and real browsers)
         if api_result and api_result[0] == "success":
-            if has_cloudflare:
-                return "success", self.ip_info.get('country_code', 'Unknown'), f"Normal Access{Fore.YELLOW}(CF Check){Fore.GREEN}"
-            else:
-                return "success", self.ip_info.get('country_code', 'Unknown'), "Normal Access"
+            return "success", self.ip_info.get('country_code', 'Unknown'), "Full Access"
 
         # Priority 3: Cloudflare blocking (only if API cannot confirm availability)
         # This suggests browser might still work
         if has_cloudflare:
-            return "partial", self.ip_info.get('country_code', 'Unknown'), "Script Blocked(Browser OK)"
+            return "partial", self.ip_info.get('country_code', 'Unknown'), "Likely Available(Manual Check)"
 
         # Priority 4: Access denied
         if api_result and api_result[0] == "failed":
@@ -691,19 +789,20 @@ class UnlockChecker:
         web_result = None
         has_cloudflare = False
 
-        # Step 1: Check API endpoint
+        # Step 1: Check API endpoint (must use POST method)
         try:
-            api_response = self.session.get(
+            api_response = self.session.post(
                 "https://api.anthropic.com/v1/messages",
                 timeout=TIMEOUT,
                 headers={
                     'Content-Type': 'application/json',
-                    'anthropic-version': '2023-06-01'
+                    'anthropic-version': '2023-06-01',
+                    'x-api-key': 'invalid'
                 }
             )
 
             if api_response.status_code == 401 or api_response.status_code == 400:
-                api_result = ("success", "Normal Access")
+                api_result = ("success", "Full Access")
             elif api_response.status_code == 403:
                 try:
                     error_data = api_response.json()
@@ -751,17 +850,16 @@ class UnlockChecker:
         if web_result and web_result[0] == "failed":
             return "failed", "N/A", "Region Restricted"
 
-        # Priority 2: API success indicates availability (even if web has Cloudflare)
+        # Priority 2: API success indicates availability
+        # Script-detected CF verification doesn't mean browsers will encounter it
+        # (Cloudflare can distinguish between scripts and real browsers)
         if api_result and api_result[0] == "success":
-            if has_cloudflare:
-                return "success", self.ip_info.get('country_code', 'Unknown'), f"Normal Access{Fore.YELLOW}(CF Check){Fore.GREEN}"
-            else:
-                return "success", self.ip_info.get('country_code', 'Unknown'), "Normal Access"
+            return "success", self.ip_info.get('country_code', 'Unknown'), "Full Access"
 
         # Priority 3: Cloudflare blocking (only if API cannot confirm availability)
         # This suggests browser might still work
         if has_cloudflare:
-            return "partial", self.ip_info.get('country_code', 'Unknown'), "Script Blocked(Browser OK)"
+            return "partial", self.ip_info.get('country_code', 'Unknown'), "Likely Available(Manual Check)"
 
         # Priority 4: Access denied (not region-specific)
         if api_result and api_result[0] == "failed":
@@ -772,41 +870,68 @@ class UnlockChecker:
 
     def check_tiktok(self) -> Tuple[str, str, str]:
         """
-        Check TikTok region restrictions
+        Check TikTok region restrictions using IPQuality approach
         Returns: (status, region, detail)
         """
         self.log("Checking TikTok...", "debug")
 
         try:
-            # Check TikTok homepage
+            # First attempt: Get TikTok homepage
             response = self.session.get(
                 "https://www.tiktok.com/",
                 timeout=TIMEOUT,
                 allow_redirects=True
             )
 
+            # Check if response is empty
+            if not response.text:
+                return "error", "N/A", "Network Error"
+
+            # Try to extract region from response (IPQuality method)
+            import re
+            region_match = re.search(r'"region"\s*:\s*"([^"]+)"', response.text)
+            region = region_match.group(1) if region_match else None
+
+            # If no region found, try with gzip compression
+            if not region:
+                response = self.session.get(
+                    "https://www.tiktok.com/",
+                    headers={"Accept-Encoding": "gzip"},
+                    timeout=TIMEOUT,
+                    allow_redirects=True
+                )
+                region_match = re.search(r'"region"\s*:\s*"([^"]+)"', response.text)
+                region = region_match.group(1) if region_match else None
+
             content_lower = response.text.lower()
 
-            # Check for region restriction messages
-            if "not available in your region" in content_lower or "not available in your country" in content_lower:
-                return "failed", "N/A", "Not Available in This Region"
-
-            if "blocked" in content_lower or "banned" in content_lower:
-                return "failed", "N/A", "Not Available in This Region"
-
-            # 403/451 usually means region blocked
-            if response.status_code == 403 or response.status_code == 451:
-                return "failed", "N/A", "Not Available in This Region"
-
-            # Check if it's actually TikTok (200 with TikTok content)
-            if response.status_code == 200:
-                if "tiktok" in content_lower:
-                    region = self.ip_info.get('country_code', 'Unknown')
-                    return "success", region, "Normal Access"
+            # Check for anti-bot mechanism (Access Denied)
+            if "access denied" in content_lower:
+                # Check if country is known to block TikTok
+                country_code = self.ip_info.get('country_code', 'Unknown')
+                # TikTok is blocked in: China (CN), India (IN)
+                if country_code in ['CN', 'IN']:
+                    return "failed", "N/A", "Region Restricted"
                 else:
-                    return "failed", "N/A", "Service Unavailable"
+                    # Other regions with Access Denied = script limitation, not region block
+                    return "partial", country_code, "Likely Available(Manual Check)"
 
-            return "error", "N/A", "Detection Failed"
+            # Check for explicit region restriction messages
+            if "not available in your region" in content_lower or \
+               "not available in your country" in content_lower or \
+               "region unavailable" in content_lower:
+                return "failed", "N/A", "Region Restricted"
+
+            # If region was successfully extracted, TikTok is available
+            if region and region != "null":
+                return "success", region, "Full Access"
+
+            # Fallback: Check if TikTok content is present
+            if "tiktok" in content_lower or len(response.text) > 1000:
+                region = self.ip_info.get('country_code', 'Unknown')
+                return "success", region, "Full Access"
+            else:
+                return "error", "N/A", "Detection Failed"
 
         except requests.exceptions.Timeout:
             return "error", "N/A", "Timeout"
@@ -849,7 +974,7 @@ class UnlockChecker:
             # Check if Imgur is accessible (200 with Imgur content)
             if response.status_code == 200:
                 if "imgur" in content_lower:
-                    return "success", self.ip_info.get('country_code', 'Unknown'), "Normal Access"
+                    return "success", self.ip_info.get('country_code', 'Unknown'), "Full Access"
                 else:
                     return "failed", "N/A", "Service Unavailable"
 
@@ -861,7 +986,7 @@ class UnlockChecker:
                     allow_redirects=True
                 )
                 if alt_response.status_code == 200:
-                    return "success", self.ip_info.get('country_code', 'Unknown'), "Normal Access"
+                    return "success", self.ip_info.get('country_code', 'Unknown'), "Full Access"
             except:
                 pass
 
@@ -914,7 +1039,7 @@ class UnlockChecker:
                     # Check for location-based content restrictions
                     if "over18" in response.url or "location_blocking" in content_lower:
                         return "partial", self.ip_info.get('country_code', 'Unknown'), "Partially Restricted"
-                    return "success", self.ip_info.get('country_code', 'Unknown'), "Normal Access"
+                    return "success", self.ip_info.get('country_code', 'Unknown'), "Full Access"
                 else:
                     return "failed", "N/A", "Service Unavailable"
 
@@ -972,7 +1097,7 @@ class UnlockChecker:
             )
 
             if api_response.status_code == 401 or api_response.status_code == 400:
-                api_result = ("success", "Normal Access")
+                api_result = ("success", "Full Access")
             elif api_response.status_code == 403:
                 try:
                     error_data = api_response.json()
@@ -984,7 +1109,7 @@ class UnlockChecker:
                         # PERMISSION_DENIED with API Key = service available
                         if error_status == 'PERMISSION_DENIED':
                             if 'api key' in error_msg or 'unregistered callers' in error_msg or 'established identity' in error_msg:
-                                api_result = ("success", "Normal Access")
+                                api_result = ("success", "Full Access")
                             else:
                                 api_result = ("failed", "Access Denied")
                         # Check for region restriction
@@ -1024,7 +1149,7 @@ class UnlockChecker:
             elif web_response.status_code == 200:
                 # Check if it has actual Gemini app interface (not error page)
                 if any(keyword in content_lower for keyword in ["sign in", "get started", "continue with google", "chat with gemini"]):
-                    web_result = ("success", "Normal Access")
+                    web_result = ("success", "Full Access")
         except:
             pass
 
@@ -1043,7 +1168,7 @@ class UnlockChecker:
                 if static_response.status_code == 403:
                     static_result = ("failed", "Region Restricted")
                 elif static_response.status_code == 200:
-                    static_result = ("success", "Normal Access")
+                    static_result = ("success", "Full Access")
             except:
                 pass
 
@@ -1064,7 +1189,7 @@ class UnlockChecker:
                 if studio_response.status_code == 403:
                     studio_result = ("failed", "Region Restricted")
                 elif studio_response.status_code in [200, 302]:
-                    studio_result = ("success", "Normal Access")
+                    studio_result = ("success", "Full Access")
             except:
                 pass
 
@@ -1081,13 +1206,13 @@ class UnlockChecker:
 
         # Priority 2: Any success indicates availability
         if api_result and api_result[0] == "success":
-            return "success", self.ip_info.get('country_code', 'Unknown'), "Normal Access"
+            return "success", self.ip_info.get('country_code', 'Unknown'), "Full Access"
         if web_result and web_result[0] == "success":
-            return "success", self.ip_info.get('country_code', 'Unknown'), "Normal Access"
+            return "success", self.ip_info.get('country_code', 'Unknown'), "Full Access"
         if static_result and static_result[0] == "success":
-            return "success", self.ip_info.get('country_code', 'Unknown'), "Normal Access"
+            return "success", self.ip_info.get('country_code', 'Unknown'), "Full Access"
         if studio_result and studio_result[0] == "success":
-            return "success", self.ip_info.get('country_code', 'Unknown'), "Normal Access"
+            return "success", self.ip_info.get('country_code', 'Unknown'), "Full Access"
 
         # Priority 3: Access denied
         if api_result and api_result[0] == "failed":
@@ -1098,40 +1223,82 @@ class UnlockChecker:
 
     def check_spotify(self) -> Tuple[str, str, str]:
         """
-        Check Spotify availability
+        Check Spotify availability using signup API
+        Reference: IPQuality project implementation
         Returns: (status, region, detail)
         """
         self.log("Checking Spotify...", "debug")
 
         try:
-            # Check Spotify Web Player
-            response = self.session.get(
-                "https://open.spotify.com/",
-                timeout=TIMEOUT,
-                allow_redirects=True
+            # Use Spotify signup API to check region availability
+            signup_data = {
+                "birth_day": "11",
+                "birth_month": "11",
+                "birth_year": "2000",
+                "collect_personal_info": "undefined",
+                "creation_flow": "",
+                "creation_point": "https://www.spotify.com/",
+                "displayname": "Test User",
+                "gender": "male",
+                "iagree": "1",
+                "key": "a1e486e2729f46d6bb368d6b2bcda326",
+                "platform": "www",
+                "referrer": "",
+                "send-email": "0",
+                "thirdpartyemail": "0",
+                "identifier_token": "AgE6YTvEzkReHNfJpO114514"
+            }
+
+            headers = {
+                "Accept-Language": "en",
+                "Content-Type": "application/x-www-form-urlencoded",
+                "Origin": "https://www.spotify.com",
+                "Referer": "https://www.spotify.com/"
+            }
+
+            response = self.session.post(
+                "https://spclient.wg.spotify.com/signup/public/v1/account",
+                data=signup_data,
+                headers=headers,
+                timeout=TIMEOUT
             )
 
-            content_lower = response.text.lower()
+            # Check if response is empty
+            if not response.text:
+                return "error", "N/A", "Network Error"
 
-            # Check for region restriction messages
-            if "not available in your region" in content_lower or "not available in your country" in content_lower:
-                return "failed", "N/A", "Not Available in This Region"
+            # Check for Access denied (anti-bot)
+            if "access denied" in response.text.lower():
+                # Spotify is not available in some regions (e.g., China)
+                # However, due to anti-bot, cannot accurately detect
+                # Show "Likely Available" for all regions
+                country_code = self.ip_info.get('country_code', 'Unknown')
+                return "partial", country_code, "Likely Available(Manual Check)"
 
-            if "not available" in content_lower and "spotify" in content_lower:
-                return "failed", "N/A", "Not Available in This Region"
+            # Parse JSON response
+            try:
+                data = response.json()
+            except:
+                return "error", "N/A", "Detection Failed"
 
-            # 403 usually means region blocked
-            if response.status_code == 403:
-                return "failed", "N/A", "Not Available in This Region"
+            # Extract key fields
+            region = data.get("country")
+            is_launched = data.get("is_country_launched")
+            status_code = data.get("status")
 
-            # Check if Spotify is accessible (200 with Spotify content)
-            if response.status_code == 200:
-                if "spotify" in content_lower:
-                    return "success", self.ip_info.get('country_code', 'Unknown'), "Normal Access"
+            # Determine availability
+            if status_code == 311 and is_launched is True:
+                # Service available in this region
+                if region and region != "null":
+                    return "success", region, "Full Access"
                 else:
-                    return "failed", "N/A", "Service Unavailable"
-
-            return "error", "N/A", "Detection Failed"
+                    return "success", self.ip_info.get('country_code', 'Unknown'), "Full Access"
+            elif status_code in [320, 120]:
+                # IP blocked (reference: IPQuality project)
+                return "failed", "N/A", "Blocked"
+            else:
+                # Other cases
+                return "error", "N/A", "Detection Failed"
 
         except requests.exceptions.Timeout:
             return "error", "N/A", "Timeout"
@@ -1179,7 +1346,7 @@ class UnlockChecker:
             # Check if Google Scholar is accessible (200 with Scholar content)
             if response.status_code == 200:
                 if "scholar" in content_lower and "google" in content_lower:
-                    return "success", self.ip_info.get('country_code', 'Unknown'), "Normal Access"
+                    return "success", self.ip_info.get('country_code', 'Unknown'), "Full Access"
                 else:
                     return "failed", "N/A", "Service Unavailable"
 
@@ -1265,7 +1432,7 @@ class UnlockChecker:
             unlock_type_padded = f"{unlock_type_color}{unlock_type_padded}{Style.RESET_ALL}"
 
         # Column 5: Region info (使用固定列宽常量)
-        if region != "N/A" and region != "Unknown":
+        if region != "N/A" and region != "Unknown" and region != "null":
             region_padded = self.pad_to_width(region, COLUMN_WIDTH_REGION)
             region_colored = f"{Fore.CYAN}{region_padded}{Style.RESET_ALL}"
         else:

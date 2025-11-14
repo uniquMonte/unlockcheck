@@ -562,7 +562,7 @@ format_result() {
 
     # Column 5: Region info (使用固定列宽常量)
     local region_colored
-    if [ "$region" != "N/A" ] && [ "$region" != "Unknown" ] && [ -n "$region" ]; then
+    if [ "$region" != "N/A" ] && [ "$region" != "Unknown" ] && [ "$region" != "null" ] && [ -n "$region" ]; then
         local region_padded=$(pad_to_width "$region" $COLUMN_WIDTH_REGION)
         region_colored="${CYAN}${region_padded}${NC}"
     else
@@ -580,25 +580,43 @@ check_netflix() {
     # 使用特定的Netflix标题页面进行检测（自制剧，全球可用）
     # 81280792 - The Queen's Gambit (自制剧)
     # 70143836 - Friends (授权内容，部分地区可用)
-    local result1=$(curl -s --max-time $TIMEOUT \
+
+    # 使用 -w 获取HTTP状态码
+    local response1=$(curl -s --max-time $TIMEOUT \
         -A "$USER_AGENT" \
-        -X GET \
+        -w "\n%{http_code}" \
         "https://www.netflix.com/title/81280792" 2>/dev/null)
 
-    local result2=$(curl -s --max-time $TIMEOUT \
+    local response2=$(curl -s --max-time $TIMEOUT \
         -A "$USER_AGENT" \
-        -X GET \
+        -w "\n%{http_code}" \
         "https://www.netflix.com/title/70143836" 2>/dev/null)
 
-    # 检查响应是否为空
-    if [ -z "$result1" ] && [ -z "$result2" ]; then
-        format_result "Netflix" "error" "N/A" "检测失败"
+    # 提取HTTP状态码和内容
+    local status1=$(echo "$response1" | tail -n 1)
+    local result1=$(echo "$response1" | head -n -1)
+    local status2=$(echo "$response2" | tail -n 1)
+    local result2=$(echo "$response2" | head -n -1)
+
+    # 检查是否完全无法连接
+    if [ -z "$status1" ] && [ -z "$status2" ]; then
+        format_result "Netflix" "error" "N/A" "网络错误"
+        return
+    fi
+
+    # 检查是否被地区屏蔽（403/451）
+    if [ "$status1" = "403" ] || [ "$status1" = "451" ] || [ "$status2" = "403" ] || [ "$status2" = "451" ]; then
+        format_result "Netflix" "failed" "N/A" "屏蔽"
         return
     fi
 
     # 从响应中提取地区代码（从JSON中提取currentCountry字段）
     local region1=$(echo "$result1" | grep -oP '"currentCountry"\s*:\s*"\K[^"]+' | head -n1)
-    local region2=$(echo "$result2" | grep -oP '"currentCountry"\s*:\K[^"]+' | head -n1)
+    local region2=$(echo "$result2" | grep -oP '"currentCountry"\s*:\s*"?\K[^",}]+' | head -n1)
+
+    # 过滤掉 "null" 值
+    [ "$region1" = "null" ] && region1=""
+    [ "$region2" = "null" ] && region2=""
 
     # 优先使用检测到的地区，如果没有则使用IP地区
     local region="${region1:-${region2:-${COUNTRY_CODE}}}"
@@ -611,7 +629,7 @@ check_netflix() {
     # 判断逻辑：
     # 1. 如果自制剧和授权内容都能访问 -> 完全解锁
     # 2. 如果只有自制剧能访问 -> 仅自制剧
-    # 3. 如果都无法访问 -> IP被封禁或不支持
+    # 3. 如果都无法访问 -> IP被封禁或屏蔽
 
     if [ -z "$error1" ] && [ -z "$error2" ]; then
         # 都可以访问，完全解锁
@@ -621,38 +639,138 @@ check_netflix() {
         format_result "Netflix" "partial" "$region" "仅自制剧"
     else
         # 都无法访问或出错
-        format_result "Netflix" "failed" "N/A" "不支持"
+        format_result "Netflix" "failed" "N/A" "屏蔽"
     fi
 }
 
 # 检测 Disney+
 check_disney() {
-    local unlock_type=$(check_dns_unlock "disneyplus.com")
-    local status_code=$(curl -s -o /dev/null -w "%{http_code}" \
-        --max-time $TIMEOUT \
+    # API 检测（完全参考 IPQuality 实现）
+    local PreAssertion=$(curl -s --max-time $TIMEOUT \
+        -X POST \
+        -H "authorization: Bearer ZGlzbmV5JmJyb3dzZXImMS4wLjA.Cu56AgSfBTDag5NiRA81oLHkDZfu5L3CKadnefEAY84" \
+        -H "content-type: application/json; charset=UTF-8" \
         -A "$USER_AGENT" \
-        -L \
-        "https://www.disneyplus.com/" 2>/dev/null)
+        --data '{"deviceFamily":"browser","applicationRuntime":"chrome","deviceProfile":"windows","attributes":{}}' \
+        "https://disney.api.edge.bamgrid.com/devices" 2>/dev/null)
 
-    if [ "$status_code" = "200" ]; then
-        format_result "Disney+" "success" "$COUNTRY_CODE" "正常访问"
-    elif [ "$status_code" = "403" ]; then
-        format_result "Disney+" "failed" "N/A" "不支持"
+    # 提取 assertion
+    local assertion=$(echo "$PreAssertion" | grep -oP '"assertion"\s*:\s*"\K[^"]+' | head -n1)
+
+    if [ -z "$assertion" ]; then
+        format_result "Disney+" "error" "N/A" "网络错误"
+        return
+    fi
+
+    # Token Exchange - 使用 URL encoded 格式（关键修复！）
+    local TokenContent=$(curl -s --max-time $TIMEOUT \
+        -X POST \
+        -H "authorization: Bearer ZGlzbmV5JmJyb3dzZXImMS4wLjA.Cu56AgSfBTDag5NiRA81oLHkDZfu5L3CKadnefEAY84" \
+        --data-urlencode "grant_type=urn:ietf:params:oauth:grant-type:token-exchange" \
+        --data-urlencode "latitude=0" \
+        --data-urlencode "longitude=0" \
+        --data-urlencode "platform=browser" \
+        --data-urlencode "subject_token=$assertion" \
+        --data-urlencode "subject_token_type=urn:bamtech:params:oauth:token-type:device" \
+        -A "$USER_AGENT" \
+        "https://disney.api.edge.bamgrid.com/token" 2>/dev/null)
+
+    # 检查是否被地理位置屏蔽
+    local isBanned=$(echo "$TokenContent" | grep -oP '"error_description"\s*:\s*"forbidden-location"')
+    local is403=$(echo "$TokenContent" | grep '403 ERROR')
+
+    if [ -n "$isBanned" ] || [ -n "$is403" ]; then
+        format_result "Disney+" "failed" "N/A" "屏蔽"
+        return
+    fi
+
+    # 提取 refresh_token
+    local refreshToken=$(echo "$TokenContent" | grep -oP '"refresh_token"\s*:\s*"\K[^"]+' | head -n1)
+
+    if [ -z "$refreshToken" ]; then
+        format_result "Disney+" "error" "N/A" "检测失败"
+        return
+    fi
+
+    # GraphQL 查询地区信息
+    local tmpresult=$(curl -s --max-time $TIMEOUT \
+        -X POST \
+        -H "authorization: Bearer ZGlzbmV5JmJyb3dzZXImMS4wLjA.Cu56AgSfBTDag5NiRA81oLHkDZfu5L3CKadnefEAY84" \
+        -H "content-type: application/json" \
+        -A "$USER_AGENT" \
+        --data '{"query":"mutation refreshToken($input: RefreshTokenInput!) {\n            refreshToken(refreshToken: $input) {\n                activeSession {\n                    sessionId\n                }\n            }\n        }","variables":{"input":{"refreshToken":"'"$refreshToken"'"}}}' \
+        "https://disney.api.edge.bamgrid.com/graph/v1/device/graphql" 2>/dev/null)
+
+    # 检查是否 unavailable
+    local previewcheck=$(curl -s -o /dev/null -L --max-time $TIMEOUT -w '%{url_effective}\n' "https://disneyplus.com" 2>/dev/null)
+    local isUnavailable=$(echo "$previewcheck" | grep 'unavailable')
+
+    # 提取地区和支持状态（从 extensions.sdk.session 中）
+    local region=$(echo "$tmpresult" | grep -oP '"location"[^}]*"countryCode"\s*:\s*"\K[^"]+' | head -n1)
+    local inSupportedLocation=$(echo "$tmpresult" | grep -oP '"inSupportedLocation"\s*:\s*(true|false)' | grep -oP '(true|false)' | head -n1)
+
+    # 判断逻辑（完全按照 IPQuality）
+    if [ "$region" = "JP" ]; then
+        format_result "Disney+" "success" "JP" "完全解锁"
+        return
+    elif [ -n "$region" ] && [ "$inSupportedLocation" = "false" ] && [ -z "$isUnavailable" ]; then
+        format_result "Disney+" "failed" "$region" "即将上线"
+        return
+    elif [ -n "$region" ] && [ -n "$isUnavailable" ]; then
+        format_result "Disney+" "failed" "N/A" "屏蔽"
+        return
+    elif [ -n "$region" ] && [ "$inSupportedLocation" = "true" ]; then
+        format_result "Disney+" "success" "$region" "完全解锁"
+        return
+    elif [ -z "$region" ]; then
+        format_result "Disney+" "failed" "N/A" "屏蔽"
+        return
     else
         format_result "Disney+" "error" "N/A" "检测失败"
+        return
     fi
 }
 
 # 检测 YouTube Premium
 check_youtube() {
-    local unlock_type=$(check_dns_unlock "youtube.com")
-    local status_code=$(curl -s -o /dev/null -w "%{http_code}" \
-        --max-time $TIMEOUT \
+    local response=$(curl -s --max-time $TIMEOUT \
+        -w "\n%{http_code}" \
         -A "$USER_AGENT" \
+        -L \
         "https://www.youtube.com/premium" 2>/dev/null)
 
-    if [ "$status_code" = "200" ]; then
-        format_result "YouTube Premium" "success" "$COUNTRY_CODE" "正常访问"
+    local status_code=$(echo "$response" | tail -n 1)
+    local content=$(echo "$response" | head -n -1)
+
+    if [ -z "$status_code" ]; then
+        format_result "YouTube Premium" "error" "N/A" "网络错误"
+        return
+    fi
+
+    # 检查是否被屏蔽
+    if [ "$status_code" = "403" ]; then
+        format_result "YouTube Premium" "failed" "N/A" "屏蔽"
+        return
+    fi
+
+    # 转换为小写
+    local content_lower=$(echo "$content" | tr '[:upper:]' '[:lower:]')
+
+    # 检查地区限制（明确的不可用信息）
+    if echo "$content_lower" | grep -q "not available in your country\|not available in your region\|unavailable in your"; then
+        format_result "YouTube Premium" "failed" "N/A" "屏蔽"
+        return
+    fi
+
+    # 检查是否成功访问
+    if [ "$status_code" = "200" ] || [ "$status_code" = "302" ] || [ "$status_code" = "301" ]; then
+        # 如果状态码正常且没有明确的错误信息，则认为可用
+        # 检查是否包含 YouTube 相关内容（更宽松的检查）
+        if echo "$content_lower" | grep -q "youtube\|premium\|subscribe" || [ ${#content} -gt 1000 ]; then
+            format_result "YouTube Premium" "success" "$COUNTRY_CODE" "完全解锁"
+        else
+            format_result "YouTube Premium" "error" "N/A" "检测失败"
+        fi
     else
         format_result "YouTube Premium" "error" "N/A" "检测失败"
     fi
@@ -668,7 +786,7 @@ check_chatgpt() {
 
     # Step 0: Check geolocation first (most reliable)
     if echo "$unsupported_regions" | grep -qw "$COUNTRY_CODE"; then
-        format_result "ChatGPT" "failed" "N/A" "该地区不支持"
+        format_result "ChatGPT" "failed" "N/A" "该地区屏蔽"
         return
     fi
 
@@ -718,18 +836,15 @@ check_chatgpt() {
 
     # Step 3: Intelligent decision (Priority: region restriction > API success > Cloudflare)
     if [ "$api_result" = "region_restricted" ]; then
-        format_result "ChatGPT" "failed" "N/A" "该地区不支持"
+        format_result "ChatGPT" "failed" "N/A" "该地区屏蔽"
     elif [ "$api_result" = "success" ]; then
-        # API成功表示服务可用,即使Web端有Cloudflare验证
-        if [ "$has_cloudflare" = "true" ]; then
-            format_result "ChatGPT" "success" "$COUNTRY_CODE" "正常访问${YELLOW}(需CF验证)${GREEN}"
-        else
-            format_result "ChatGPT" "success" "$COUNTRY_CODE" "正常访问"
-        fi
+        # API成功表示服务可用
+        # 脚本检测到的CF验证不代表浏览器也会遇到（CF能区分脚本和真实浏览器）
+        format_result "ChatGPT" "success" "$COUNTRY_CODE" "完全解锁"
     elif [ "$has_cloudflare" = "true" ]; then
         # 只有当API无法确认时,Cloudflare才可能是问题
         # 提示用户:脚本遇到Cloudflare,但浏览器可能可以访问
-        format_result "ChatGPT" "partial" "$COUNTRY_CODE" "脚本受限(浏览器可用)"
+        format_result "ChatGPT" "partial" "$COUNTRY_CODE" "推测可用(人工验证)"
     elif [ "$api_result" = "access_denied" ]; then
         format_result "ChatGPT" "failed" "N/A" "访问被拒"
     else
@@ -747,7 +862,7 @@ check_claude() {
 
     # Step 0: Check geolocation first (most reliable)
     if echo "$unsupported_regions" | grep -qw "$COUNTRY_CODE"; then
-        format_result "Claude" "failed" "N/A" "该地区不支持"
+        format_result "Claude" "failed" "N/A" "该地区屏蔽"
         return
     fi
 
@@ -755,10 +870,12 @@ check_claude() {
     local web_result=""
     local has_cloudflare=false
 
-    # Step 1: Check API endpoint
+    # Step 1: Check API endpoint (must use POST method)
     local api_response=$(curl -s --max-time $TIMEOUT \
+        -X POST \
         -H "Content-Type: application/json" \
         -H "anthropic-version: 2023-06-01" \
+        -H "x-api-key: invalid" \
         -w "\n%{http_code}" \
         "https://api.anthropic.com/v1/messages" 2>/dev/null)
 
@@ -801,18 +918,15 @@ check_claude() {
 
     # Step 3: Intelligent decision (Priority: region restriction > API success > Cloudflare)
     if [ "$api_result" = "region_restricted" ] || [ "$web_result" = "region_restricted" ]; then
-        format_result "Claude" "failed" "N/A" "该地区不支持"
+        format_result "Claude" "failed" "N/A" "该地区屏蔽"
     elif [ "$api_result" = "success" ]; then
-        # API成功表示服务可用,即使Web端有Cloudflare验证
-        if [ "$has_cloudflare" = "true" ]; then
-            format_result "Claude" "success" "$COUNTRY_CODE" "正常访问${YELLOW}(需CF验证)${GREEN}"
-        else
-            format_result "Claude" "success" "$COUNTRY_CODE" "正常访问"
-        fi
+        # API成功表示服务可用
+        # 脚本检测到的CF验证不代表浏览器也会遇到（CF能区分脚本和真实浏览器）
+        format_result "Claude" "success" "$COUNTRY_CODE" "完全解锁"
     elif [ "$has_cloudflare" = "true" ]; then
         # 只有当API无法确认时,Cloudflare才可能是问题
         # 提示用户:脚本遇到Cloudflare,但浏览器可能可以访问
-        format_result "Claude" "partial" "$COUNTRY_CODE" "脚本受限(浏览器可用)"
+        format_result "Claude" "partial" "$COUNTRY_CODE" "推测可用(人工验证)"
     elif [ "$api_result" = "access_denied" ]; then
         format_result "Claude" "failed" "N/A" "访问被拒"
     else
@@ -822,17 +936,65 @@ check_claude() {
 
 # 检测 TikTok
 check_tiktok() {
-    local unlock_type=$(check_dns_unlock "tiktok.com")
-    local status_code=$(curl -s -o /dev/null -w "%{http_code}" \
-        --max-time $TIMEOUT \
+    # 参考 IPQuality 项目的实现
+    # 第一次请求：尝试获取内容
+    local response=$(curl -s --max-time $TIMEOUT \
         -A "$USER_AGENT" \
         -L \
         "https://www.tiktok.com/" 2>/dev/null)
 
-    if [ "$status_code" = "200" ]; then
-        format_result "TikTok" "success" "$COUNTRY_CODE" "正常访问"
-    elif [ "$status_code" = "403" ] || [ "$status_code" = "451" ]; then
+    # 检查响应是否为空
+    if [ -z "$response" ]; then
+        format_result "TikTok" "error" "N/A" "网络错误"
+        return
+    fi
+
+    # 尝试从响应中提取 region 字段
+    local region=$(echo "$response" | grep -oP '"region"\s*:\s*"\K[^"]+' | head -n1)
+
+    # 如果第一次没有提取到，尝试使用 gzip 压缩请求
+    if [ -z "$region" ]; then
+        response=$(curl -s --max-time $TIMEOUT \
+            -A "$USER_AGENT" \
+            -H "Accept-Encoding: gzip" \
+            --compressed \
+            -L \
+            "https://www.tiktok.com/" 2>/dev/null)
+
+        region=$(echo "$response" | grep -oP '"region"\s*:\s*"\K[^"]+' | head -n1)
+    fi
+
+    # 转换为小写用于检查错误信息
+    local content_lower=$(echo "$response" | tr '[:upper:]' '[:lower:]')
+
+    # 检查是否是反爬虫机制（Access Denied）
+    if echo "$content_lower" | grep -q "access denied"; then
+        # 检查 IP 所在国家/地区是否支持 TikTok
+        # TikTok 在大部分国家可用，主要禁止地区：中国大陆、印度
+        if [ "$COUNTRY_CODE" = "CN" ] || [ "$COUNTRY_CODE" = "IN" ]; then
+            format_result "TikTok" "failed" "N/A" "区域受限"
+        else
+            # 其他地区遇到 Access Denied，是脚本限制而非地区限制
+            format_result "TikTok" "partial" "$COUNTRY_CODE" "推测可用(人工验证)"
+        fi
+        return
+    fi
+
+    # 检查明确的地区限制信息
+    if echo "$content_lower" | grep -q "not available in your region\|not available in your country\|region unavailable"; then
         format_result "TikTok" "failed" "N/A" "区域受限"
+        return
+    fi
+
+    # 如果成功提取到 region，说明可以访问
+    if [ -n "$region" ] && [ "$region" != "null" ]; then
+        format_result "TikTok" "success" "$region" "完全解锁"
+        return
+    fi
+
+    # 检查是否包含 TikTok 内容作为备选判断
+    if echo "$content_lower" | grep -q "tiktok" || [ ${#response} -gt 1000 ]; then
+        format_result "TikTok" "success" "$COUNTRY_CODE" "完全解锁"
     else
         format_result "TikTok" "error" "N/A" "检测失败"
     fi
@@ -861,15 +1023,15 @@ check_imgur() {
     fi
 
     if [ "$status_code" = "200" ]; then
-        format_result "Imgur" "success" "$region" "正常访问"
+        format_result "Imgur" "success" "$region" "完全解锁"
     elif [ "$status_code" = "403" ] || [ "$status_code" = "451" ]; then
         format_result "Imgur" "failed" "N/A" "区域受限"
     elif [ "$status_code" = "301" ] || [ "$status_code" = "302" ]; then
         # 重定向通常表示可访问
-        format_result "Imgur" "success" "$region" "正常访问"
+        format_result "Imgur" "success" "$region" "完全解锁"
     elif [ "$status_code" = "429" ]; then
         # 速率限制，通常表示服务可访问
-        format_result "Imgur" "success" "$region" "正常访问 (速率限制)"
+        format_result "Imgur" "success" "$region" "完全解锁 (速率限制)"
     elif [ -z "$status_code" ] || [ "$status_code" = "000" ]; then
         format_result "Imgur" "error" "N/A" "连接超时"
     else
@@ -897,7 +1059,7 @@ check_reddit() {
         format_result "Reddit" "partial" "$COUNTRY_CODE" "受限访问 (需登录)"
     elif [ "$status_code" = "200" ]; then
         # 200 且内容没有拦截关键词，才是真正可访问
-        format_result "Reddit" "success" "$COUNTRY_CODE" "正常访问"
+        format_result "Reddit" "success" "$COUNTRY_CODE" "完全解锁"
     else
         format_result "Reddit" "error" "N/A" "检测失败(${status_code})"
     fi
@@ -913,7 +1075,7 @@ check_gemini() {
 
     # Step 0: Check geolocation first (most reliable for Gemini)
     if echo "$unsupported_regions" | grep -qw "$COUNTRY_CODE"; then
-        format_result "Gemini" "failed" "N/A" "该地区不支持"
+        format_result "Gemini" "failed" "N/A" "该地区屏蔽"
         return
     fi
 
@@ -1003,9 +1165,9 @@ check_gemini() {
 
     # Step 5: Intelligent decision (Priority: region restriction > success > access denied)
     if [ "$api_result" = "region_restricted" ] || [ "$web_result" = "region_restricted" ] || [ "$static_result" = "region_restricted" ] || [ "$studio_result" = "region_restricted" ]; then
-        format_result "Gemini" "failed" "N/A" "该地区不支持"
+        format_result "Gemini" "failed" "N/A" "该地区屏蔽"
     elif [ "$api_result" = "success" ] || [ "$web_result" = "success" ] || [ "$static_result" = "success" ] || [ "$studio_result" = "success" ]; then
-        format_result "Gemini" "success" "$COUNTRY_CODE" "正常访问"
+        format_result "Gemini" "success" "$COUNTRY_CODE" "完全解锁"
     elif [ "$api_result" = "access_denied" ]; then
         format_result "Gemini" "failed" "N/A" "访问被拒"
     else
@@ -1015,18 +1177,56 @@ check_gemini() {
 
 # 检测 Spotify
 check_spotify() {
-    local unlock_type=$(check_dns_unlock "open.spotify.com")
-    local status_code=$(curl -s -o /dev/null -w "%{http_code}" \
-        --max-time $TIMEOUT \
+    # 参考 IPQuality 项目的实现，使用 Spotify 注册 API
+    local response=$(curl -s --max-time $TIMEOUT \
+        -X POST \
         -A "$USER_AGENT" \
-        -L \
-        "https://open.spotify.com/" 2>/dev/null)
+        -H "Accept-Language: en" \
+        -H "Content-Type: application/x-www-form-urlencoded" \
+        -H "Origin: https://www.spotify.com" \
+        -H "Referer: https://www.spotify.com/" \
+        --data "birth_day=11&birth_month=11&birth_year=2000&collect_personal_info=undefined&creation_flow=&creation_point=https%3A%2F%2Fwww.spotify.com%2F&displayname=Test%20User&gender=male&iagree=1&key=a1e486e2729f46d6bb368d6b2bcda326&platform=www&referrer=&send-email=0&thirdpartyemail=0&identifier_token=AgE6YTvEzkReHNfJpO114514" \
+        "https://spclient.wg.spotify.com/signup/public/v1/account" 2>/dev/null)
 
-    if [ "$status_code" = "200" ]; then
-        format_result "Spotify" "success" "$COUNTRY_CODE" "正常访问"
-    elif [ "$status_code" = "403" ]; then
-        format_result "Spotify" "failed" "N/A" "区域受限"
+    # 检查响应是否为空
+    if [ -z "$response" ]; then
+        format_result "Spotify" "error" "N/A" "网络错误"
+        return
+    fi
+
+    # 检查是否遇到 Access denied（反爬虫）
+    if echo "$response" | grep -qi "access denied"; then
+        # Spotify 主要不可用地区列表（中国）
+        # 由于遇到反爬虫，无法准确检测，对所有地区都显示推测可用
+        local detected_country="${COUNTRY_CODE:-Unknown}"
+        format_result "Spotify" "partial" "$detected_country" "推测可用(人工验证)"
+        return
+    fi
+
+    # 检查是否为有效的 JSON
+    if ! echo "$response" | grep -q "{"; then
+        format_result "Spotify" "error" "N/A" "检测失败"
+        return
+    fi
+
+    # 提取关键字段
+    local region=$(echo "$response" | grep -oP '"country"\s*:\s*"\K[^"]+' | head -n1)
+    local is_launched=$(echo "$response" | grep -oP '"is_country_launched"\s*:\s*(true|false)' | grep -oP '(true|false)' | head -n1)
+    local status_code=$(echo "$response" | grep -oP '"status"\s*:\s*\K[0-9]+' | head -n1)
+
+    # 判断解锁状态
+    if [ "$status_code" = "311" ] && [ "$is_launched" = "true" ]; then
+        # 完全解锁
+        if [ -n "$region" ] && [ "$region" != "null" ]; then
+            format_result "Spotify" "success" "$region" "完全解锁"
+        else
+            format_result "Spotify" "success" "$COUNTRY_CODE" "完全解锁"
+        fi
+    elif [ "$status_code" = "320" ] || [ "$status_code" = "120" ]; then
+        # IP 被屏蔽（参考 IPQuality 项目）
+        format_result "Spotify" "failed" "N/A" "屏蔽"
     else
+        # 其他情况
         format_result "Spotify" "error" "N/A" "检测失败"
     fi
 }
@@ -1048,7 +1248,7 @@ check_scholar() {
     if echo "$content" | grep -qi "automated\|unusual traffic\|can't process your request\|We're sorry"; then
         format_result "Google Scholar" "partial" "$COUNTRY_CODE" "受限访问 (机器人)"
     elif [ "$status_code" = "200" ]; then
-        format_result "Google Scholar" "success" "$COUNTRY_CODE" "完全可用"
+        format_result "Google Scholar" "success" "$COUNTRY_CODE" "完全解锁"
     elif [ "$status_code" = "403" ]; then
         format_result "Google Scholar" "failed" "N/A" "区域受限"
     elif [ "$status_code" = "429" ]; then

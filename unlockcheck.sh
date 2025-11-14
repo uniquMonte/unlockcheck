@@ -736,33 +736,33 @@ get_display_width() {
         return
     fi
 
-    # 计算字节数
-    local byte_count=${#clean_text}
-
-    # 计算字符数（UTF-8 aware）
-    local char_count=$(echo -n "$clean_text" | wc -m 2>/dev/null)
-
-    # 如果 wc -m 失败，fallback 到字节数
-    if [ -z "$char_count" ] || [ "$char_count" -eq 0 ]; then
-        echo "$byte_count"
-        return
+    # 使用 Python（如果可用）- 最准确的方法
+    if command -v python3 &>/dev/null; then
+        local width=$(python3 <<EOF 2>/dev/null
+import unicodedata
+text = """$clean_text"""
+width = sum(2 if unicodedata.east_asian_width(c) in 'FW' else 1 for c in text)
+print(width)
+EOF
+)
+        if [ -n "$width" ] && [ "$width" -gt 0 ]; then
+            echo "$width"
+            return
+        fi
     fi
 
-    # 数学计算显示宽度
-    # 对于 UTF-8：
-    #   - ASCII 字符：1 字节，显示宽度 1
-    #   - CJK 字符：通常 3 字节，显示宽度 2
-    # 公式：width = char_count + (byte_count - char_count) / 2
-    #
-    # 推导：
-    #   设 a = ASCII 字符数，w = 宽字符数
-    #   byte_count ≈ a + w * 3 (假设宽字符平均 3 字节)
-    #   char_count = a + w
-    #   => w = (byte_count - char_count) / 2
-    #   => width = a + w * 2 = char_count + w
-    local width=$(( char_count + (byte_count - char_count) / 2 ))
+    # Fallback 1: 使用 wc -m 和数学公式
+    local byte_count=$(echo -n "$clean_text" | LC_ALL=C wc -c 2>/dev/null | tr -d ' ')
+    local char_count=$(echo -n "$clean_text" | wc -m 2>/dev/null | tr -d ' ')
 
-    echo "$width"
+    if [ -n "$char_count" ] && [ "$char_count" -gt 0 ] && [ -n "$byte_count" ]; then
+        # 公式：width = char_count + (byte_count - char_count) / 2
+        local width=$(( char_count + (byte_count - char_count) / 2 ))
+        echo "$width"
+    else
+        # Fallback 2: 直接使用字节数
+        echo "${#clean_text}"
+    fi
 }
 
 # Pad text to target display width

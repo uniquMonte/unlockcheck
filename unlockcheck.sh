@@ -997,6 +997,12 @@ check_disney() {
 
 # 检测 YouTube Premium
 check_youtube() {
+    # DNS解锁检测
+    local checkunlockurl="youtube.com"
+    local result1=$(Check_DNS_1 $checkunlockurl)
+    local result3=$(Check_DNS_3 $checkunlockurl)
+    local resultunlocktype=$(Get_Unlock_Type $result1 $result3)
+
     local response=$(curl -s $(get_ip_flag) --max-time $TIMEOUT \
         -w "\n%{http_code}" \
         -A "$USER_AGENT" \
@@ -1031,7 +1037,7 @@ check_youtube() {
         # 如果状态码正常且没有明确的错误信息，则认为可用
         # 检查是否包含 YouTube 相关内容（更宽松的检查）
         if echo "$content_lower" | grep -q "youtube\|premium\|subscribe" || [ ${#content} -gt 1000 ]; then
-            format_result "$(get_service_name_with_ip "YouTube Premium")" "success" "$COUNTRY_CODE" "完全解锁"
+            format_result "$(get_service_name_with_ip "YouTube Premium")" "success" "$COUNTRY_CODE" "完全解锁" "$resultunlocktype"
         else
             format_result "$(get_service_name_with_ip "YouTube Premium")" "error" "N/A" "检测失败"
         fi
@@ -1042,6 +1048,11 @@ check_youtube() {
 
 # 检测 ChatGPT - Smart dual detection
 check_chatgpt() {
+    # DNS解锁检测
+    local checkunlockurl="openai.com"
+    local result1=$(Check_DNS_1 $checkunlockurl)
+    local result3=$(Check_DNS_3 $checkunlockurl)
+    local resultunlocktype=$(Get_Unlock_Type $result1 $result3)
 
     # ChatGPT/OpenAI unsupported regions (based on official documentation)
     # https://platform.openai.com/docs/supported-countries
@@ -1103,11 +1114,11 @@ check_chatgpt() {
     elif [ "$api_result" = "success" ]; then
         # API成功表示服务可用
         # 脚本检测到的CF验证不代表浏览器也会遇到（CF能区分脚本和真实浏览器）
-        format_result "$(get_service_name_with_ip "ChatGPT")" "success" "$COUNTRY_CODE" "完全解锁"
+        format_result "$(get_service_name_with_ip "ChatGPT")" "success" "$COUNTRY_CODE" "完全解锁" "$resultunlocktype"
     elif [ "$has_cloudflare" = "true" ]; then
         # 只有当API无法确认时,Cloudflare才可能是问题
         # 提示用户:脚本遇到Cloudflare,但浏览器可能可以访问
-        format_result "$(get_service_name_with_ip "ChatGPT")" "partial" "$COUNTRY_CODE" "推测可用(人工验证)"
+        format_result "$(get_service_name_with_ip "ChatGPT")" "partial" "$COUNTRY_CODE" "推测可用(人工验证)" "$resultunlocktype"
     elif [ "$api_result" = "access_denied" ]; then
         format_result "$(get_service_name_with_ip "ChatGPT")" "failed" "N/A" "访问被拒"
     else
@@ -1117,6 +1128,11 @@ check_chatgpt() {
 
 # 检测 Claude - Smart dual detection
 check_claude() {
+    # DNS解锁检测
+    local checkunlockurl="anthropic.com"
+    local result1=$(Check_DNS_1 $checkunlockurl)
+    local result3=$(Check_DNS_3 $checkunlockurl)
+    local resultunlocktype=$(Get_Unlock_Type $result1 $result3)
 
     # Claude unsupported regions (based on official documentation)
     # https://www.anthropic.com/supported-countries
@@ -1184,11 +1200,11 @@ check_claude() {
     elif [ "$api_result" = "success" ]; then
         # API成功表示服务可用
         # 脚本检测到的CF验证不代表浏览器也会遇到（CF能区分脚本和真实浏览器）
-        format_result "$(get_service_name_with_ip "Claude")" "success" "$COUNTRY_CODE" "完全解锁"
+        format_result "$(get_service_name_with_ip "Claude")" "success" "$COUNTRY_CODE" "完全解锁" "$resultunlocktype"
     elif [ "$has_cloudflare" = "true" ]; then
         # 只有当API无法确认时,Cloudflare才可能是问题
         # 提示用户:脚本遇到Cloudflare,但浏览器可能可以访问
-        format_result "$(get_service_name_with_ip "Claude")" "partial" "$COUNTRY_CODE" "推测可用(人工验证)"
+        format_result "$(get_service_name_with_ip "Claude")" "partial" "$COUNTRY_CODE" "推测可用(人工验证)" "$resultunlocktype"
     elif [ "$api_result" = "access_denied" ]; then
         format_result "$(get_service_name_with_ip "Claude")" "failed" "N/A" "访问被拒"
     else
@@ -1198,6 +1214,12 @@ check_claude() {
 
 # 检测 TikTok
 check_tiktok() {
+    # DNS解锁检测
+    local checkunlockurl="tiktok.com"
+    local result1=$(Check_DNS_1 $checkunlockurl)
+    local result3=$(Check_DNS_3 $checkunlockurl)
+    local resultunlocktype=$(Get_Unlock_Type $result1 $result3)
+
     # 参考 IPQuality 项目的实现
     # 第一次请求：尝试获取内容
     local response=$(curl -s $(get_ip_flag) --max-time $TIMEOUT \
@@ -1237,7 +1259,7 @@ check_tiktok() {
             format_result "$(get_service_name_with_ip "TikTok")" "failed" "N/A" "区域受限"
         else
             # 其他地区遇到 Access Denied，是脚本限制而非地区限制
-            format_result "$(get_service_name_with_ip "TikTok")" "partial" "$COUNTRY_CODE" "推测可用(人工验证)"
+            format_result "$(get_service_name_with_ip "TikTok")" "partial" "$COUNTRY_CODE" "推测可用(人工验证)" "$resultunlocktype"
         fi
         return
     fi
@@ -1266,13 +1288,13 @@ check_tiktok() {
 
     # 如果成功提取到 region，说明可以访问
     if [ -n "$normalized_region" ] && [ "$normalized_region" != "null" ]; then
-        format_result "$(get_service_name_with_ip "TikTok")" "success" "$normalized_region" "完全解锁"
+        format_result "$(get_service_name_with_ip "TikTok")" "success" "$normalized_region" "完全解锁" "$resultunlocktype"
         return
     fi
 
     # 检查是否包含 TikTok 内容作为备选判断
     if echo "$content_lower" | grep -q "tiktok" || [ ${#response} -gt 1000 ]; then
-        format_result "$(get_service_name_with_ip "TikTok")" "success" "$COUNTRY_CODE" "完全解锁"
+        format_result "$(get_service_name_with_ip "TikTok")" "success" "$COUNTRY_CODE" "完全解锁" "$resultunlocktype"
     else
         format_result "$(get_service_name_with_ip "TikTok")" "error" "N/A" "检测失败"
     fi
@@ -1280,6 +1302,12 @@ check_tiktok() {
 
 # 检测 Imgur
 check_imgur() {
+    # DNS解锁检测
+    local checkunlockurl="imgur.com"
+    local result1=$(Check_DNS_1 $checkunlockurl)
+    local result3=$(Check_DNS_3 $checkunlockurl)
+    local resultunlocktype=$(Get_Unlock_Type $result1 $result3)
+
     # 检测 Imgur，增加更宽松的超时和重试
     local response=$(curl -s $(get_ip_flag) --max-time $TIMEOUT \
         -A "$USER_AGENT" \
@@ -1300,24 +1328,30 @@ check_imgur() {
     fi
 
     if [ "$status_code" = "200" ]; then
-        format_result "$(get_service_name_with_ip "Imgur")" "success" "$region" "完全解锁"
+        format_result "$(get_service_name_with_ip "Imgur")" "success" "$region" "完全解锁" "$resultunlocktype"
     elif [ "$status_code" = "403" ] || [ "$status_code" = "451" ]; then
         format_result "$(get_service_name_with_ip "Imgur")" "failed" "N/A" "区域受限"
     elif [ "$status_code" = "301" ] || [ "$status_code" = "302" ]; then
         # 重定向通常表示可访问
-        format_result "$(get_service_name_with_ip "Imgur")" "success" "$region" "完全解锁"
+        format_result "$(get_service_name_with_ip "Imgur")" "success" "$region" "完全解锁" "$resultunlocktype"
     elif [ "$status_code" = "429" ]; then
         # 速率限制，通常表示服务可访问
-        format_result "$(get_service_name_with_ip "Imgur")" "success" "$region" "完全解锁 (速率限制)"
+        format_result "$(get_service_name_with_ip "Imgur")" "success" "$region" "完全解锁 (速率限制)" "$resultunlocktype"
     elif [ -z "$status_code" ] || [ "$status_code" = "000" ]; then
-        format_result "$(get_service_name_with_ip "Imgur")" "error" "N/A" "连接超时"
+        format_result "$(get_service_name_with_ip "Imgur")" "error" "N/A" "网络错误"
     else
-        format_result "$(get_service_name_with_ip "Imgur")" "error" "N/A" "检测失败(${status_code})"
+        format_result "$(get_service_name_with_ip "Imgur")" "error" "N/A" "检测失败"
     fi
 }
 
 # 检测 Reddit
 check_reddit() {
+    # DNS解锁检测
+    local checkunlockurl="reddit.com"
+    local result1=$(Check_DNS_1 $checkunlockurl)
+    local result3=$(Check_DNS_3 $checkunlockurl)
+    local resultunlocktype=$(Get_Unlock_Type $result1 $result3)
+
     local response=$(curl -s $(get_ip_flag) --max-time $TIMEOUT \
         -A "$USER_AGENT" \
         -L \
@@ -1329,20 +1363,27 @@ check_reddit() {
 
     # 检查是否被安全系统拦截（优先检查内容）
     if echo "$content" | grep -qi "blocked by network security\|blocked by mistake\|access denied"; then
-        format_result "$(get_service_name_with_ip "Reddit")" "partial" "$COUNTRY_CODE" "受限访问 (需登录)"
+        format_result "$(get_service_name_with_ip "Reddit")" "partial" "$COUNTRY_CODE" "受限访问 (需登录)" "$resultunlocktype"
     elif [ "$status_code" = "403" ] || [ "$status_code" = "451" ]; then
         # 403/451 也可能是安全拦截
-        format_result "$(get_service_name_with_ip "Reddit")" "partial" "$COUNTRY_CODE" "受限访问 (需登录)"
+        format_result "$(get_service_name_with_ip "Reddit")" "partial" "$COUNTRY_CODE" "受限访问 (需登录)" "$resultunlocktype"
     elif [ "$status_code" = "200" ]; then
         # 200 且内容没有拦截关键词，才是真正可访问
-        format_result "$(get_service_name_with_ip "Reddit")" "success" "$COUNTRY_CODE" "完全解锁"
+        format_result "$(get_service_name_with_ip "Reddit")" "success" "$COUNTRY_CODE" "完全解锁" "$resultunlocktype"
+    elif [ -z "$status_code" ] || [ "$status_code" = "000" ]; then
+        format_result "$(get_service_name_with_ip "Reddit")" "error" "N/A" "网络错误"
     else
-        format_result "$(get_service_name_with_ip "Reddit")" "error" "N/A" "检测失败(${status_code})"
+        format_result "$(get_service_name_with_ip "Reddit")" "error" "N/A" "检测失败"
     fi
 }
 
 # 检测 Google Gemini - Smart dual detection
 check_gemini() {
+    # DNS解锁检测
+    local checkunlockurl="googleapis.com"
+    local result1=$(Check_DNS_1 $checkunlockurl)
+    local result3=$(Check_DNS_3 $checkunlockurl)
+    local resultunlocktype=$(Get_Unlock_Type $result1 $result3)
 
     # Gemini unsupported regions (based on official documentation)
     # https://ai.google.dev/gemini-api/docs/available-regions
@@ -1442,7 +1483,7 @@ check_gemini() {
     if [ "$api_result" = "region_restricted" ] || [ "$web_result" = "region_restricted" ] || [ "$static_result" = "region_restricted" ] || [ "$studio_result" = "region_restricted" ]; then
         format_result "$(get_service_name_with_ip "Gemini")" "failed" "N/A" "该地区屏蔽"
     elif [ "$api_result" = "success" ] || [ "$web_result" = "success" ] || [ "$static_result" = "success" ] || [ "$studio_result" = "success" ]; then
-        format_result "$(get_service_name_with_ip "Gemini")" "success" "$COUNTRY_CODE" "完全解锁"
+        format_result "$(get_service_name_with_ip "Gemini")" "success" "$COUNTRY_CODE" "完全解锁" "$resultunlocktype"
     elif [ "$api_result" = "access_denied" ]; then
         format_result "$(get_service_name_with_ip "Gemini")" "failed" "N/A" "访问被拒"
     else
@@ -1452,6 +1493,12 @@ check_gemini() {
 
 # 检测 Spotify
 check_spotify() {
+    # DNS解锁检测
+    local checkunlockurl="spotify.com"
+    local result1=$(Check_DNS_1 $checkunlockurl)
+    local result3=$(Check_DNS_3 $checkunlockurl)
+    local resultunlocktype=$(Get_Unlock_Type $result1 $result3)
+
     # 参考 IPQuality 项目的实现，使用 Spotify 注册 API
     local response=$(curl -s $(get_ip_flag) --max-time $TIMEOUT \
         -X POST \
@@ -1474,7 +1521,7 @@ check_spotify() {
         # Spotify 主要不可用地区列表（中国）
         # 由于遇到反爬虫，无法准确检测，对所有地区都显示推测可用
         local detected_country="${COUNTRY_CODE:-Unknown}"
-        format_result "$(get_service_name_with_ip "Spotify")" "partial" "$detected_country" "推测可用(人工验证)"
+        format_result "$(get_service_name_with_ip "Spotify")" "partial" "$detected_country" "推测可用(人工验证)" "$resultunlocktype"
         return
     fi
 
@@ -1493,9 +1540,9 @@ check_spotify() {
     if [ "$status_code" = "311" ] && [ "$is_launched" = "true" ]; then
         # 完全解锁
         if [ -n "$region" ] && [ "$region" != "null" ]; then
-            format_result "$(get_service_name_with_ip "Spotify")" "success" "$region" "完全解锁"
+            format_result "$(get_service_name_with_ip "Spotify")" "success" "$region" "完全解锁" "$resultunlocktype"
         else
-            format_result "$(get_service_name_with_ip "Spotify")" "success" "$COUNTRY_CODE" "完全解锁"
+            format_result "$(get_service_name_with_ip "Spotify")" "success" "$COUNTRY_CODE" "完全解锁" "$resultunlocktype"
         fi
     elif [ "$status_code" = "320" ] || [ "$status_code" = "120" ]; then
         # IP 被屏蔽（参考 IPQuality 项目）
@@ -1508,6 +1555,12 @@ check_spotify() {
 
 # 检测 Google Scholar
 check_scholar() {
+    # DNS解锁检测
+    local checkunlockurl="scholar.google.com"
+    local result1=$(Check_DNS_1 $checkunlockurl)
+    local result3=$(Check_DNS_3 $checkunlockurl)
+    local resultunlocktype=$(Get_Unlock_Type $result1 $result3)
+
     # 实际执行搜索请求来测试是否被限制
     local response=$(curl -s $(get_ip_flag) --max-time $TIMEOUT \
         -A "$USER_AGENT" \
@@ -1520,9 +1573,9 @@ check_scholar() {
 
     # 检查是否包含机器人流量警告（使用更宽松的匹配）
     if echo "$content" | grep -qi "automated\|unusual traffic\|can't process your request\|We're sorry"; then
-        format_result "$(get_service_name_with_ip "Google Scholar")" "partial" "$COUNTRY_CODE" "受限访问 (机器人)"
+        format_result "$(get_service_name_with_ip "Google Scholar")" "partial" "$COUNTRY_CODE" "受限访问 (机器人)" "$resultunlocktype"
     elif [ "$status_code" = "200" ]; then
-        format_result "$(get_service_name_with_ip "Google Scholar")" "success" "$COUNTRY_CODE" "完全解锁"
+        format_result "$(get_service_name_with_ip "Google Scholar")" "success" "$COUNTRY_CODE" "完全解锁" "$resultunlocktype"
     elif [ "$status_code" = "403" ]; then
         format_result "$(get_service_name_with_ip "Google Scholar")" "failed" "N/A" "区域受限"
     elif [ "$status_code" = "429" ]; then

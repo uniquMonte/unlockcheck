@@ -88,6 +88,32 @@ log_warning() {
     echo -e "${YELLOW}[!]${NC} $1"
 }
 
+# 隐藏IP地址后两段（保护隐私）
+mask_ip() {
+    local ip="$1"
+
+    # 如果IP为空，直接返回
+    if [ -z "$ip" ]; then
+        echo "N/A"
+        return
+    fi
+
+    # 检查是否为IPv4
+    if [[ $ip =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        # IPv4: 只显示前两段，后两段用 *.* 替代
+        local first_two=$(echo "$ip" | cut -d. -f1-2)
+        echo "${first_two}.*.*"
+    # 检查是否为IPv6
+    elif [[ $ip =~ : ]]; then
+        # IPv6: 只显示前两段，后面用 ::* 替代
+        local first_two=$(echo "$ip" | cut -d: -f1-2)
+        echo "${first_two}::*"
+    else
+        # 未知格式，部分隐藏
+        echo "${ip:0:8}***"
+    fi
+}
+
 # 检查依赖
 check_dependencies() {
     if ! command -v curl &> /dev/null; then
@@ -390,7 +416,7 @@ get_ip_info() {
         detect_ip_type
         echo -e "\n${YELLOW}🌍 当前 IP 信息${NC}"
         print_separator
-        echo -e "IP 地址: ${GREEN}${CURRENT_IP}${NC}"
+        echo -e "IP 地址: ${GREEN}$(mask_ip "$CURRENT_IP")${NC}"
         echo -e "IP 类型: ${YELLOW}${IP_TYPE}${NC}"
         echo ""
         return 0
@@ -588,7 +614,7 @@ guess_isp_country() {
 print_enhanced_ip_info() {
     echo -e "\n${YELLOW}🌍 当前 IP 信息${NC}"
     print_separator
-    echo -e "IP 地址: ${GREEN}${CURRENT_IP}${NC}"
+    echo -e "IP 地址: ${GREEN}$(mask_ip "$CURRENT_IP")${NC}"
 
     # 显示IP类型（带颜色和加粗）
     local type_color

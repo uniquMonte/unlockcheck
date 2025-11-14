@@ -8,17 +8,17 @@ One-click detection of streaming media and AI services unlock status for your cu
 
 **Dual-Stack Detection (Default):**
 ```bash
-bash <(curl -Ls https://cdn.jsdelivr.net/gh/uniquMonte/unlockcheck@main/unlockcheck.sh)
+bash <(curl -Ls cdn.jsdelivr.net/gh/uniquMonte/unlockcheck@main/unlockcheck.sh)
 ```
 
 **IPv4 Only:**
 ```bash
-bash <(curl -Ls https://cdn.jsdelivr.net/gh/uniquMonte/unlockcheck@main/unlockcheck.sh) -4
+bash <(curl -Ls cdn.jsdelivr.net/gh/uniquMonte/unlockcheck@main/unlockcheck.sh) -4
 ```
 
 **IPv6 Only:**
 ```bash
-bash <(curl -Ls https://cdn.jsdelivr.net/gh/uniquMonte/unlockcheck@main/unlockcheck.sh) -6
+bash <(curl -Ls cdn.jsdelivr.net/gh/uniquMonte/unlockcheck@main/unlockcheck.sh) -6
 ```
 
 ### 📝 Usage Notes

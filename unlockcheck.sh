@@ -316,6 +316,9 @@ Check_DNS_1() {
 }
 
 # DNS检测方法3：查询不存在的随机子域名，检测DNS劫持
+# 注意：此方法已禁用，因为会误判 CDN 泛域名解析（如 Fastly、Google Cloud）
+# CDN 的泛域名解析会让不存在的子域名也返回记录，这是正常的 CDN 特性，不是 DNS 劫持
+# 保留此函数仅作参考，实际检测只使用 Check_DNS_1（IP 类型检测）
 Check_DNS_3() {
     local domain="$1"
 
@@ -824,8 +827,7 @@ check_netflix() {
     # DNS解锁检测
     local checkunlockurl="netflix.com"
     local result1=$(Check_DNS_1 $checkunlockurl)
-    local result3=$(Check_DNS_3 $checkunlockurl)
-    local resultunlocktype=$(Get_Unlock_Type $result1 $result3)
+    local resultunlocktype=$(Get_Unlock_Type $result1)
 
     # 使用特定的Netflix标题页面进行检测（自制剧，全球可用）
     # 81280792 - The Queen's Gambit (自制剧)
@@ -898,8 +900,7 @@ check_disney() {
     # DNS解锁检测
     local checkunlockurl="disneyplus.com"
     local result1=$(Check_DNS_1 $checkunlockurl)
-    local result3=$(Check_DNS_3 $checkunlockurl)
-    local resultunlocktype=$(Get_Unlock_Type $result1 $result3)
+    local resultunlocktype=$(Get_Unlock_Type $result1)
 
     # API 检测（完全参考 IPQuality 实现）
     local PreAssertion=$(curl -s $(get_ip_flag) --max-time $TIMEOUT \
@@ -992,8 +993,7 @@ check_youtube() {
     # DNS解锁检测
     local checkunlockurl="youtube.com"
     local result1=$(Check_DNS_1 $checkunlockurl)
-    local result3=$(Check_DNS_3 $checkunlockurl)
-    local resultunlocktype=$(Get_Unlock_Type $result1 $result3)
+    local resultunlocktype=$(Get_Unlock_Type $result1)
 
     local response=$(curl -s $(get_ip_flag) --max-time $TIMEOUT \
         -w "\n%{http_code}" \
@@ -1043,8 +1043,7 @@ check_chatgpt() {
     # DNS解锁检测
     local checkunlockurl="openai.com"
     local result1=$(Check_DNS_1 $checkunlockurl)
-    local result3=$(Check_DNS_3 $checkunlockurl)
-    local resultunlocktype=$(Get_Unlock_Type $result1 $result3)
+    local resultunlocktype=$(Get_Unlock_Type $result1)
 
     # ChatGPT/OpenAI unsupported regions (based on official documentation)
     # https://platform.openai.com/docs/supported-countries
@@ -1123,8 +1122,7 @@ check_claude() {
     # DNS解锁检测
     local checkunlockurl="anthropic.com"
     local result1=$(Check_DNS_1 $checkunlockurl)
-    local result3=$(Check_DNS_3 $checkunlockurl)
-    local resultunlocktype=$(Get_Unlock_Type $result1 $result3)
+    local resultunlocktype=$(Get_Unlock_Type $result1)
 
     # Claude unsupported regions (based on official documentation)
     # https://www.anthropic.com/supported-countries
@@ -1209,8 +1207,7 @@ check_tiktok() {
     # DNS解锁检测
     local checkunlockurl="tiktok.com"
     local result1=$(Check_DNS_1 $checkunlockurl)
-    local result3=$(Check_DNS_3 $checkunlockurl)
-    local resultunlocktype=$(Get_Unlock_Type $result1 $result3)
+    local resultunlocktype=$(Get_Unlock_Type $result1)
 
     # 参考 IPQuality 项目的实现
     # 第一次请求：尝试获取内容
@@ -1297,8 +1294,7 @@ check_imgur() {
     # DNS解锁检测
     local checkunlockurl="imgur.com"
     local result1=$(Check_DNS_1 $checkunlockurl)
-    local result3=$(Check_DNS_3 $checkunlockurl)
-    local resultunlocktype=$(Get_Unlock_Type $result1 $result3)
+    local resultunlocktype=$(Get_Unlock_Type $result1)
 
     # 检测 Imgur，增加更宽松的超时和重试
     local response=$(curl -s $(get_ip_flag) --max-time $TIMEOUT \
@@ -1341,8 +1337,7 @@ check_reddit() {
     # DNS解锁检测
     local checkunlockurl="reddit.com"
     local result1=$(Check_DNS_1 $checkunlockurl)
-    local result3=$(Check_DNS_3 $checkunlockurl)
-    local resultunlocktype=$(Get_Unlock_Type $result1 $result3)
+    local resultunlocktype=$(Get_Unlock_Type $result1)
 
     local response=$(curl -s $(get_ip_flag) --max-time $TIMEOUT \
         -A "$USER_AGENT" \
@@ -1374,8 +1369,7 @@ check_gemini() {
     # DNS解锁检测
     local checkunlockurl="googleapis.com"
     local result1=$(Check_DNS_1 $checkunlockurl)
-    local result3=$(Check_DNS_3 $checkunlockurl)
-    local resultunlocktype=$(Get_Unlock_Type $result1 $result3)
+    local resultunlocktype=$(Get_Unlock_Type $result1)
 
     # Gemini unsupported regions (based on official documentation)
     # https://ai.google.dev/gemini-api/docs/available-regions
@@ -1488,8 +1482,7 @@ check_spotify() {
     # DNS解锁检测
     local checkunlockurl="spotify.com"
     local result1=$(Check_DNS_1 $checkunlockurl)
-    local result3=$(Check_DNS_3 $checkunlockurl)
-    local resultunlocktype=$(Get_Unlock_Type $result1 $result3)
+    local resultunlocktype=$(Get_Unlock_Type $result1)
 
     # 参考 IPQuality 项目的实现，使用 Spotify 注册 API
     local response=$(curl -s $(get_ip_flag) --max-time $TIMEOUT \
@@ -1595,8 +1588,7 @@ check_scholar() {
     # DNS解锁检测
     local checkunlockurl="scholar.google.com"
     local result1=$(Check_DNS_1 $checkunlockurl)
-    local result3=$(Check_DNS_3 $checkunlockurl)
-    local resultunlocktype=$(Get_Unlock_Type $result1 $result3)
+    local resultunlocktype=$(Get_Unlock_Type $result1)
 
     # 实际执行搜索请求来测试是否被限制
     local response=$(curl -s $(get_ip_flag) --max-time $TIMEOUT \

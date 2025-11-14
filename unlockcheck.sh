@@ -8,6 +8,10 @@ VERSION="1.3"
 TIMEOUT=10
 USER_AGENT="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
+# 统计服务配置（可选功能）
+# 设置为空字符串可禁用统计功能
+STATS_API_URL="https://unlockcheck-stats.mlkit.workers.dev"  # 统计服务 API
+
 # ========================================================================
 # 表格布局变量 - 会根据单栈/双栈模式自动调整
 # ========================================================================
@@ -1553,6 +1557,47 @@ check_spotify() {
     fi
 }
 
+# ========================================================================
+# 统计功能
+# ========================================================================
+
+# 上报统计（异步，不阻塞主流程）
+report_stats() {
+    if [ -z "$STATS_API_URL" ]; then
+        return 0
+    fi
+
+    # 后台异步上报，失败不影响主流程
+    (curl -s -X POST --max-time 3 "$STATS_API_URL/report" > /dev/null 2>&1 &)
+}
+
+# 获取并显示统计信息
+show_stats() {
+    if [ -z "$STATS_API_URL" ]; then
+        return 0
+    fi
+
+    # 获取统计数据
+    local stats_response=$(curl -s --max-time 3 "$STATS_API_URL/stats" 2>/dev/null)
+
+    if [ -n "$stats_response" ]; then
+        # 解析JSON（简单方法，适用于固定格式）
+        local today_count=$(echo "$stats_response" | grep -oP '"today_unique_ips":\K[0-9]+' | head -1)
+        local total_count=$(echo "$stats_response" | grep -oP '"total_detections":\K[0-9]+' | head -1)
+
+        if [ -n "$today_count" ] && [ -n "$total_count" ]; then
+            echo ""
+            echo -e "${CYAN}📊 使用统计${NC}"
+            echo -e "今日IP检测量：${GREEN}${today_count}${NC}；总检测量：${GREEN}${total_count}${NC}"
+            echo -e "${YELLOW}感谢使用 UnlockCheck！${NC}"
+        fi
+    fi
+}
+
+# ========================================================================
+# 服务检测函数
+# ========================================================================
+
 # 检测 Google Scholar
 check_scholar() {
     # DNS解锁检测
@@ -1647,6 +1692,9 @@ run_all_checks() {
     echo ""
     print_separator
     echo -e "检测完成!\n"
+
+    # 显示统计信息（如果启用）
+    show_stats
 }
 
 # 显示帮助
@@ -1713,6 +1761,9 @@ main() {
 
     # 获取IP信息
     get_ip_info
+
+    # 上报统计（异步，不阻塞）
+    report_stats
 
     # 运行检测
     run_all_checks

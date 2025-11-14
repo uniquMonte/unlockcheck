@@ -186,10 +186,6 @@ determine_ip_version() {
         log_info "检测到双栈网络环境（IPv4 + IPv6），将同时进行双栈检测"
         log_info "如需单独检测，请使用参数: -4 (仅IPv4) 或 -6 (仅IPv6)"
         IP_VERSION="dual"
-
-        # 双栈模式下调整表格布局宽度（服务名称列需要容纳 [IPv4]/[IPv6] 标识）
-        COLUMN_WIDTH_SERVICE=24    # 从16增加到24，容纳额外的 " [IPv4]" 或 " [IPv6]"
-        SEPARATOR_WIDTH=67          # 从59增加到67，与服务名称列宽度保持一致
     elif [ $HAS_IPV4 -eq 1 ]; then
         log_info "检测到仅支持 IPv4"
         IP_VERSION="4"

@@ -55,6 +55,11 @@ IP_ASN=""
 IP_USAGE_LOCATION=""
 IP_REGISTRATION_LOCATION=""
 
+# IP版本检测相关变量
+IP_VERSION="dual"  # dual(双栈), 4(仅IPv4), 6(仅IPv6)
+HAS_IPV4=0
+HAS_IPV6=0
+
 # 打印头部
 print_header() {
     local current_time=$(date "+%Y-%m-%d %H:%M:%S")
@@ -91,42 +96,208 @@ check_dependencies() {
     fi
 }
 
-# DNS解锁检测函数
-check_dns_unlock() {
+# 检测本地网络是否支持IPv4/IPv6
+check_network_support() {
+    # 检测IPv4支持
+    if curl -s -4 --max-time 3 https://ipv4.icanhazip.com &> /dev/null; then
+        HAS_IPV4=1
+    fi
+
+    # 检测IPv6支持
+    if curl -s -6 --max-time 3 https://ipv6.icanhazip.com &> /dev/null; then
+        HAS_IPV6=1
+    fi
+}
+
+# 根据网络支持情况和用户选择，确定实际检测的IP版本
+determine_ip_version() {
+    # 如果用户指定了-4或-6，直接使用用户选择
+    if [ "$IP_VERSION" = "4" ]; then
+        if [ $HAS_IPV4 -eq 0 ]; then
+            log_error "当前网络不支持 IPv4"
+            exit 1
+        fi
+        return
+    elif [ "$IP_VERSION" = "6" ]; then
+        if [ $HAS_IPV6 -eq 0 ]; then
+            log_error "当前网络不支持 IPv6"
+            exit 1
+        fi
+        return
+    fi
+
+    # 双栈模式：根据实际支持情况调整
+    if [ $HAS_IPV4 -eq 1 ] && [ $HAS_IPV6 -eq 1 ]; then
+        log_info "检测到双栈网络环境（IPv4 + IPv6）"
+    elif [ $HAS_IPV4 -eq 1 ]; then
+        log_info "检测到仅支持 IPv4"
+        IP_VERSION="4"
+    elif [ $HAS_IPV6 -eq 1 ]; then
+        log_info "检测到仅支持 IPv6"
+        IP_VERSION="6"
+    else
+        log_error "无法连接到互联网"
+        exit 1
+    fi
+}
+
+# ========================================================================
+# DNS解锁检测函数（参考 IPQuality 实现）
+# ========================================================================
+
+# 检查IP地址有效性
+check_ip_valide() {
+    local IPPattern='^(\<([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])\>\.){3}\<([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])\>$'
+    local IP="$1"
+    if [[ $IP =~ $IPPattern ]]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+# 计算IP网段
+calc_ip_net() {
+    local sip="$1"
+    local snetmask="$2"
+    check_ip_valide "$sip"
+    if [ $? -ne 0 ]; then
+        echo ""
+        return 1
+    fi
+    local ipFIELD1=$(echo "$sip"|cut -d. -f1)
+    local ipFIELD2=$(echo "$sip"|cut -d. -f2)
+    local ipFIELD3=$(echo "$sip"|cut -d. -f3)
+    local ipFIELD4=$(echo "$sip"|cut -d. -f4)
+    local netmaskFIELD1=$(echo "$snetmask"|cut -d. -f1)
+    local netmaskFIELD2=$(echo "$snetmask"|cut -d. -f2)
+    local netmaskFIELD3=$(echo "$snetmask"|cut -d. -f3)
+    local netmaskFIELD4=$(echo "$snetmask"|cut -d. -f4)
+    local tmpret1=$((ipFIELD1&netmaskFIELD1))
+    local tmpret2=$((ipFIELD2&netmaskFIELD2))
+    local tmpret3=$((ipFIELD3&netmaskFIELD3))
+    local tmpret4=$((ipFIELD4&netmaskFIELD4))
+    echo "$tmpret1.$tmpret2.$tmpret3.$tmpret4"
+}
+
+# 检查DNS返回的IP是否为私有IP或本地IP
+Check_DNS_IP() {
+    # 检查IPv4
+    if [ "$1" != "${1#*[0-9].[0-9]}" ]; then
+        if [ "$(calc_ip_net "$1" 255.0.0.0)" == "10.0.0.0" ]; then
+            echo 0  # 私有IP段 10.x.x.x
+        elif [ "$(calc_ip_net "$1" 255.240.0.0)" == "172.16.0.0" ]; then
+            echo 0  # 私有IP段 172.16-31.x.x
+        elif [ "$(calc_ip_net "$1" 255.255.0.0)" == "169.254.0.0" ]; then
+            echo 0  # 链路本地地址
+        elif [ "$(calc_ip_net "$1" 255.255.0.0)" == "192.168.0.0" ]; then
+            echo 0  # 私有IP段 192.168.x.x
+        elif [ "$(calc_ip_net "$1" 255.255.255.0)" == "$(calc_ip_net "$2" 255.255.255.0)" ]; then
+            echo 0  # 同一子网
+        else
+            echo 1  # 公网IP
+        fi
+    # 检查IPv6
+    elif [ "$1" != "${1#*[0-9a-fA-F]:*}" ]; then
+        if [ "${1:0:3}" == "fe8" ] || [ "${1:0:3}" == "FE8" ]; then
+            echo 0  # IPv6链路本地地址
+        elif [ "${1:0:2}" == "fc" ] || [ "${1:0:2}" == "FC" ]; then
+            echo 0  # IPv6唯一本地地址
+        elif [ "${1:0:2}" == "fd" ] || [ "${1:0:2}" == "FD" ]; then
+            echo 0  # IPv6唯一本地地址
+        elif [ "${1:0:2}" == "ff" ] || [ "${1:0:2}" == "FF" ]; then
+            echo 0  # IPv6组播地址
+        else
+            echo 1  # 公网IPv6
+        fi
+    else
+        echo 0  # 无法识别，保守处理
+    fi
+}
+
+# DNS检测方法1：使用nslookup检查DNS解析结果
+Check_DNS_1() {
     local domain="$1"
 
-    # 注意：很多服务使用CDN（如Cloudflare），不同DNS返回不同IP是正常的负载均衡
-    # 真正的DNS解锁需要更复杂的检测逻辑（检查IP归属、AS号等）
-    # 目前暂时禁用DNS解锁检测，避免误报
-
-    echo "native"
-    return
-
-    # 以下代码保留，但暂不使用
-    # 检查是否有dig命令，如果没有则跳过DNS检测
-    if ! command -v dig &> /dev/null; then
-        echo "native"
+    # 检查是否有nslookup命令
+    if ! command -v nslookup &> /dev/null; then
+        echo 1  # 无nslookup，假定为原生
         return
     fi
 
-    # 使用系统默认DNS解析
-    local system_dns=$(dig +short +time=2 +tries=1 "$domain" 2>/dev/null | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' | head -1)
-
-    # 使用Google公共DNS解析
-    local public_dns=$(dig @8.8.8.8 +short +time=2 +tries=1 "$domain" 2>/dev/null | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' | head -1)
-
-    # 如果任一解析失败，返回未知
-    if [ -z "$system_dns" ] || [ -z "$public_dns" ]; then
-        echo "native"
+    local resultdns=$(nslookup "$domain" 2>/dev/null)
+    if [ -z "$resultdns" ]; then
+        echo 1
         return
     fi
 
-    # 对比两个DNS解析结果
-    if [ "$system_dns" != "$public_dns" ]; then
-        echo "dns"  # DNS解锁
+    # 解析nslookup输出
+    local resultinlines=(${resultdns//$'\n'/ })
+    local resultindex=0
+    local resultdnsindex=0
+
+    for i in "${resultinlines[@]}"; do
+        if [[ $i == "Name:" ]]; then
+            resultdnsindex=$((resultindex+3))
+            break
+        fi
+        resultindex=$((resultindex+1))
+    done
+
+    # 获取DNS服务器IP（用于对比）
+    local dns_server=$(echo "$resultdns" | grep "Server:" | awk '{print $2}' | head -1)
+
+    # 检查解析到的IP
+    if [ $resultdnsindex -lt ${#resultinlines[@]} ]; then
+        local resolved_ip="${resultinlines[$resultdnsindex]}"
+        echo $(Check_DNS_IP "$resolved_ip" "$dns_server")
     else
-        echo "native"  # 原生解锁
+        echo 1
     fi
+}
+
+# DNS检测方法3：查询不存在的随机子域名，检测DNS劫持
+Check_DNS_3() {
+    local domain="$1"
+
+    # 检查是否有dig命令
+    if ! command -v dig &> /dev/null; then
+        echo 1  # 无dig，假定为原生
+        return
+    fi
+
+    # 生成随机子域名
+    local random_subdomain="test$RANDOM$RANDOM.$domain"
+    local resultdnstext=$(dig "$random_subdomain" 2>/dev/null | grep "ANSWER:")
+
+    if [ -z "$resultdnstext" ]; then
+        echo 1
+        return
+    fi
+
+    # 提取ANSWER部分的记录数
+    resultdnstext=${resultdnstext#*"ANSWER: "}
+    resultdnstext=${resultdnstext%", AUTHORITY:"*}
+
+    # 如果不存在的域名返回0条记录，说明DNS正常
+    if [ "$resultdnstext" == "0" ]; then
+        echo 1  # 正常DNS
+    else
+        echo 0  # DNS被劫持（SmartDNS特征）
+    fi
+}
+
+# 根据DNS检测结果判断解锁类型
+Get_Unlock_Type() {
+    # 遍历所有检测结果
+    while [ $# -ne 0 ]; do
+        if [ "$1" = "0" ]; then
+            echo "DNS"  # DNS解锁
+            return
+        fi
+        shift
+    done
+    echo "原生"  # 原生解锁
 }
 
 # 获取 IP 信息（增强版）
@@ -509,6 +680,7 @@ format_result() {
     local status="$2"
     local region="$3"
     local detail="$4"
+    local unlock_type="${5:-}"  # 第5个参数：解锁类型（原生/DNS）
 
     # ====================================================================
     # 警告：此函数使用固定的列宽常量来确保表格对齐
@@ -544,14 +716,19 @@ format_result() {
     local detail_formatted=$(pad_to_width "$detail" $COLUMN_WIDTH_STATUS)
 
     # Column 4: Unlock type label (使用固定列宽常量)
-    # Note: DNS unlock detection is currently disabled to avoid false positives from CDN services
-    # check_dns_unlock() currently always returns "native" for this reason
     local unlock_type_text=""
     local unlock_type_color=""
-    if [ "$status" = "success" ]; then
-        # Currently always show native unlock since DNS detection is disabled
-        unlock_type_text="原生"
-        unlock_type_color="${GREEN}"
+    if [ "$status" = "success" ] || [ "$status" = "partial" ]; then
+        # 如果提供了解锁类型，使用它；否则不显示
+        if [ -n "$unlock_type" ]; then
+            unlock_type_text="$unlock_type"
+            # DNS解锁用黄色，原生解锁用绿色
+            if [ "$unlock_type" = "DNS" ]; then
+                unlock_type_color="${YELLOW}"
+            else
+                unlock_type_color="${GREEN}"
+            fi
+        fi
     fi
 
     # Pad unlock type to fixed width, then add color
@@ -577,6 +754,12 @@ format_result() {
 # 检测 Netflix
 # 参考实现: https://github.com/xykt/IPQuality
 check_netflix() {
+    # DNS解锁检测
+    local checkunlockurl="netflix.com"
+    local result1=$(Check_DNS_1 $checkunlockurl)
+    local result3=$(Check_DNS_3 $checkunlockurl)
+    local resultunlocktype=$(Get_Unlock_Type $result1 $result3)
+
     # 使用特定的Netflix标题页面进行检测（自制剧，全球可用）
     # 81280792 - The Queen's Gambit (自制剧)
     # 70143836 - Friends (授权内容，部分地区可用)
@@ -594,9 +777,9 @@ check_netflix() {
 
     # 提取HTTP状态码和内容
     local status1=$(echo "$response1" | tail -n 1)
-    local result1=$(echo "$response1" | head -n -1)
+    local result1_content=$(echo "$response1" | head -n -1)
     local status2=$(echo "$response2" | tail -n 1)
-    local result2=$(echo "$response2" | head -n -1)
+    local result2_content=$(echo "$response2" | head -n -1)
 
     # 检查是否完全无法连接
     if [ -z "$status1" ] && [ -z "$status2" ]; then
@@ -611,8 +794,8 @@ check_netflix() {
     fi
 
     # 从响应中提取地区代码（从JSON中提取currentCountry字段）
-    local region1=$(echo "$result1" | grep -oP '"currentCountry"\s*:\s*"\K[^"]+' | head -n1)
-    local region2=$(echo "$result2" | grep -oP '"currentCountry"\s*:\s*"?\K[^",}]+' | head -n1)
+    local region1=$(echo "$result1_content" | grep -oP '"currentCountry"\s*:\s*"\K[^"]+' | head -n1)
+    local region2=$(echo "$result2_content" | grep -oP '"currentCountry"\s*:\s*"?\K[^",}]+' | head -n1)
 
     # 过滤掉 "null" 值
     [ "$region1" = "null" ] && region1=""
@@ -623,8 +806,8 @@ check_netflix() {
 
     # 检查是否有"不可用"的提示
     # Netflix在IP被封禁或地区不可用时会显示错误页面
-    local error1=$(echo "$result1" | grep -i "not available\|страница отсутствует\|page manquante")
-    local error2=$(echo "$result2" | grep -i "not available\|страница отсутствует\|page manquante")
+    local error1=$(echo "$result1_content" | grep -i "not available\|страница отсутствует\|page manquante")
+    local error2=$(echo "$result2_content" | grep -i "not available\|страница отсутствует\|page manquante")
 
     # 判断逻辑：
     # 1. 如果自制剧和授权内容都能访问 -> 完全解锁
@@ -633,10 +816,10 @@ check_netflix() {
 
     if [ -z "$error1" ] && [ -z "$error2" ]; then
         # 都可以访问，完全解锁
-        format_result "Netflix" "success" "$region" "完全解锁"
+        format_result "Netflix" "success" "$region" "完全解锁" "$resultunlocktype"
     elif [ -z "$error1" ] && [ -n "$error2" ]; then
         # 只有自制剧可以访问
-        format_result "Netflix" "partial" "$region" "仅自制剧"
+        format_result "Netflix" "partial" "$region" "仅自制剧" "$resultunlocktype"
     else
         # 都无法访问或出错
         format_result "Netflix" "failed" "N/A" "屏蔽"
@@ -645,6 +828,12 @@ check_netflix() {
 
 # 检测 Disney+
 check_disney() {
+    # DNS解锁检测
+    local checkunlockurl="disneyplus.com"
+    local result1=$(Check_DNS_1 $checkunlockurl)
+    local result3=$(Check_DNS_3 $checkunlockurl)
+    local resultunlocktype=$(Get_Unlock_Type $result1 $result3)
+
     # API 检测（完全参考 IPQuality 实现）
     local PreAssertion=$(curl -s --max-time $TIMEOUT \
         -X POST \
@@ -711,16 +900,16 @@ check_disney() {
 
     # 判断逻辑（完全按照 IPQuality）
     if [ "$region" = "JP" ]; then
-        format_result "Disney+" "success" "JP" "完全解锁"
+        format_result "Disney+" "success" "JP" "完全解锁" "$resultunlocktype"
         return
     elif [ -n "$region" ] && [ "$inSupportedLocation" = "false" ] && [ -z "$isUnavailable" ]; then
-        format_result "Disney+" "failed" "$region" "即将上线"
+        format_result "Disney+" "failed" "$region" "即将上线" "$resultunlocktype"
         return
     elif [ -n "$region" ] && [ -n "$isUnavailable" ]; then
         format_result "Disney+" "failed" "N/A" "屏蔽"
         return
     elif [ -n "$region" ] && [ "$inSupportedLocation" = "true" ]; then
-        format_result "Disney+" "success" "$region" "完全解锁"
+        format_result "Disney+" "success" "$region" "完全解锁" "$resultunlocktype"
         return
     elif [ -z "$region" ]; then
         format_result "Disney+" "failed" "N/A" "屏蔽"
@@ -1317,13 +1506,18 @@ show_help() {
     echo "用法: $0 [选项]"
     echo ""
     echo "选项:"
+    echo "  -4              仅检测 IPv4"
+    echo "  -6              仅检测 IPv6"
     echo "  --fast          快速检测模式（无延迟）"
     echo "  --help, -h      显示帮助信息"
     echo "  --version, -v   显示版本信息"
     echo ""
     echo "示例:"
-    echo "  $0              运行完整检测"
+    echo "  $0              双栈检测（自动检测网络环境）"
+    echo "  $0 -4           仅检测 IPv4"
+    echo "  $0 -6           仅检测 IPv6"
     echo "  $0 --fast       快速检测"
+    echo "  $0 -4 --fast    仅IPv4快速检测"
 }
 
 # 主函数
@@ -1334,6 +1528,14 @@ main() {
     # 解析参数
     while [[ $# -gt 0 ]]; do
         case $1 in
+            -4)
+                IP_VERSION="4"
+                shift
+                ;;
+            -6)
+                IP_VERSION="6"
+                shift
+                ;;
             --fast)
                 FAST_MODE=1
                 shift
@@ -1353,6 +1555,10 @@ main() {
                 ;;
         esac
     done
+
+    # 检测网络支持情况
+    check_network_support
+    determine_ip_version
 
     # 打印头部
     print_header

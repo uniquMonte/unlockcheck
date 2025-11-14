@@ -55,6 +55,11 @@ IP_ASN=""
 IP_USAGE_LOCATION=""
 IP_REGISTRATION_LOCATION=""
 
+# IP版本检测相关变量
+IP_VERSION="dual"  # dual(双栈), 4(仅IPv4), 6(仅IPv6)
+HAS_IPV4=0
+HAS_IPV6=0
+
 # 打印头部
 print_header() {
     local current_time=$(date "+%Y-%m-%d %H:%M:%S")
@@ -87,6 +92,51 @@ log_warning() {
 check_dependencies() {
     if ! command -v curl &> /dev/null; then
         log_error "curl 未安装，请先安装 curl"
+        exit 1
+    fi
+}
+
+# 检测本地网络是否支持IPv4/IPv6
+check_network_support() {
+    # 检测IPv4支持
+    if curl -s -4 --max-time 3 https://ipv4.icanhazip.com &> /dev/null; then
+        HAS_IPV4=1
+    fi
+
+    # 检测IPv6支持
+    if curl -s -6 --max-time 3 https://ipv6.icanhazip.com &> /dev/null; then
+        HAS_IPV6=1
+    fi
+}
+
+# 根据网络支持情况和用户选择，确定实际检测的IP版本
+determine_ip_version() {
+    # 如果用户指定了-4或-6，直接使用用户选择
+    if [ "$IP_VERSION" = "4" ]; then
+        if [ $HAS_IPV4 -eq 0 ]; then
+            log_error "当前网络不支持 IPv4"
+            exit 1
+        fi
+        return
+    elif [ "$IP_VERSION" = "6" ]; then
+        if [ $HAS_IPV6 -eq 0 ]; then
+            log_error "当前网络不支持 IPv6"
+            exit 1
+        fi
+        return
+    fi
+
+    # 双栈模式：根据实际支持情况调整
+    if [ $HAS_IPV4 -eq 1 ] && [ $HAS_IPV6 -eq 1 ]; then
+        log_info "检测到双栈网络环境（IPv4 + IPv6）"
+    elif [ $HAS_IPV4 -eq 1 ]; then
+        log_info "检测到仅支持 IPv4"
+        IP_VERSION="4"
+    elif [ $HAS_IPV6 -eq 1 ]; then
+        log_info "检测到仅支持 IPv6"
+        IP_VERSION="6"
+    else
+        log_error "无法连接到互联网"
         exit 1
     fi
 }
@@ -1456,13 +1506,18 @@ show_help() {
     echo "用法: $0 [选项]"
     echo ""
     echo "选项:"
+    echo "  -4              仅检测 IPv4"
+    echo "  -6              仅检测 IPv6"
     echo "  --fast          快速检测模式（无延迟）"
     echo "  --help, -h      显示帮助信息"
     echo "  --version, -v   显示版本信息"
     echo ""
     echo "示例:"
-    echo "  $0              运行完整检测"
+    echo "  $0              双栈检测（自动检测网络环境）"
+    echo "  $0 -4           仅检测 IPv4"
+    echo "  $0 -6           仅检测 IPv6"
     echo "  $0 --fast       快速检测"
+    echo "  $0 -4 --fast    仅IPv4快速检测"
 }
 
 # 主函数
@@ -1473,6 +1528,14 @@ main() {
     # 解析参数
     while [[ $# -gt 0 ]]; do
         case $1 in
+            -4)
+                IP_VERSION="4"
+                shift
+                ;;
+            -6)
+                IP_VERSION="6"
+                shift
+                ;;
             --fast)
                 FAST_MODE=1
                 shift
@@ -1492,6 +1555,10 @@ main() {
                 ;;
         esac
     done
+
+    # 检测网络支持情况
+    check_network_support
+    determine_ip_version
 
     # 打印头部
     print_header

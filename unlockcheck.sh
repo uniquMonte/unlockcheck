@@ -1338,9 +1338,9 @@ check_imgur() {
         # 速率限制，通常表示服务可访问
         format_result "$(get_service_name_with_ip "Imgur")" "success" "$region" "完全解锁 (速率限制)" "$resultunlocktype"
     elif [ -z "$status_code" ] || [ "$status_code" = "000" ]; then
-        format_result "$(get_service_name_with_ip "Imgur")" "error" "N/A" "连接超时"
+        format_result "$(get_service_name_with_ip "Imgur")" "error" "N/A" "网络错误"
     else
-        format_result "$(get_service_name_with_ip "Imgur")" "error" "N/A" "检测失败(${status_code})"
+        format_result "$(get_service_name_with_ip "Imgur")" "error" "N/A" "检测失败"
     fi
 }
 
@@ -1370,8 +1370,10 @@ check_reddit() {
     elif [ "$status_code" = "200" ]; then
         # 200 且内容没有拦截关键词，才是真正可访问
         format_result "$(get_service_name_with_ip "Reddit")" "success" "$COUNTRY_CODE" "完全解锁" "$resultunlocktype"
+    elif [ -z "$status_code" ] || [ "$status_code" = "000" ]; then
+        format_result "$(get_service_name_with_ip "Reddit")" "error" "N/A" "网络错误"
     else
-        format_result "$(get_service_name_with_ip "Reddit")" "error" "N/A" "检测失败(${status_code})"
+        format_result "$(get_service_name_with_ip "Reddit")" "error" "N/A" "检测失败"
     fi
 }
 

@@ -23,9 +23,7 @@ This will automatically download and run the latest version of the detection scr
 
 ## Acknowledgments
 
-Thanks to all open-source projects that contributed to streaming media unlock detection:
-
-- [IPQuality](https://github.com/xykt/IPQuality) - Netflix and Disney+ detection implementation reference. Their approach of using specific platform APIs for more accurate unlock detection inspired improvements to this project.
+- [IPQuality](https://github.com/xykt/IPQuality) - IP quality detection script with streaming media unlock detection capabilities.
 
 ## License
 

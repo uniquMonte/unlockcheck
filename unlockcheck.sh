@@ -10,7 +10,7 @@ USER_AGENT="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML,
 
 # 统计服务配置（可选功能）
 # 设置为空字符串可禁用统计功能
-STATS_API_URL=""  # 部署 Worker 后，填入你的 Worker URL
+STATS_API_URL="https://unlockcheck-stats.mlkit.workers.dev"  # 统计服务 API
 
 # ========================================================================
 # 表格布局变量 - 会根据单栈/双栈模式自动调整

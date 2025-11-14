@@ -1573,8 +1573,10 @@ report_stats() {
 
 # 获取并显示统计信息
 show_stats() {
+    echo -e "检测完成!"
+
     if [ -z "$STATS_API_URL" ]; then
-        echo -e "检测完成!\n"
+        echo ""
         return 0
     fi
 
@@ -1587,12 +1589,12 @@ show_stats() {
         local total_count=$(echo "$stats_response" | grep -oP '"total_detections":\K[0-9]+' | head -1)
 
         if [ -n "$today_count" ] && [ -n "$total_count" ]; then
-            echo -e "检测完成! 今日IP检测量：${GREEN}${today_count}${NC}；总检测量：${GREEN}${total_count}${NC} ${YELLOW}感谢使用 UnlockCheck！${NC}\n"
+            echo -e "今日IP检测量：${GREEN}${today_count}${NC}；总检测量：${GREEN}${total_count}${NC} ${YELLOW}感谢使用 UnlockCheck！${NC}\n"
         else
-            echo -e "检测完成!\n"
+            echo ""
         fi
     else
-        echo -e "检测完成!\n"
+        echo ""
     fi
 }
 

@@ -21,23 +21,6 @@ bash <(curl -Ls https://raw.githubusercontent.com/uniquMonte/unlockcheck/main/un
 bash <(curl -Ls https://raw.githubusercontent.com/uniquMonte/unlockcheck/main/unlockcheck.sh) -6
 ```
 
-**Development Version (Latest Features):**
-
-Dual-stack detection:
-```bash
-bash <(curl -Ls https://raw.githubusercontent.com/uniquMonte/unlockcheck/claude/ai-service-status-check-011CV5tiAjexptjDhAwugkLT/unlockcheck.sh)
-```
-
-IPv4 only:
-```bash
-bash <(curl -Ls https://raw.githubusercontent.com/uniquMonte/unlockcheck/claude/ai-service-status-check-011CV5tiAjexptjDhAwugkLT/unlockcheck.sh) -4
-```
-
-IPv6 only:
-```bash
-bash <(curl -Ls https://raw.githubusercontent.com/uniquMonte/unlockcheck/claude/ai-service-status-check-011CV5tiAjexptjDhAwugkLT/unlockcheck.sh) -6
-```
-
 ### 📝 Usage Notes
 
 - **Dual-Stack Detection**: By default, the script automatically detects your network environment:

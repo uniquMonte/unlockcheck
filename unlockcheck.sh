@@ -4,6 +4,24 @@
 # 一键检测当前网络环境的流媒体和AI服务解锁情况
 #
 
+# 确保 UTF-8 locale 支持（修复不同系统环境下的字符显示问题）
+if [[ "$LANG" != *"UTF-8"* && "$LANG" != *"utf8"* ]]; then
+    # 尝试设置为常用的 UTF-8 locale
+    for locale_candidate in "en_US.UTF-8" "C.UTF-8" "en_GB.UTF-8" "zh_CN.UTF-8"; do
+        if locale -a 2>/dev/null | grep -qi "^${locale_candidate}$"; then
+            export LANG="$locale_candidate"
+            export LC_ALL="$locale_candidate"
+            break
+        fi
+    done
+
+    # 如果没有找到任何 UTF-8 locale，使用 C.UTF-8（大多数系统支持）
+    if [[ "$LANG" != *"UTF-8"* && "$LANG" != *"utf8"* ]]; then
+        export LANG="C.UTF-8"
+        export LC_ALL="C.UTF-8"
+    fi
+fi
+
 VERSION="1.3"
 TIMEOUT=10
 USER_AGENT="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
@@ -711,22 +729,33 @@ get_display_width() {
     local text="$1"
     # Remove ANSI color codes first
     local clean_text=$(strip_ansi_codes "$text")
+
+    # Use grep to properly extract UTF-8 characters
+    # -o: only matching, -P: Perl regex, '.': any single character (UTF-8 aware)
+    local chars=$(echo -n "$clean_text" | grep -oP '.' 2>/dev/null)
+
+    if [ -z "$chars" ]; then
+        # Fallback: if grep fails, use byte length
+        echo "${#clean_text}"
+        return
+    fi
+
     local width=0
     local char
-    local len=${#clean_text}
 
-    for ((i=0; i<len; i++)); do
-        char="${clean_text:i:1}"
-        # Get ASCII value of character
-        printf -v ascii '%d' "'$char" 2>/dev/null || ascii=0
+    # Read each UTF-8 character properly
+    while IFS= read -r char; do
+        # Get the byte length of the character
+        local byte_len=${#char}
 
-        # CJK and other wide characters (> 127)
-        if [ "$ascii" -gt 127 ]; then
-            width=$((width + 2))
-        else
+        # ASCII characters (1 byte) = width 1
+        # Multi-byte characters (CJK, etc.) = width 2
+        if [ "$byte_len" -eq 1 ]; then
             width=$((width + 1))
+        else
+            width=$((width + 2))
         fi
-    done
+    done <<< "$chars"
 
     echo "$width"
 }

@@ -730,32 +730,37 @@ get_display_width() {
     # Remove ANSI color codes first
     local clean_text=$(strip_ansi_codes "$text")
 
-    # Use grep to properly extract UTF-8 characters
-    # -o: only matching, -P: Perl regex, '.': any single character (UTF-8 aware)
-    local chars=$(echo -n "$clean_text" | grep -oP '.' 2>/dev/null)
-
-    if [ -z "$chars" ]; then
-        # Fallback: if grep fails, use byte length
-        echo "${#clean_text}"
+    # 如果字符串为空，返回 0
+    if [ -z "$clean_text" ]; then
+        echo 0
         return
     fi
 
-    local width=0
-    local char
+    # 计算字节数
+    local byte_count=${#clean_text}
 
-    # Read each UTF-8 character properly
-    while IFS= read -r char; do
-        # Get the byte length of the character
-        local byte_len=${#char}
+    # 计算字符数（UTF-8 aware）
+    local char_count=$(echo -n "$clean_text" | wc -m 2>/dev/null)
 
-        # ASCII characters (1 byte) = width 1
-        # Multi-byte characters (CJK, etc.) = width 2
-        if [ "$byte_len" -eq 1 ]; then
-            width=$((width + 1))
-        else
-            width=$((width + 2))
-        fi
-    done <<< "$chars"
+    # 如果 wc -m 失败，fallback 到字节数
+    if [ -z "$char_count" ] || [ "$char_count" -eq 0 ]; then
+        echo "$byte_count"
+        return
+    fi
+
+    # 数学计算显示宽度
+    # 对于 UTF-8：
+    #   - ASCII 字符：1 字节，显示宽度 1
+    #   - CJK 字符：通常 3 字节，显示宽度 2
+    # 公式：width = char_count + (byte_count - char_count) / 2
+    #
+    # 推导：
+    #   设 a = ASCII 字符数，w = 宽字符数
+    #   byte_count ≈ a + w * 3 (假设宽字符平均 3 字节)
+    #   char_count = a + w
+    #   => w = (byte_count - char_count) / 2
+    #   => width = a + w * 2 = char_count + w
+    local width=$(( char_count + (byte_count - char_count) / 2 ))
 
     echo "$width"
 }

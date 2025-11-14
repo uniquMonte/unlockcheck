@@ -1199,9 +1199,25 @@ check_tiktok() {
         return
     fi
 
+    # 规范化 region 代码（将 TikTok 内部代码转换为标准国家代码）
+    local normalized_region="$region"
+    if [ -n "$region" ]; then
+        case "$region" in
+            ALISG|ALISG*)
+                normalized_region="SG"  # 阿里云新加坡 -> 新加坡
+                ;;
+            ALIHK|ALIHK*)
+                normalized_region="HK"  # 阿里云香港 -> 香港
+                ;;
+            ALITW|ALITW*)
+                normalized_region="TW"  # 阿里云台湾 -> 台湾
+                ;;
+        esac
+    fi
+
     # 如果成功提取到 region，说明可以访问
-    if [ -n "$region" ] && [ "$region" != "null" ]; then
-        format_result "TikTok" "success" "$region" "完全解锁"
+    if [ -n "$normalized_region" ] && [ "$normalized_region" != "null" ]; then
+        format_result "TikTok" "success" "$normalized_region" "完全解锁"
         return
     fi
 

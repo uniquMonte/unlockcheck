@@ -155,17 +155,9 @@ get_ip_flag() {
 # 获取带IP版本标识的服务名称（仅在双栈模式下显示）
 get_service_name_with_ip() {
     local service_name="$1"
-    if [ "$IP_VERSION" = "dual" ]; then
-        if [ "$CURRENT_IP_VERSION" = "4" ]; then
-            echo "${service_name} [IPv4]"
-        elif [ "$CURRENT_IP_VERSION" = "6" ]; then
-            echo "${service_name} [IPv6]"
-        else
-            echo "$service_name"
-        fi
-    else
-        echo "$service_name"
-    fi
+    # 双栈模式下不添加 [IPv4]/[IPv6] 后缀，因为已有分隔线和标题区分
+    # 单栈模式下也不需要后缀，因为只检测一种协议
+    echo "$service_name"
 }
 
 # 根据网络支持情况和用户选择，确定实际检测的IP版本
@@ -1687,6 +1679,9 @@ run_all_checks() {
 
     if [ "$IP_VERSION" = "dual" ]; then
         # 双栈模式：先显示所有 IPv4 结果，再显示所有 IPv6 结果
+        echo -e "${YELLOW}IPv4 检测结果${NC}"
+        print_separator
+
         CURRENT_IP_VERSION="4"
         run_checks_for_protocol
 

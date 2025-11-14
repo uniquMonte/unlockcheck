@@ -8,31 +8,33 @@ One-click detection of streaming media and AI services unlock status for your cu
 
 **Dual-Stack Detection (Default):**
 ```bash
-# Automatically detects IPv4/IPv6 and runs appropriate tests
 bash <(curl -Ls https://raw.githubusercontent.com/uniquMonte/unlockcheck/main/unlockcheck.sh)
 ```
 
 **IPv4 Only:**
 ```bash
-# Test IPv4 connectivity only
 bash <(curl -Ls https://raw.githubusercontent.com/uniquMonte/unlockcheck/main/unlockcheck.sh) -4
 ```
 
 **IPv6 Only:**
 ```bash
-# Test IPv6 connectivity only
 bash <(curl -Ls https://raw.githubusercontent.com/uniquMonte/unlockcheck/main/unlockcheck.sh) -6
 ```
 
 **Development Version (Latest Features):**
+
+Dual-stack detection:
 ```bash
-# Default: Dual-stack detection
 bash <(curl -Ls https://raw.githubusercontent.com/uniquMonte/unlockcheck/claude/ai-service-status-check-011CV5tiAjexptjDhAwugkLT/unlockcheck.sh)
+```
 
-# IPv4 only
+IPv4 only:
+```bash
 bash <(curl -Ls https://raw.githubusercontent.com/uniquMonte/unlockcheck/claude/ai-service-status-check-011CV5tiAjexptjDhAwugkLT/unlockcheck.sh) -4
+```
 
-# IPv6 only
+IPv6 only:
+```bash
 bash <(curl -Ls https://raw.githubusercontent.com/uniquMonte/unlockcheck/claude/ai-service-status-check-011CV5tiAjexptjDhAwugkLT/unlockcheck.sh) -6
 ```
 

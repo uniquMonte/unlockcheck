@@ -1638,35 +1638,13 @@ check_scholar() {
 run_single_check() {
     local check_function="$1"
 
-    if [ "$IP_VERSION" = "dual" ]; then
-        # 双栈模式：先测 IPv4，再测 IPv6
-        CURRENT_IP_VERSION="4"
-        $check_function
-        [ -z "$FAST_MODE" ] && sleep 0.3
-
-        CURRENT_IP_VERSION="6"
-        $check_function
-        [ -z "$FAST_MODE" ] && sleep 0.3
-    else
-        # 单栈模式：使用已设置的 IP 版本
-        $check_function
-        [ -z "$FAST_MODE" ] && sleep 0.5
-    fi
+    # 直接运行检测函数，使用当前设置的 CURRENT_IP_VERSION
+    $check_function
+    [ -z "$FAST_MODE" ] && sleep 0.3
 }
 
-# 运行所有检测
-run_all_checks() {
-    echo -e "${YELLOW}📺 服务解锁检测结果${NC}"
-    print_separator
-    # Generate table header with fixed display widths (使用固定列宽常量)
-    # 警告：请勿修改列宽参数，这些值与 format_result 函数保持一致
-    local header_service=$(pad_to_width "服务名称" $COLUMN_WIDTH_SERVICE)
-    local header_status=$(pad_to_width "解锁状态" $COLUMN_WIDTH_STATUS)
-    local header_type=$(pad_to_width "解锁类型" $COLUMN_WIDTH_UNLOCK_TYPE)
-    local header_region=$(pad_to_width "区域" $COLUMN_WIDTH_REGION)
-    echo -e "    ${header_service}: ${header_status} : ${header_type}: ${header_region}"
-    print_separator
-
+# 运行某个协议版本的所有检测
+run_checks_for_protocol() {
     # 视频流媒体
     echo -e "\n${BLUE}🎬 视频流媒体${NC}"
     run_single_check check_netflix
@@ -1692,6 +1670,37 @@ run_all_checks() {
     echo -e "\n${BLUE}📚 其他服务${NC}"
     run_single_check check_scholar
     run_single_check check_imgur
+}
+
+# 运行所有检测
+run_all_checks() {
+    echo -e "${YELLOW}📺 服务解锁检测结果${NC}"
+    print_separator
+    # Generate table header with fixed display widths (使用固定列宽常量)
+    # 警告：请勿修改列宽参数，这些值与 format_result 函数保持一致
+    local header_service=$(pad_to_width "服务名称" $COLUMN_WIDTH_SERVICE)
+    local header_status=$(pad_to_width "解锁状态" $COLUMN_WIDTH_STATUS)
+    local header_type=$(pad_to_width "解锁类型" $COLUMN_WIDTH_UNLOCK_TYPE)
+    local header_region=$(pad_to_width "区域" $COLUMN_WIDTH_REGION)
+    echo -e "    ${header_service}: ${header_status} : ${header_type}: ${header_region}"
+    print_separator
+
+    if [ "$IP_VERSION" = "dual" ]; then
+        # 双栈模式：先显示所有 IPv4 结果，再显示所有 IPv6 结果
+        CURRENT_IP_VERSION="4"
+        run_checks_for_protocol
+
+        echo ""
+        print_separator
+        echo -e "${YELLOW}IPv6 检测结果${NC}"
+        print_separator
+
+        CURRENT_IP_VERSION="6"
+        run_checks_for_protocol
+    else
+        # 单栈模式：直接运行检测
+        run_checks_for_protocol
+    fi
 
     echo ""
     print_separator

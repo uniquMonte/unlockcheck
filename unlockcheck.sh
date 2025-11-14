@@ -967,7 +967,6 @@ check_youtube() {
 
 # 检测 ChatGPT - Smart dual detection
 check_chatgpt() {
-    local unlock_type=$(check_dns_unlock "api.openai.com")
 
     # ChatGPT/OpenAI unsupported regions (based on official documentation)
     # https://platform.openai.com/docs/supported-countries
@@ -1043,7 +1042,6 @@ check_chatgpt() {
 
 # 检测 Claude - Smart dual detection
 check_claude() {
-    local unlock_type=$(check_dns_unlock "api.anthropic.com")
 
     # Claude unsupported regions (based on official documentation)
     # https://www.anthropic.com/supported-countries
@@ -1191,7 +1189,6 @@ check_tiktok() {
 
 # 检测 Imgur
 check_imgur() {
-    local unlock_type=$(check_dns_unlock "imgur.com")
     # 检测 Imgur，增加更宽松的超时和重试
     local response=$(curl -s --max-time $TIMEOUT \
         -A "$USER_AGENT" \
@@ -1230,7 +1227,6 @@ check_imgur() {
 
 # 检测 Reddit
 check_reddit() {
-    local unlock_type=$(check_dns_unlock "reddit.com")
     local response=$(curl -s --max-time $TIMEOUT \
         -A "$USER_AGENT" \
         -L \
@@ -1256,7 +1252,6 @@ check_reddit() {
 
 # 检测 Google Gemini - Smart dual detection
 check_gemini() {
-    local unlock_type=$(check_dns_unlock "generativelanguage.googleapis.com")
 
     # Gemini unsupported regions (based on official documentation)
     # https://ai.google.dev/gemini-api/docs/available-regions
@@ -1422,7 +1417,6 @@ check_spotify() {
 
 # 检测 Google Scholar
 check_scholar() {
-    local unlock_type=$(check_dns_unlock "scholar.google.com")
     # 实际执行搜索请求来测试是否被限制
     local response=$(curl -s --max-time $TIMEOUT \
         -A "$USER_AGENT" \

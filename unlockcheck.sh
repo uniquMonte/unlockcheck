@@ -4,6 +4,24 @@
 # 一键检测当前网络环境的流媒体和AI服务解锁情况
 #
 
+# 确保 UTF-8 locale 支持（修复不同系统环境下的字符显示问题）
+if [[ "$LANG" != *"UTF-8"* && "$LANG" != *"utf8"* ]]; then
+    # 尝试设置为常用的 UTF-8 locale
+    for locale_candidate in "en_US.UTF-8" "C.UTF-8" "en_GB.UTF-8" "zh_CN.UTF-8"; do
+        if locale -a 2>/dev/null | grep -qi "^${locale_candidate}$"; then
+            export LANG="$locale_candidate"
+            export LC_ALL="$locale_candidate"
+            break
+        fi
+    done
+
+    # 如果没有找到任何 UTF-8 locale，使用 C.UTF-8（大多数系统支持）
+    if [[ "$LANG" != *"UTF-8"* && "$LANG" != *"utf8"* ]]; then
+        export LANG="C.UTF-8"
+        export LC_ALL="C.UTF-8"
+    fi
+fi
+
 VERSION="1.3"
 TIMEOUT=10
 USER_AGENT="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"

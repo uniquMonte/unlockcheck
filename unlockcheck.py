@@ -244,6 +244,8 @@ class UnlockChecker:
                     self.ip_info['as_info'] = data.get('as', 'N/A')
 
                 # Usage location: IP's actual geographic location (country only)
+                usage_country_code = data.get('countryCode', '')
+                self.ip_info['usage_country_code'] = usage_country_code
                 self.ip_info['usage_location'] = data.get('country', 'N/A')
 
                 # Registration location: Try to get IP block registration country from ASN
@@ -251,26 +253,38 @@ class UnlockChecker:
                 as_info = data.get('as', '')
                 asn_match = re.search(r'AS(\d+)', as_info)
 
+                reg_country_code = ''
                 if asn_match:
                     asn_num = asn_match.group(1)
-                    try:
-                        # Query ASN registration country
-                        asn_response = self.session.get(
-                            f"https://api.bgpview.io/asn/{asn_num}",
-                            timeout=3
-                        )
-                        if asn_response.status_code == 200:
-                            asn_data = asn_response.json()
-                            reg_country_code = asn_data.get('data', {}).get('country_code', '')
-                            if reg_country_code:
-                                self.ip_info['registration_location'] = self._convert_country_code(reg_country_code)
-                    except:
-                        pass
 
-                # If unable to get from ASN, use fallback
-                if 'registration_location' not in self.ip_info:
+                    # First try to guess from well-known ASN numbers
+                    reg_country_code = self._guess_asn_country(asn_num)
+
+                    # If not found in well-known list, try BGPView API
+                    if not reg_country_code or reg_country_code == 'Unknown':
+                        try:
+                            # Query ASN registration country
+                            asn_response = self.session.get(
+                                f"https://api.bgpview.io/asn/{asn_num}",
+                                timeout=3
+                            )
+                            if asn_response.status_code == 200:
+                                asn_data = asn_response.json()
+                                reg_country_code = asn_data.get('data', {}).get('country_code', '')
+                        except:
+                            pass
+
+                # If still no registration country code, try to guess from org name
+                if not reg_country_code:
                     org = data.get('org', '')
-                    self.ip_info['registration_location'] = self._guess_isp_country(org)
+                    guessed_country = self._guess_isp_country(org)
+                    # Try to reverse lookup country code from country name
+                    reg_country_code = self._get_country_code_from_name(guessed_country)
+
+                # Store registration country code and location
+                self.ip_info['registration_country_code'] = reg_country_code
+                if reg_country_code:
+                    self.ip_info['registration_location'] = self._convert_country_code(reg_country_code)
 
         except Exception as e:
             self.log(f"IP type detection failed: {e}", "debug")
@@ -320,6 +334,58 @@ class UnlockChecker:
 
         return 'Datacenter'
 
+    def _guess_asn_country(self, asn: str) -> str:
+        """Guess country code based on well-known ASN numbers"""
+        asn_map = {
+            # Amazon AWS
+            '16509': 'US', '14618': 'US', '8987': 'US',
+            # Google Cloud
+            '15169': 'US', '19527': 'US', '396982': 'US',
+            # Microsoft Azure
+            '8075': 'US', '8068': 'US',
+            # OVH
+            '16276': 'FR',
+            # Hetzner
+            '24940': 'DE',
+            # DigitalOcean
+            '14061': 'US',
+            # Linode
+            '63949': 'US',
+            # Vultr
+            '20473': 'US',
+            # Alibaba Cloud
+            '45102': 'CN', '37963': 'CN',
+            # Tencent Cloud
+            '45090': 'CN', '132203': 'CN',
+            # Cloudflare
+            '13335': 'US',
+        }
+        return asn_map.get(str(asn), '')
+
+    def _get_country_code_from_name(self, country_name: str) -> str:
+        """Reverse lookup: get country code from country name"""
+        if not country_name or country_name == 'Datacenter':
+            return ''
+
+        # Create reverse mapping from _convert_country_code
+        reverse_map = {
+            'United States': 'US', 'Canada': 'CA', 'United Kingdom': 'GB', 'Germany': 'DE',
+            'France': 'FR', 'Japan': 'JP', 'China': 'CN', 'Hong Kong': 'HK',
+            'Singapore': 'SG', 'Australia': 'AU', 'Netherlands': 'NL', 'South Korea': 'KR',
+            'Taiwan': 'TW', 'India': 'IN', 'Brazil': 'BR', 'Russia': 'RU',
+            'Spain': 'ES', 'Italy': 'IT', 'Sweden': 'SE', 'Norway': 'NO', 'Denmark': 'DK',
+            'Finland': 'FI', 'Poland': 'PL', 'Switzerland': 'CH', 'Austria': 'AT',
+            'Belgium': 'BE', 'Ireland': 'IE', 'Portugal': 'PT', 'Greece': 'GR',
+            'Czech Republic': 'CZ', 'Romania': 'RO', 'Hungary': 'HU', 'Bulgaria': 'BG',
+            'Turkey': 'TR', 'Israel': 'IL', 'UAE': 'AE', 'Saudi Arabia': 'SA',
+            'Egypt': 'EG', 'South Africa': 'ZA', 'Mexico': 'MX', 'Argentina': 'AR',
+            'Chile': 'CL', 'Colombia': 'CO', 'Peru': 'PE', 'Vietnam': 'VN',
+            'Thailand': 'TH', 'Indonesia': 'ID', 'Malaysia': 'MY', 'Philippines': 'PH',
+            'New Zealand': 'NZ', 'Ukraine': 'UA', 'Lithuania': 'LT', 'Latvia': 'LV',
+            'Estonia': 'EE', 'Slovakia': 'SK', 'Slovenia': 'SI', 'Croatia': 'HR'
+        }
+        return reverse_map.get(country_name, '')
+
     def print_ip_info(self):
         """Print IP information (enhanced version)"""
         if not self.ip_info:
@@ -332,31 +398,26 @@ class UnlockChecker:
         print(f"IP Address: {Fore.GREEN}{self.ip_info.get('ip', 'N/A')}{Style.RESET_ALL}")
 
         # IP type (native IP or broadcast IP) - determine based on registration vs usage location
-        ip_type_raw = self.ip_info.get('ip_type', 'Unknown')
-        reg_loc = self.ip_info.get('registration_location', '')
-        usage_loc = self.ip_info.get('usage_location', '')
+        # Use country codes for comparison (more reliable than country names)
+        usage_country_code = self.ip_info.get('usage_country_code', '')
+        reg_country_code = self.ip_info.get('registration_country_code', '')
 
         # Determine if it's native or broadcast IP
+        # Core logic: If usage country code matches registration country code, it's native IP
         is_native = False
-        ip_type_display = ip_type_raw
+        ip_type_display = "Broadcast IP"
+        type_color = Fore.RED
 
-        if ip_type_raw == 'Residential' or ip_type_raw == 'Mobile Network':
-            # Residential and mobile are always considered native
+        if usage_country_code and reg_country_code and usage_country_code == reg_country_code:
+            # Registration location matches usage location - Native IP
             is_native = True
             ip_type_display = "Native IP"
             type_color = Fore.GREEN
-        elif ip_type_raw == 'Datacenter/Hosting':
-            # For datacenter, check if registration location matches usage location
-            if reg_loc and usage_loc and reg_loc == usage_loc:
-                is_native = True
-                ip_type_display = "Native IP"
-                type_color = Fore.GREEN
-            else:
-                is_native = False
-                ip_type_display = "Broadcast IP"
-                type_color = Fore.RED
         else:
-            type_color = Fore.WHITE
+            # All other cases are broadcast IP (including mismatched locations, unknown registration, etc.)
+            is_native = False
+            ip_type_display = "Broadcast IP"
+            type_color = Fore.RED
 
         print(f"IP Type: {Style.BRIGHT}{type_color}{ip_type_display}{Style.RESET_ALL}")
 

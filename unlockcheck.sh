@@ -531,13 +531,18 @@ detect_ip_type() {
         fi
 
         # 方法3：根据ISP/组织名称判断
-        if [ -z "$IP_REGISTRATION_LOCATION" ]; then
-            IP_REGISTRATION_LOCATION=$(guess_isp_country "$org")
+        if [ -z "$reg_country" ]; then
+            local guessed_country=$(guess_isp_country "$org")
+            # Convert guessed country name to country code
+            reg_country=$(convert_country_name_to_code "$guessed_country")
+            if [ -n "$reg_country" ] && [ "$reg_country" != "未知" ]; then
+                IP_REGISTRATION_LOCATION=$(convert_country_code "$reg_country")
+            fi
         fi
 
         # 判断IP类型：只区分原生IP和广播IP
-        # 原生IP的核心特征：注册地和使用地一致
-        if [ -n "$reg_country" ] && [ "$country_code" = "$reg_country" ]; then
+        # 原生IP的核心特征：注册地和使用地一致（使用国家代码比较）
+        if [ -n "$reg_country" ] && [ -n "$country_code" ] && [ "$country_code" = "$reg_country" ]; then
             # 注册地和使用地一致，是原生IP
             IP_TYPE="原生IP"
         else
@@ -616,6 +621,71 @@ convert_country_code() {
         "SI") echo "斯洛文尼亚" ;;
         "HR") echo "克罗地亚" ;;
         *) echo "$code" ;;
+    esac
+}
+
+# 转换国家名为国家代码（反向转换）
+convert_country_name_to_code() {
+    local country="$1"
+    case "$country" in
+        "美国") echo "US" ;;
+        "加拿大") echo "CA" ;;
+        "英国") echo "GB" ;;
+        "德国") echo "DE" ;;
+        "法国") echo "FR" ;;
+        "日本") echo "JP" ;;
+        "中国") echo "CN" ;;
+        "香港") echo "HK" ;;
+        "新加坡") echo "SG" ;;
+        "澳大利亚") echo "AU" ;;
+        "荷兰") echo "NL" ;;
+        "韩国") echo "KR" ;;
+        "台湾") echo "TW" ;;
+        "印度") echo "IN" ;;
+        "巴西") echo "BR" ;;
+        "俄罗斯") echo "RU" ;;
+        "西班牙") echo "ES" ;;
+        "意大利") echo "IT" ;;
+        "瑞典") echo "SE" ;;
+        "挪威") echo "NO" ;;
+        "丹麦") echo "DK" ;;
+        "芬兰") echo "FI" ;;
+        "波兰") echo "PL" ;;
+        "瑞士") echo "CH" ;;
+        "奥地利") echo "AT" ;;
+        "比利时") echo "BE" ;;
+        "爱尔兰") echo "IE" ;;
+        "葡萄牙") echo "PT" ;;
+        "希腊") echo "GR" ;;
+        "捷克") echo "CZ" ;;
+        "罗马尼亚") echo "RO" ;;
+        "匈牙利") echo "HU" ;;
+        "保加利亚") echo "BG" ;;
+        "土耳其") echo "TR" ;;
+        "以色列") echo "IL" ;;
+        "阿联酋") echo "AE" ;;
+        "沙特阿拉伯") echo "SA" ;;
+        "埃及") echo "EG" ;;
+        "南非") echo "ZA" ;;
+        "墨西哥") echo "MX" ;;
+        "阿根廷") echo "AR" ;;
+        "智利") echo "CL" ;;
+        "哥伦比亚") echo "CO" ;;
+        "秘鲁") echo "PE" ;;
+        "越南") echo "VN" ;;
+        "泰国") echo "TH" ;;
+        "印度尼西亚") echo "ID" ;;
+        "马来西亚") echo "MY" ;;
+        "菲律宾") echo "PH" ;;
+        "新西兰") echo "NZ" ;;
+        "乌克兰") echo "UA" ;;
+        "立陶宛") echo "LT" ;;
+        "拉脱维亚") echo "LV" ;;
+        "爱沙尼亚") echo "EE" ;;
+        "斯洛伐克") echo "SK" ;;
+        "斯洛文尼亚") echo "SI" ;;
+        "克罗地亚") echo "HR" ;;
+        *) echo "未知" ;;
     esac
 }
 

@@ -542,12 +542,17 @@ detect_ip_type() {
 
         # 判断IP类型：只区分原生IP和广播IP
         # 原生IP的核心特征：注册地和使用地一致（使用国家代码比较）
-        if [ -n "$reg_country" ] && [ -n "$country_code" ] && [ "$country_code" = "$reg_country" ]; then
-            # 注册地和使用地一致，是原生IP
-            IP_TYPE="原生IP"
+        if [ -n "$reg_country" ] && [ "$reg_country" != "未知" ] && [ -n "$country_code" ]; then
+            if [ "$country_code" = "$reg_country" ]; then
+                # 注册地和使用地一致，是原生IP
+                IP_TYPE="原生IP"
+            else
+                # 注册地和使用地不一致，是广播IP
+                IP_TYPE="广播IP"
+            fi
         else
-            # 其他所有情况都是广播IP（包括hosting、proxy、移动网络、注册地不一致等）
-            IP_TYPE="广播IP"
+            # 无法获取注册地信息，无法判断IP类型
+            IP_TYPE="未知"
         fi
     else
         IP_TYPE="未知"
@@ -757,6 +762,9 @@ print_enhanced_ip_info() {
         "广播IP")
             type_color="${RED}"
             ;;
+        "未知")
+            type_color="${YELLOW}"
+            ;;
         *)
             type_color="${NC}"
             ;;
@@ -770,9 +778,11 @@ print_enhanced_ip_info() {
         echo -e "使用地: ${IP_INFO}"
     fi
 
-    # 显示注册地（ISP/ASN注册信息）
+    # 显示注册地（ISP/ASN注册信息）- 始终显示
     if [ -n "$IP_REGISTRATION_LOCATION" ] && [ "$IP_REGISTRATION_LOCATION" != "未知" ]; then
         echo -e "注册地: ${IP_REGISTRATION_LOCATION}"
+    else
+        echo -e "注册地: ${YELLOW}未知${NC}"
     fi
 
     echo -e "ISP: ${IP_ISP}"

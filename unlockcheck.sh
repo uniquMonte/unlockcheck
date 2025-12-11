@@ -520,17 +520,36 @@ detect_ip_type() {
             fi
         fi
 
-        # 方法2：尝试从 BGPView API 获取（可能被限流）
+        # 方法2：尝试从 BGPView API 获取ASN注册国家
         if [ -z "$IP_REGISTRATION_LOCATION" ] && [ -n "$asn_num" ]; then
-            local asn_info=$(curl -s --max-time 3 "https://api.bgpview.io/asn/${asn_num}" 2>/dev/null)
-            reg_country=$(echo "$asn_info" | grep -oP '"country_code":"\K[^"]+' | head -1)
-
-            if [ -n "$reg_country" ]; then
-                IP_REGISTRATION_LOCATION=$(convert_country_code "$reg_country")
+            local asn_info=$(curl -s --max-time 5 "https://api.bgpview.io/asn/${asn_num}" 2>/dev/null)
+            if [ -n "$asn_info" ]; then
+                # BGPView返回嵌套JSON，country_code在data对象中
+                reg_country=$(echo "$asn_info" | grep -oP '"country_code":\s*"\K[^"]+' | head -1)
+                if [ -n "$reg_country" ]; then
+                    IP_REGISTRATION_LOCATION=$(convert_country_code "$reg_country")
+                fi
             fi
         fi
 
-        # 方法3：根据ISP/组织名称判断
+        # 方法3：尝试从 RIPE Stat API 获取ASN注册国家（备用）
+        if [ -z "$IP_REGISTRATION_LOCATION" ] && [ -n "$asn_num" ]; then
+            local ripe_info=$(curl -s --max-time 5 "https://stat.ripe.net/data/as-overview/data.json?resource=AS${asn_num}" 2>/dev/null)
+            if [ -n "$ripe_info" ]; then
+                # RIPE返回的holder字段通常包含国家代码，如 "DMIT, US"
+                local holder=$(echo "$ripe_info" | grep -oP '"holder":\s*"\K[^"]+' | head -1)
+                if [ -n "$holder" ]; then
+                    # 尝试从holder中提取国家代码（通常在末尾，如 ", US"）
+                    local holder_country=$(echo "$holder" | grep -oP ',\s*\K[A-Z]{2}$' | head -1)
+                    if [ -n "$holder_country" ]; then
+                        reg_country="$holder_country"
+                        IP_REGISTRATION_LOCATION=$(convert_country_code "$reg_country")
+                    fi
+                fi
+            fi
+        fi
+
+        # 方法4：根据ISP/组织名称判断
         if [ -z "$reg_country" ]; then
             local guessed_country=$(guess_isp_country "$org")
             # Convert guessed country name to country code

@@ -257,16 +257,30 @@ class UnlockChecker:
                 if asn_match:
                     asn_num = asn_match.group(1)
 
-                    # First try to guess from well-known ASN numbers
+                    # Method 1: Try to guess from well-known ASN numbers
                     reg_country_code = self._guess_asn_country(asn_num)
 
-                    # If not found in well-known list, try BGPView API
-                    if not reg_country_code or reg_country_code == 'Unknown':
+                    # Method 2: Try ipinfo.io ASN query (more reliable)
+                    if not reg_country_code:
                         try:
-                            # Query ASN registration country
+                            ipinfo_response = self.session.get(
+                                f"https://ipinfo.io/AS{asn_num}/json",
+                                timeout=5
+                            )
+                            if ipinfo_response.status_code == 200:
+                                ipinfo_data = ipinfo_response.json()
+                                country = ipinfo_data.get('country', '')
+                                if country and len(country) == 2:
+                                    reg_country_code = country
+                        except:
+                            pass
+
+                    # Method 3: Try BGPView API
+                    if not reg_country_code:
+                        try:
                             asn_response = self.session.get(
                                 f"https://api.bgpview.io/asn/{asn_num}",
-                                timeout=3
+                                timeout=5
                             )
                             if asn_response.status_code == 200:
                                 asn_data = asn_response.json()
@@ -274,12 +288,13 @@ class UnlockChecker:
                         except:
                             pass
 
-                # If still no registration country code, try to guess from org name
+                # Method 4: Try to guess from org name
                 if not reg_country_code:
                     org = data.get('org', '')
                     guessed_country = self._guess_isp_country(org)
-                    # Try to reverse lookup country code from country name
-                    reg_country_code = self._get_country_code_from_name(guessed_country)
+                    if guessed_country:
+                        # Try to reverse lookup country code from country name
+                        reg_country_code = self._get_country_code_from_name(guessed_country)
 
                 # Store registration country code and location
                 self.ip_info['registration_country_code'] = reg_country_code
@@ -325,14 +340,42 @@ class UnlockChecker:
             'Hetzner': 'Germany',
             'DigitalOcean': 'United States',
             'Linode': 'United States',
-            'Vultr': 'United States'
+            'Vultr': 'United States',
+            # IP broker / leasing services
+            'IPXO': 'United States',
+            'Ipxo': 'United States',
+            'Linveo': 'United States',
+            'LINVEO': 'United States',
+            'Interlir': 'United States',
+            'IPv4Market': 'United States',
+            # More cloud/hosting providers
+            'Oracle': 'United States',
+            'Akamai': 'United States',
+            'Fastly': 'United States',
+            'Leaseweb': 'Netherlands',
+            'Contabo': 'Germany',
+            'IONOS': 'Germany',
+            'Scaleway': 'France',
+            'Equinix': 'United States',
+            'Zenlayer': 'United States',
+            'Cogent': 'United States',
+            'Level3': 'United States',
+            'Lumen': 'United States',
+            'Hurricane': 'United States',
+            'NTT': 'United States',
+            'GTT': 'United States',
+            'BuyVM': 'United States',
+            'Frantech': 'United States',
+            'RackNerd': 'United States',
+            'Hostwinds': 'United States',
+            'Choopa': 'United States',
         }
 
         for key, country in isp_country_map.items():
             if key.lower() in org.lower():
                 return country
 
-        return 'Datacenter'
+        return ''
 
     def _guess_asn_country(self, asn: str) -> str:
         """Guess country code based on well-known ASN numbers"""
@@ -349,8 +392,8 @@ class UnlockChecker:
             '24940': 'DE',
             # DigitalOcean
             '14061': 'US',
-            # Linode
-            '63949': 'US',
+            # Linode / Akamai
+            '63949': 'US', '20940': 'US',
             # Vultr
             '20473': 'US',
             # Alibaba Cloud
@@ -359,6 +402,40 @@ class UnlockChecker:
             '45090': 'CN', '132203': 'CN',
             # Cloudflare
             '13335': 'US',
+            # IPXO / IP broker related
+            '62563': 'US', '62564': 'US', '212238': 'US', '209588': 'US',
+            # Cogent Communications
+            '174': 'US',
+            # Level 3 / Lumen
+            '3356': 'US', '3549': 'US',
+            # Hurricane Electric
+            '6939': 'US',
+            # NTT
+            '2914': 'US',
+            # GTT
+            '3257': 'US',
+            # Zenlayer
+            '21859': 'US',
+            # Packet / Equinix Metal
+            '54825': 'US',
+            # Oracle Cloud
+            '31898': 'US',
+            # Scaleway
+            '12876': 'FR',
+            # Contabo
+            '51167': 'DE',
+            # IONOS
+            '8560': 'DE',
+            # Leaseweb
+            '60781': 'NL', '28753': 'NL', '60626': 'NL',
+            # Choopa (Vultr parent)
+            '64515': 'US',
+            # BuyVM / Frantech
+            '53667': 'US',
+            # RackNerd / ColoCrossing
+            '36352': 'US',
+            # Hostwinds
+            '142116': 'US',
         }
         return asn_map.get(str(asn), '')
 

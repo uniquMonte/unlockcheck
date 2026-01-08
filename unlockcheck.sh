@@ -520,20 +520,38 @@ detect_ip_type() {
             fi
         fi
 
-        # 方法2：尝试从 BGPView API 获取ASN注册国家
-        if [ -z "$IP_REGISTRATION_LOCATION" ] && [ -n "$asn_num" ]; then
-            local asn_info=$(curl -s --max-time 5 "https://api.bgpview.io/asn/${asn_num}" 2>/dev/null)
-            if [ -n "$asn_info" ]; then
-                # BGPView返回嵌套JSON，country_code在data对象中
-                reg_country=$(echo "$asn_info" | grep -oP '"country_code":\s*"\K[^"]+' | head -1)
-                if [ -n "$reg_country" ]; then
+        # 方法2：尝试从 ipinfo.io 获取ASN注册国家（更可靠）
+        if [ -z "$reg_country" ] && [ -n "$asn_num" ]; then
+            local ipinfo_asn=$(curl -s --max-time 5 "https://ipinfo.io/AS${asn_num}/json" 2>/dev/null)
+            if [ -n "$ipinfo_asn" ]; then
+                local ipinfo_country=$(echo "$ipinfo_asn" | grep -oP '"country":\s*"\K[^"]+' | head -1)
+                if [ -n "$ipinfo_country" ] && [ ${#ipinfo_country} -eq 2 ]; then
+                    reg_country="$ipinfo_country"
                     IP_REGISTRATION_LOCATION=$(convert_country_code "$reg_country")
                 fi
             fi
         fi
 
-        # 方法3：尝试从 RIPE Stat API 获取ASN注册国家（备用）
-        if [ -z "$IP_REGISTRATION_LOCATION" ] && [ -n "$asn_num" ]; then
+        # 方法3：尝试从 BGPView API 获取ASN注册国家
+        if [ -z "$reg_country" ] && [ -n "$asn_num" ]; then
+            local asn_info=$(curl -s --max-time 5 "https://api.bgpview.io/asn/${asn_num}" 2>/dev/null)
+            if [ -n "$asn_info" ]; then
+                # BGPView返回嵌套JSON，country_code在data对象中
+                # 尝试多种匹配模式
+                local bgp_country=$(echo "$asn_info" | grep -oP '"country_code":\s*"\K[A-Z]{2}' | head -1)
+                if [ -z "$bgp_country" ]; then
+                    # 备用模式：匹配 "country_code": "XX" 格式
+                    bgp_country=$(echo "$asn_info" | sed -n 's/.*"country_code"[[:space:]]*:[[:space:]]*"\([A-Z]\{2\}\)".*/\1/p' | head -1)
+                fi
+                if [ -n "$bgp_country" ]; then
+                    reg_country="$bgp_country"
+                    IP_REGISTRATION_LOCATION=$(convert_country_code "$reg_country")
+                fi
+            fi
+        fi
+
+        # 方法4：尝试从 RIPE Stat API 获取ASN注册国家（备用）
+        if [ -z "$reg_country" ] && [ -n "$asn_num" ]; then
             local ripe_info=$(curl -s --max-time 5 "https://stat.ripe.net/data/as-overview/data.json?resource=AS${asn_num}" 2>/dev/null)
             if [ -n "$ripe_info" ]; then
                 # RIPE返回的holder字段通常包含国家代码，如 "DMIT, US"
@@ -549,13 +567,15 @@ detect_ip_type() {
             fi
         fi
 
-        # 方法4：根据ISP/组织名称判断
+        # 方法5：根据ISP/组织名称判断
         if [ -z "$reg_country" ]; then
             local guessed_country=$(guess_isp_country "$org")
-            # Convert guessed country name to country code
-            reg_country=$(convert_country_name_to_code "$guessed_country")
-            if [ -n "$reg_country" ] && [ "$reg_country" != "未知" ]; then
-                IP_REGISTRATION_LOCATION=$(convert_country_code "$reg_country")
+            if [ -n "$guessed_country" ]; then
+                # Convert guessed country name to country code
+                reg_country=$(convert_country_name_to_code "$guessed_country")
+                if [ -n "$reg_country" ] && [ "$reg_country" != "未知" ]; then
+                    IP_REGISTRATION_LOCATION=$(convert_country_code "$reg_country")
+                fi
             fi
         fi
 
@@ -727,8 +747,8 @@ guess_asn_country() {
         13335) echo "US" ;;
         # DigitalOcean
         14061) echo "US" ;;
-        # Linode
-        63949) echo "US" ;;
+        # Linode / Akamai
+        63949|20940) echo "US" ;;
         # Vultr
         20473) echo "US" ;;
         # OVH
@@ -739,8 +759,44 @@ guess_asn_country() {
         45102|37963) echo "CN" ;;
         # Tencent Cloud
         45090|132203) echo "CN" ;;
+        # IPXO / IP broker related
+        62563|62564|212238|209588) echo "US" ;;
+        # Cogent Communications
+        174) echo "US" ;;
+        # Level 3 / Lumen
+        3356|3549) echo "US" ;;
+        # Hurricane Electric
+        6939) echo "US" ;;
+        # NTT
+        2914) echo "US" ;;
+        # GTT
+        3257) echo "US" ;;
+        # Zenlayer
+        21859) echo "US" ;;
+        # Packet / Equinix Metal
+        54825) echo "US" ;;
+        # Oracle Cloud
+        31898) echo "US" ;;
+        # Scaleway
+        12876) echo "FR" ;;
+        # Contabo
+        51167) echo "DE" ;;
+        # IONOS
+        8560) echo "DE" ;;
+        # Leaseweb
+        60781|28753|60626) echo "NL" ;;
+        # Choopa (Vultr parent)
+        64515) echo "US" ;;
+        # BuyVM / Frantech
+        53667) echo "US" ;;
+        # RackNerd
+        36352) echo "US" ;;
+        # ColoCrossing
+        36352) echo "US" ;;
+        # Hostwinds
+        142116) echo "US" ;;
         # 其他未知
-        *) echo "未知" ;;
+        *) echo "" ;;
     esac
 }
 
@@ -762,7 +818,33 @@ guess_isp_country() {
     elif [[ "$org_lower" == *"ovh"* ]]; then echo "法国"
     elif [[ "$org_lower" == *"hetzner"* ]]; then echo "德国"
     elif [[ "$org_lower" == *"netlab"* ]]; then echo "美国"
-    else echo "未知"
+    # IP broker / leasing services
+    elif [[ "$org_lower" == *"ipxo"* ]]; then echo "美国"
+    elif [[ "$org_lower" == *"linveo"* ]]; then echo "美国"
+    elif [[ "$org_lower" == *"interlir"* ]]; then echo "美国"
+    elif [[ "$org_lower" == *"ipv4market"* ]]; then echo "美国"
+    # More cloud/hosting providers
+    elif [[ "$org_lower" == *"oracle"* ]]; then echo "美国"
+    elif [[ "$org_lower" == *"akamai"* ]]; then echo "美国"
+    elif [[ "$org_lower" == *"fastly"* ]]; then echo "美国"
+    elif [[ "$org_lower" == *"leaseweb"* ]]; then echo "荷兰"
+    elif [[ "$org_lower" == *"contabo"* ]]; then echo "德国"
+    elif [[ "$org_lower" == *"ionos"* ]]; then echo "德国"
+    elif [[ "$org_lower" == *"scaleway"* ]]; then echo "法国"
+    elif [[ "$org_lower" == *"equinix"* ]]; then echo "美国"
+    elif [[ "$org_lower" == *"zenlayer"* ]]; then echo "美国"
+    elif [[ "$org_lower" == *"cogent"* ]]; then echo "美国"
+    elif [[ "$org_lower" == *"level3"* ]]; then echo "美国"
+    elif [[ "$org_lower" == *"lumen"* ]]; then echo "美国"
+    elif [[ "$org_lower" == *"hurricane"* ]]; then echo "美国"
+    elif [[ "$org_lower" == *"ntt"* ]]; then echo "美国"
+    elif [[ "$org_lower" == *"gtt"* ]]; then echo "美国"
+    elif [[ "$org_lower" == *"buyvm"* ]]; then echo "美国"
+    elif [[ "$org_lower" == *"frantech"* ]]; then echo "美国"
+    elif [[ "$org_lower" == *"racknerd"* ]]; then echo "美国"
+    elif [[ "$org_lower" == *"hostwinds"* ]]; then echo "美国"
+    elif [[ "$org_lower" == *"choopa"* ]]; then echo "美国"
+    else echo ""
     fi
 }
 

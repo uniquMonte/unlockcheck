@@ -4,7 +4,9 @@
       "Bash(git add:*)",
       "Bash(git commit -m \"$\\(cat <<''EOF''\nImprove: Enhance ASN registration country detection with multiple fallback methods\n\n- Add ipinfo.io ASN query as a more reliable fallback source\n- Expand ASN-to-country mapping with IPXO/LINVEO, major backbone networks, and more cloud providers\n- Expand ISP name inference to include IP brokers \\(IPXO, Linveo, Interlir\\) and more hosting providers\n- Improve BGPView JSON parsing with multiple matching patterns\n- Fix empty string handling in ISP/ASN guess functions\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
       "Bash(git push:*)",
-      "Bash(git commit -m \"$\\(cat <<''EOF''\nImprove: Add DMIT ASN and ISP mapping for registration country detection\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")"
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nImprove: Add DMIT ASN and ISP mapping for registration country detection\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(curl:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nRefactor: Use HackerTarget API for dynamic ASN country detection\n\n- Replace static ASN mapping with HackerTarget API as primary source\n- HackerTarget returns \"ASN\",\"Org, CountryCode\" format \\(free, reliable\\)\n- Keep BGPView and RIPE as fallback APIs\n- Keep static ASN/ISP mapping only as last resort\n- This eliminates the need for manual ASN additions\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")"
     ]
   }
 }

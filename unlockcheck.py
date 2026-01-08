@@ -257,25 +257,25 @@ class UnlockChecker:
                 if asn_match:
                     asn_num = asn_match.group(1)
 
-                    # Method 1: Try to guess from well-known ASN numbers
-                    reg_country_code = self._guess_asn_country(asn_num)
+                    # Method 1: Use HackerTarget API (most reliable, free)
+                    # Returns format: "906","DMIT, US" - extract country code from end
+                    try:
+                        ht_response = self.session.get(
+                            f"https://api.hackertarget.com/aslookup/?q=AS{asn_num}",
+                            timeout=5
+                        )
+                        if ht_response.status_code == 200:
+                            ht_text = ht_response.text.strip().split('\n')[0]
+                            if ht_text and 'error' not in ht_text.lower():
+                                # Extract 2-letter country code from end (e.g., "DMIT, US")
+                                import re
+                                match = re.search(r',\s*([A-Z]{2})"?\s*$', ht_text)
+                                if match:
+                                    reg_country_code = match.group(1)
+                    except:
+                        pass
 
-                    # Method 2: Try ipinfo.io ASN query (more reliable)
-                    if not reg_country_code:
-                        try:
-                            ipinfo_response = self.session.get(
-                                f"https://ipinfo.io/AS{asn_num}/json",
-                                timeout=5
-                            )
-                            if ipinfo_response.status_code == 200:
-                                ipinfo_data = ipinfo_response.json()
-                                country = ipinfo_data.get('country', '')
-                                if country and len(country) == 2:
-                                    reg_country_code = country
-                        except:
-                            pass
-
-                    # Method 3: Try BGPView API
+                    # Method 2: Try BGPView API (fallback)
                     if not reg_country_code:
                         try:
                             asn_response = self.session.get(
@@ -288,12 +288,15 @@ class UnlockChecker:
                         except:
                             pass
 
-                # Method 4: Try to guess from org name
+                    # Method 3: Try well-known ASN mapping (fallback)
+                    if not reg_country_code:
+                        reg_country_code = self._guess_asn_country(asn_num)
+
+                # Method 4: Try to guess from org name (last resort)
                 if not reg_country_code:
                     org = data.get('org', '')
                     guessed_country = self._guess_isp_country(org)
                     if guessed_country:
-                        # Try to reverse lookup country code from country name
                         reg_country_code = self._get_country_code_from_name(guessed_country)
 
                 # Store registration country code and location

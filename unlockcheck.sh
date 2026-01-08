@@ -511,38 +511,25 @@ detect_ip_type() {
         local asn_num=$(echo "$IP_ASN" | grep -oP 'AS\K[0-9]+' | head -1)
         local org=$(echo "$ip_detail" | grep -oP '"org":"\K[^"]+' | head -1)
 
-        # 方法1：根据ASN号码直接判断常见的云服务商
+        # 方法1：使用 HackerTarget API 查询ASN注册国家（最可靠，免费）
+        # 返回格式: "906","DMIT, US" - 从末尾提取国家代码
         if [ -n "$asn_num" ]; then
-            local asn_country=$(guess_asn_country "$asn_num")
-            if [ -n "$asn_country" ] && [ "$asn_country" != "未知" ]; then
-                reg_country="$asn_country"
-                IP_REGISTRATION_LOCATION=$(convert_country_code "$reg_country")
-            fi
-        fi
-
-        # 方法2：尝试从 ipinfo.io 获取ASN注册国家（更可靠）
-        if [ -z "$reg_country" ] && [ -n "$asn_num" ]; then
-            local ipinfo_asn=$(curl -s --max-time 5 "https://ipinfo.io/AS${asn_num}/json" 2>/dev/null)
-            if [ -n "$ipinfo_asn" ]; then
-                local ipinfo_country=$(echo "$ipinfo_asn" | grep -oP '"country":\s*"\K[^"]+' | head -1)
-                if [ -n "$ipinfo_country" ] && [ ${#ipinfo_country} -eq 2 ]; then
-                    reg_country="$ipinfo_country"
+            local ht_result=$(curl -s --max-time 5 "https://api.hackertarget.com/aslookup/?q=AS${asn_num}" 2>/dev/null | head -1)
+            if [ -n "$ht_result" ] && [[ "$ht_result" != *"error"* ]]; then
+                # 提取末尾的2位国家代码，格式如 "DMIT, US" 或 "Amazon.com, Inc., US"
+                local ht_country=$(echo "$ht_result" | grep -oP ',\s*\K[A-Z]{2}\"?$' | tr -d '"')
+                if [ -n "$ht_country" ] && [ ${#ht_country} -eq 2 ]; then
+                    reg_country="$ht_country"
                     IP_REGISTRATION_LOCATION=$(convert_country_code "$reg_country")
                 fi
             fi
         fi
 
-        # 方法3：尝试从 BGPView API 获取ASN注册国家
+        # 方法2：尝试从 BGPView API 获取ASN注册国家（备用）
         if [ -z "$reg_country" ] && [ -n "$asn_num" ]; then
             local asn_info=$(curl -s --max-time 5 "https://api.bgpview.io/asn/${asn_num}" 2>/dev/null)
             if [ -n "$asn_info" ]; then
-                # BGPView返回嵌套JSON，country_code在data对象中
-                # 尝试多种匹配模式
                 local bgp_country=$(echo "$asn_info" | grep -oP '"country_code":\s*"\K[A-Z]{2}' | head -1)
-                if [ -z "$bgp_country" ]; then
-                    # 备用模式：匹配 "country_code": "XX" 格式
-                    bgp_country=$(echo "$asn_info" | sed -n 's/.*"country_code"[[:space:]]*:[[:space:]]*"\([A-Z]\{2\}\)".*/\1/p' | head -1)
-                fi
                 if [ -n "$bgp_country" ]; then
                     reg_country="$bgp_country"
                     IP_REGISTRATION_LOCATION=$(convert_country_code "$reg_country")
@@ -550,14 +537,13 @@ detect_ip_type() {
             fi
         fi
 
-        # 方法4：尝试从 RIPE Stat API 获取ASN注册国家（备用）
+        # 方法3：尝试从 RIPE Stat API 获取（备用，从holder提取国家代码）
         if [ -z "$reg_country" ] && [ -n "$asn_num" ]; then
             local ripe_info=$(curl -s --max-time 5 "https://stat.ripe.net/data/as-overview/data.json?resource=AS${asn_num}" 2>/dev/null)
             if [ -n "$ripe_info" ]; then
-                # RIPE返回的holder字段通常包含国家代码，如 "DMIT, US"
                 local holder=$(echo "$ripe_info" | grep -oP '"holder":\s*"\K[^"]+' | head -1)
                 if [ -n "$holder" ]; then
-                    # 尝试从holder中提取国家代码（通常在末尾，如 ", US"）
+                    # 尝试从holder中提取国家代码（如 "DMIT, US"）
                     local holder_country=$(echo "$holder" | grep -oP ',\s*\K[A-Z]{2}$' | head -1)
                     if [ -n "$holder_country" ]; then
                         reg_country="$holder_country"
@@ -567,11 +553,19 @@ detect_ip_type() {
             fi
         fi
 
-        # 方法5：根据ISP/组织名称判断
+        # 方法4：根据常见ASN号码判断（后备）
+        if [ -z "$reg_country" ] && [ -n "$asn_num" ]; then
+            local asn_country=$(guess_asn_country "$asn_num")
+            if [ -n "$asn_country" ]; then
+                reg_country="$asn_country"
+                IP_REGISTRATION_LOCATION=$(convert_country_code "$reg_country")
+            fi
+        fi
+
+        # 方法5：根据ISP/组织名称判断（最后后备）
         if [ -z "$reg_country" ]; then
             local guessed_country=$(guess_isp_country "$org")
             if [ -n "$guessed_country" ]; then
-                # Convert guessed country name to country code
                 reg_country=$(convert_country_name_to_code "$guessed_country")
                 if [ -n "$reg_country" ] && [ "$reg_country" != "未知" ]; then
                     IP_REGISTRATION_LOCATION=$(convert_country_code "$reg_country")

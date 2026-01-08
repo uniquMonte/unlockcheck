@@ -759,6 +759,8 @@ guess_asn_country() {
         45102|37963) echo "CN" ;;
         # Tencent Cloud
         45090|132203) echo "CN" ;;
+        # DMIT
+        906|54574) echo "US" ;;
         # IPXO / IP broker related
         62563|62564|212238|209588) echo "US" ;;
         # Cogent Communications
@@ -844,6 +846,7 @@ guess_isp_country() {
     elif [[ "$org_lower" == *"racknerd"* ]]; then echo "美国"
     elif [[ "$org_lower" == *"hostwinds"* ]]; then echo "美国"
     elif [[ "$org_lower" == *"choopa"* ]]; then echo "美国"
+    elif [[ "$org_lower" == *"dmit"* ]]; then echo "美国"
     else echo ""
     fi
 }

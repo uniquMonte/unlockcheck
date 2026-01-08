@@ -369,6 +369,7 @@ class UnlockChecker:
             'RackNerd': 'United States',
             'Hostwinds': 'United States',
             'Choopa': 'United States',
+            'DMIT': 'United States',
         }
 
         for key, country in isp_country_map.items():
@@ -402,6 +403,8 @@ class UnlockChecker:
             '45090': 'CN', '132203': 'CN',
             # Cloudflare
             '13335': 'US',
+            # DMIT
+            '906': 'US', '54574': 'US',
             # IPXO / IP broker related
             '62563': 'US', '62564': 'US', '212238': 'US', '209588': 'US',
             # Cogent Communications

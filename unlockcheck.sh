@@ -1329,7 +1329,7 @@ check_chatgpt() {
     fi
 }
 
-# 检测 Claude - Smart dual detection
+# 检测 Claude - 以Web检测为主，API为辅
 check_claude() {
     # DNS解锁检测
     local checkunlockurl="anthropic.com"
@@ -1348,9 +1348,46 @@ check_claude() {
 
     local api_result=""
     local web_result=""
+    local web_accessible=false
     local has_cloudflare=false
 
-    # Step 1: Check API endpoint (must use POST method)
+    # Step 1: Check web endpoint FIRST (this is what users actually access)
+    local web_response=$(curl -s $(get_ip_flag) --max-time $TIMEOUT \
+        -A "$USER_AGENT" -L -w "\n%{http_code}" \
+        "https://claude.ai/" 2>/dev/null)
+
+    local web_status=$(echo "$web_response" | tail -n 1)
+    local web_content=$(echo "$web_response" | head -n -1)
+
+    # Check for region restriction indicators
+    if echo "$web_content" | grep -qi "unavailable in your country\|unavailable in your region"; then
+        web_result="region_restricted"
+    elif echo "$web_content" | grep -qi "<title>claude - unavailable</title>"; then
+        web_result="region_restricted"
+    elif echo "$web_content" | grep -qi "應用程式不可用\|僅在特定地區提供服務"; then
+        web_result="region_restricted"
+    elif echo "$web_content" | grep -qi "not available\|not supported\|access denied"; then
+        web_result="region_restricted"
+    fi
+
+    # Check for Cloudflare challenge
+    if [ "$web_status" = "403" ] || [ "$web_status" = "503" ]; then
+        if echo "$web_content" | grep -qi "just a moment\|checking your browser\|cloudflare"; then
+            has_cloudflare=true
+        fi
+    fi
+
+    # Positive verification: check if page loads normally (contains expected elements)
+    # Claude login page should contain these indicators
+    if [ "$web_status" = "200" ]; then
+        if echo "$web_content" | grep -qi "claude\|anthropic\|sign in\|log in\|sign up"; then
+            if [ -z "$web_result" ]; then
+                web_accessible=true
+            fi
+        fi
+    fi
+
+    # Step 2: Check API endpoint as secondary verification
     local api_response=$(curl -s $(get_ip_flag) --max-time $TIMEOUT \
         -X POST \
         -H "Content-Type: application/json" \
@@ -1365,9 +1402,7 @@ check_claude() {
     if [ "$api_status" = "401" ] || [ "$api_status" = "400" ]; then
         api_result="success"
     elif [ "$api_status" = "403" ]; then
-        if echo "$api_content" | grep -qi "request not allowed\|forbidden"; then
-            api_result="region_restricted"
-        elif echo "$api_content" | grep -qi "region\|country\|territory"; then
+        if echo "$api_content" | grep -qi "request not allowed\|region\|country\|territory\|forbidden"; then
             api_result="region_restricted"
         else
             api_result="access_denied"
@@ -1376,42 +1411,46 @@ check_claude() {
         api_result="region_restricted"
     fi
 
-    # Step 2: Check web endpoint
-    local web_response=$(curl -s $(get_ip_flag) --max-time $TIMEOUT \
-        -A "$USER_AGENT" -L -w "\n%{http_code}" \
-        "https://claude.ai/" 2>/dev/null)
+    # Step 3: Decision based on BOTH web and API results
+    # Priority: Web restriction > API restriction > Web accessible > API accessible > Cloudflare
 
-    local web_status=$(echo "$web_response" | tail -n 1)
-    local web_content=$(echo "$web_response" | head -n -1)
-
-    if [ "$web_status" = "403" ] || [ "$web_status" = "503" ]; then
-        if echo "$web_content" | grep -qi "just a moment\|checking your browser"; then
-            has_cloudflare=true
-        fi
-    fi
-
-    if echo "$web_content" | grep -qi "<title>claude - unavailable</title>"; then
-        web_result="region_restricted"
-    elif echo "$web_content" | grep -q "應用程式不可用\|僅在特定地區提供服務"; then
-        web_result="region_restricted"
-    fi
-
-    # Step 3: Intelligent decision (Priority: region restriction > API success > Cloudflare)
-    if [ "$api_result" = "region_restricted" ] || [ "$web_result" = "region_restricted" ]; then
+    # Any region restriction = blocked
+    if [ "$web_result" = "region_restricted" ] || [ "$api_result" = "region_restricted" ]; then
         format_result "$(get_service_name_with_ip "Claude")" "failed" "N/A" "该地区屏蔽"
-    elif [ "$api_result" = "success" ]; then
-        # API成功表示服务可用
-        # 脚本检测到的CF验证不代表浏览器也会遇到（CF能区分脚本和真实浏览器）
-        format_result "$(get_service_name_with_ip "Claude")" "success" "$COUNTRY_CODE" "完全解锁" "$resultunlocktype"
-    elif [ "$has_cloudflare" = "true" ]; then
-        # 只有当API无法确认时,Cloudflare才可能是问题
-        # 提示用户:脚本遇到Cloudflare,但浏览器可能可以访问
-        format_result "$(get_service_name_with_ip "Claude")" "partial" "$COUNTRY_CODE" "推测可用(人工验证)" "$resultunlocktype"
-    elif [ "$api_result" = "access_denied" ]; then
-        format_result "$(get_service_name_with_ip "Claude")" "failed" "N/A" "访问被拒"
-    else
-        format_result "$(get_service_name_with_ip "Claude")" "error" "N/A" "检测失败"
+        return
     fi
+
+    # Web page loads normally = success
+    if [ "$web_accessible" = "true" ]; then
+        format_result "$(get_service_name_with_ip "Claude")" "success" "$COUNTRY_CODE" "完全解锁" "$resultunlocktype"
+        return
+    fi
+
+    # Cloudflare challenge (web not confirmed, might work in browser)
+    if [ "$has_cloudflare" = "true" ]; then
+        if [ "$api_result" = "success" ]; then
+            # API works but web has CF = likely accessible
+            format_result "$(get_service_name_with_ip "Claude")" "partial" "$COUNTRY_CODE" "推测可用(CF验证)" "$resultunlocktype"
+        else
+            format_result "$(get_service_name_with_ip "Claude")" "partial" "$COUNTRY_CODE" "需人工验证" "$resultunlocktype"
+        fi
+        return
+    fi
+
+    # Only API success without web confirmation = uncertain
+    if [ "$api_result" = "success" ]; then
+        format_result "$(get_service_name_with_ip "Claude")" "partial" "$COUNTRY_CODE" "API可用(建议验证)" "$resultunlocktype"
+        return
+    fi
+
+    # Access denied
+    if [ "$api_result" = "access_denied" ]; then
+        format_result "$(get_service_name_with_ip "Claude")" "failed" "N/A" "访问被拒"
+        return
+    fi
+
+    # Cannot determine
+    format_result "$(get_service_name_with_ip "Claude")" "error" "N/A" "检测失败"
 }
 
 # 检测 TikTok

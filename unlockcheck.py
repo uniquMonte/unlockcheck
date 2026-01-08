@@ -901,39 +901,62 @@ class UnlockChecker:
 
     def check_claude(self) -> Tuple[str, str, str]:
         """
-        Check Claude AI accessibility
-        Uses geolocation-based detection: checks if IP country is in unsupported regions
+        Check Claude AI accessibility - Web detection first, API as secondary
         Reference: https://www.anthropic.com/supported-countries
         Returns: (status, region, detail)
         """
         self.log("Checking Claude AI...", "debug")
 
         # Claude unsupported regions (based on official documentation)
-        # https://www.anthropic.com/supported-countries
-        UNSUPPORTED_REGIONS = [
-            'CN',  # China
-            'HK',  # Hong Kong (limited)
-            'RU',  # Russia
-            'IR',  # Iran
-            'KP',  # North Korea
-            'SY',  # Syria
-            'CU',  # Cuba
-            'BY',  # Belarus
-            # Add more based on official docs
-        ]
+        UNSUPPORTED_REGIONS = ['CN', 'HK', 'RU', 'IR', 'KP', 'SY', 'CU', 'BY']
 
-        # Step 0: Check geolocation first (most reliable)
+        # Step 0: Check geolocation first
         country_code = self.ip_info.get('country_code', '').upper()
-
         if country_code in UNSUPPORTED_REGIONS:
-            self.log(f"Claude not supported in {country_code} (geolocation check)", "debug")
             return "failed", "N/A", "Region Restricted"
 
         api_result = None
         web_result = None
+        web_accessible = False
         has_cloudflare = False
 
-        # Step 1: Check API endpoint (must use POST method)
+        # Step 1: Check web endpoint FIRST (this is what users actually access)
+        try:
+            web_response = self.session.get(
+                "https://claude.ai/",
+                timeout=TIMEOUT,
+                allow_redirects=True,
+                headers={'Cache-Control': 'no-cache'}
+            )
+
+            content = web_response.text
+            content_lower = content.lower()
+
+            # Check for region restriction indicators
+            restriction_keywords = [
+                "unavailable in your country", "unavailable in your region",
+                "<title>claude - unavailable</title>",
+                "not available", "not supported", "access denied"
+            ]
+            if any(kw in content_lower for kw in restriction_keywords):
+                web_result = "region_restricted"
+            elif "應用程式不可用" in content or "僅在特定地區提供服務" in content:
+                web_result = "region_restricted"
+
+            # Check for Cloudflare challenge
+            if web_response.status_code in [403, 503]:
+                if any(kw in content_lower for kw in ["just a moment", "checking your browser", "cloudflare"]):
+                    has_cloudflare = True
+
+            # Positive verification: check if page loads normally
+            if web_response.status_code == 200 and not web_result:
+                if any(kw in content_lower for kw in ["claude", "anthropic", "sign in", "log in", "sign up"]):
+                    web_accessible = True
+
+        except:
+            pass
+
+        # Step 2: Check API endpoint as secondary verification
         try:
             api_response = self.session.post(
                 "https://api.anthropic.com/v1/messages",
@@ -945,71 +968,45 @@ class UnlockChecker:
                 }
             )
 
-            if api_response.status_code == 401 or api_response.status_code == 400:
-                api_result = ("success", "Full Access")
+            if api_response.status_code in [401, 400]:
+                api_result = "success"
             elif api_response.status_code == 403:
-                try:
-                    error_data = api_response.json()
-                    error_msg = str(error_data).lower()
-                    if "request not allowed" in error_msg or any(keyword in error_msg for keyword in ["region", "country", "territory"]):
-                        api_result = ("failed", "Region Restricted")
-                    else:
-                        api_result = ("failed", "Access Denied")
-                except:
-                    api_result = ("failed", "Region Restricted")
+                error_msg = api_response.text.lower()
+                if any(kw in error_msg for kw in ["request not allowed", "region", "country", "territory", "forbidden"]):
+                    api_result = "region_restricted"
+                else:
+                    api_result = "access_denied"
             elif api_response.status_code == 451:
-                api_result = ("failed", "Region Restricted")
+                api_result = "region_restricted"
         except:
             pass
 
-        # Step 2: Check web endpoint for additional signals
-        try:
-            web_response = self.session.get(
-                "https://claude.ai/",
-                timeout=TIMEOUT,
-                allow_redirects=True,
-                headers={'Cache-Control': 'no-cache'}
-            )
+        # Step 3: Decision based on BOTH web and API results
 
-            content_lower = web_response.text.lower()
-
-            # Check for Cloudflare challenge
-            if web_response.status_code in [403, 503]:
-                if "just a moment" in content_lower or "checking your browser" in content_lower:
-                    has_cloudflare = True
-
-            # Check for explicit region restriction on web
-            if "<title>claude - unavailable</title>" in content_lower:
-                web_result = ("failed", "Region Restricted")
-            elif "應用程式不可用" in web_response.text or "僅在特定地區提供服務" in web_response.text:
-                web_result = ("failed", "Region Restricted")
-
-        except:
-            pass
-
-        # Step 3: Intelligent decision based on priority
-        # Priority 1: Explicit region restriction (from API or web)
-        if api_result and api_result[0] == "failed" and "Region Restricted" in api_result[1]:
-            return "failed", "N/A", "Region Restricted"
-        if web_result and web_result[0] == "failed":
+        # Any region restriction = blocked
+        if web_result == "region_restricted" or api_result == "region_restricted":
             return "failed", "N/A", "Region Restricted"
 
-        # Priority 2: API success indicates availability
-        # Script-detected CF verification doesn't mean browsers will encounter it
-        # (Cloudflare can distinguish between scripts and real browsers)
-        if api_result and api_result[0] == "success":
+        # Web page loads normally = success
+        if web_accessible:
             return "success", self.ip_info.get('country_code', 'Unknown'), "Full Access"
 
-        # Priority 3: Cloudflare blocking (only if API cannot confirm availability)
-        # This suggests browser might still work
+        # Cloudflare challenge (web not confirmed, might work in browser)
         if has_cloudflare:
-            return "partial", self.ip_info.get('country_code', 'Unknown'), "Likely Available(Manual Check)"
+            if api_result == "success":
+                return "partial", self.ip_info.get('country_code', 'Unknown'), "Likely Available(CF Check)"
+            else:
+                return "partial", self.ip_info.get('country_code', 'Unknown'), "Manual Check Required"
 
-        # Priority 4: Access denied (not region-specific)
-        if api_result and api_result[0] == "failed":
+        # Only API success without web confirmation = uncertain
+        if api_result == "success":
+            return "partial", self.ip_info.get('country_code', 'Unknown'), "API OK(Verify Recommended)"
+
+        # Access denied
+        if api_result == "access_denied":
             return "failed", "N/A", "Access Denied"
 
-        # Fallback: Unable to determine
+        # Cannot determine
         return "error", "N/A", "Detection Failed"
 
     def check_tiktok(self) -> Tuple[str, str, str]:
